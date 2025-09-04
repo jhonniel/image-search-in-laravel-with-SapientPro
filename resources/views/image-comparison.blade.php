@@ -27,7 +27,7 @@
             <h1 class="text-3xl font-bold text-center text-gray-800 mb-8">
                 Image Comparison Tool
             </h1>
-            
+
             <!-- Tab Navigation -->
             <div class="flex justify-center mb-8">
                 <div class="bg-white rounded-lg shadow-sm p-1">
@@ -101,13 +101,13 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div class="space-y-4">
                             <label for="url1" class="block text-sm font-medium text-gray-700">First Image URL</label>
-                            <input type="url" id="url1" name="url1" required 
+                            <input type="url" id="url1" name="url1" required
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                    placeholder="https://example.com/image1.jpg">
                         </div>
                         <div class="space-y-4">
                             <label for="url2" class="block text-sm font-medium text-gray-700">Second Image URL</label>
-                            <input type="url" id="url2" name="url2" required 
+                            <input type="url" id="url2" name="url2" required
                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                    placeholder="https://example.com/image2.jpg">
                         </div>
@@ -297,7 +297,7 @@
                 console.log('Response data:', responseData);
 
                 if (responseData.success) {
-                    showResults(responseData.data.similarity_percentage, responseData.message);
+                    showResults(responseData.data.similarity, responseData.message);
                 } else {
                     showError(responseData.error || responseData.message);
                 }

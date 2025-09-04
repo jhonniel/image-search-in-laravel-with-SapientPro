@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use SapientPro\ImageComparator\ImageComparator;
-use SapientPro\ImageComparator\ImageComparatorException;
+use SapientPro\ImageComparator\ImageResourceException;
 
 class ImageComparisonController extends Controller
 {
@@ -29,14 +29,17 @@ class ImageComparisonController extends Controller
 
             $similarity = $this->imageComparator->compare($image1Path, $image2Path);
 
+            // The ImageComparator returns a percentage (0-100), so we just need to cap it
+            $percentage = round(max(0, min(100, $similarity)), 2);
+
             return response()->json([
                 'success' => true,
                 'similarity' => $similarity,
-                'similarity_percentage' => round($similarity * 100, 2),
+                'similarity_percentage' => $percentage,
                 'message' => 'Images compared successfully'
             ]);
 
-        } catch (ImageComparatorException $e) {
+        } catch (ImageResourceException $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Image comparison failed: ' . $e->getMessage()
@@ -65,14 +68,17 @@ class ImageComparisonController extends Controller
 
             $similarity = $this->imageComparator->compare($url1, $url2);
 
+            // The ImageComparator returns a percentage (0-100), so we just need to cap it
+            $percentage = round(max(0, min(100, $similarity)), 2);
+
             return response()->json([
                 'success' => true,
                 'similarity' => $similarity,
-                'similarity_percentage' => round($similarity * 100, 2),
+                'similarity_percentage' => $percentage,
                 'message' => 'Images compared successfully'
             ]);
 
-        } catch (ImageComparatorException $e) {
+        } catch (ImageResourceException $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Image comparison failed: ' . $e->getMessage()
