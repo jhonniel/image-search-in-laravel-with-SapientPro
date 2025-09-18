@@ -70,37 +70,274 @@ The original issue was that `sapientpro/image-comparator-laravel` package doesn'
 
 ## Features
 
+### Core Functionality
 - **Image Comparison**: Compare two images and get similarity percentage
 - **Multiple Input Methods**: Upload images or provide image URLs
-- **Modern UI**: Beautiful, responsive interface with drag-and-drop functionality
-- **Real-time Results**: Instant comparison results with visual feedback
+- **Batch Comparison**: Compare up to 5 images simultaneously
+- **Image Matching**: Find similar images from a reference database
+- **Multiple Image Search**: Upload 1-5 images to find matches
 
-## Installation
+### Advanced Features
+- **Smart Threshold Filtering**: Default 70% similarity threshold (configurable)
+- **Reference Image Management**: Upload, view, and manage reference images
+- **Duplicate Detection**: Automatic removal of duplicate matches
+- **High-Performance Matching**: Optimized comparison algorithms
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   composer install
-   ```
-3. Copy environment file:
-   ```bash
-   cp .env.example .env
-   ```
-4. Generate application key:
-   ```bash
-   php artisan key:generate
-   ```
-5. Start the development server:
-   ```bash
-   php artisan serve
-   ```
+### User Interface
+- **Modern UI**: Beautiful, responsive interface with Tailwind CSS
+- **Drag-and-Drop**: Intuitive file upload with drag-and-drop support
+- **Real-time Preview**: Instant preview of uploaded images
+- **Tabbed Interface**: Organized sections for different functionalities
+- **Visual Feedback**: Loading states, progress indicators, and error handling
+
+### API & Integration
+- **RESTful API**: Comprehensive API with OpenAPI/Swagger documentation
+- **Multiple Endpoints**: Upload, URL, batch, and matching endpoints
+- **Health Monitoring**: Built-in health checks and status monitoring
+- **Error Handling**: Robust error handling with detailed messages
+
+## Installation & Setup
+
+### Prerequisites
+
+Before installing this project, make sure you have the following software installed on your system:
+
+#### Required Software:
+- **PHP 8.2 or higher** - [Download PHP](https://www.php.net/downloads.php)
+- **Composer** - [Download Composer](https://getcomposer.org/download/)
+- **Node.js 18+ and npm** - [Download Node.js](https://nodejs.org/)
+- **Git** - [Download Git](https://git-scm.com/downloads)
+
+#### Optional (for better development experience):
+- **Laravel Herd** (macOS) or **Laravel Valet** - For local development
+- **Docker & Docker Compose** - For containerized development
+
+### Step-by-Step Installation
+
+#### 1. Clone the Repository
+```bash
+git clone <repository-url>
+cd image-search
+```
+
+#### 2. Install PHP Dependencies
+```bash
+composer install
+```
+
+#### 3. Environment Configuration
+```bash
+# Copy the environment file
+cp .env.example .env
+
+# Generate application key
+php artisan key:generate
+```
+
+#### 4. Database Setup
+The project uses SQLite by default (no additional database setup required):
+```bash
+# Create SQLite database (if it doesn't exist)
+touch database/database.sqlite
+
+# Run migrations
+php artisan migrate
+```
+
+#### 5. Install Node.js Dependencies
+```bash
+npm install
+```
+
+#### 6. Storage Setup
+```bash
+# Create storage directories
+php artisan storage:link
+
+# Ensure storage directories have proper permissions
+chmod -R 755 storage
+chmod -R 755 bootstrap/cache
+```
+
+#### 7. Start the Development Server
+
+**Option A: Using Laravel's built-in server**
+```bash
+php artisan serve
+```
+The application will be available at: http://localhost:8000
+
+**Option B: Using the development script (recommended)**
+```bash
+composer dev
+```
+This command runs multiple services concurrently:
+- Laravel server (port 8000)
+- Queue worker
+- Log monitoring
+- Vite development server (if available)
+
+**Option C: Using Laravel Herd (macOS)**
+```bash
+# If you have Laravel Herd installed
+herd link
+```
+The application will be available at: http://image-search.test
+
+### Verification
+
+#### 1. Check Application Health
+```bash
+# Test the API health endpoint
+curl http://localhost:8000/api/v1/health
+```
+
+#### 2. Access the Web Interface
+Open your browser and navigate to:
+- **Main Application**: http://localhost:8000
+- **Image Comparison Tool**: http://localhost:8000/image-comparison
+- **API Documentation**: http://localhost:8000/api/documentation
+
+#### 3. Run Tests
+```bash
+# Run the included API test script
+php test_api.php
+
+# Run Laravel tests (if available)
+php artisan test
+```
+
+### Troubleshooting
+
+#### Common Issues:
+
+**1. Permission Errors**
+```bash
+# Fix storage permissions
+sudo chown -R $USER:www-data storage
+sudo chown -R $USER:www-data bootstrap/cache
+chmod -R 775 storage
+chmod -R 775 bootstrap/cache
+```
+
+**2. Composer Memory Issues**
+```bash
+# Increase memory limit
+php -d memory_limit=2G /usr/local/bin/composer install
+```
+
+**3. Node.js/npm Issues**
+```bash
+# Clear npm cache
+npm cache clean --force
+
+# Delete node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+```
+
+**4. Vite Command Not Found**
+```bash
+# Install Vite globally
+npm install -g vite
+
+# Or use npx
+npx vite
+```
+
+**5. Port Already in Use**
+```bash
+# Use a different port
+php artisan serve --port=8080
+```
+
+### Production Deployment
+
+#### 1. Environment Configuration
+```bash
+# Set production environment
+APP_ENV=production
+APP_DEBUG=false
+
+# Generate optimized autoloader
+composer install --optimize-autoloader --no-dev
+
+# Cache configuration
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
+
+#### 2. Web Server Configuration
+Configure your web server (Apache/Nginx) to point to the `public` directory.
+
+#### 3. Queue Workers
+```bash
+# Start queue workers for background processing
+php artisan queue:work
+```
+
+### Development Commands
+
+#### Useful Commands:
+```bash
+# Clear all caches
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+
+# Regenerate API documentation
+php artisan l5-swagger:generate
+
+# Run database migrations
+php artisan migrate
+
+# Create new migration
+php artisan make:migration create_table_name
+
+# Run tests
+php artisan test
+
+# Start queue worker
+php artisan queue:work
+
+# Monitor logs
+php artisan pail
+```
 
 ## Usage
 
-1. Navigate to `/image-comparison` in your browser
-2. Choose between uploading images or providing URLs
-3. Select or drag-and-drop two images
-4. Click "Compare Images" to get similarity results
+### Web Interface
+
+1. **Navigate to the application**: http://localhost:8000/image-comparison
+2. **Choose your functionality**:
+   - **Upload Tab**: Compare two uploaded images
+   - **URL Tab**: Compare images from URLs
+   - **Find Match Tab**: Find similar images from reference database
+   - **Manage Tab**: Upload and manage reference images
+
+3. **For Image Comparison**:
+   - Select or drag-and-drop two images
+   - Click "Compare Images" to get similarity results
+
+4. **For Image Matching**:
+   - Upload 1-5 images to search with
+   - Set similarity threshold (default: 70%)
+   - Click "Find Matching Images" to see results
+
+5. **For Reference Management**:
+   - Upload reference images (up to 5 at a time)
+   - View all stored reference images
+   - Delete individual or bulk delete images
+
+### Key Features
+
+- **70% Similarity Threshold**: Only shows high-confidence matches by default
+- **Multiple Image Support**: Upload up to 5 images for matching
+- **Drag & Drop**: Intuitive file upload interface
+- **Real-time Preview**: See uploaded images before processing
+- **Visual Results**: Clear display of similarity percentages and matched images
 
 ## API Endpoints
 
@@ -112,8 +349,15 @@ The application provides a comprehensive RESTful API for image comparison:
 - `POST /api/v1/compare/upload` - Compare two uploaded images
 - `POST /api/v1/compare/urls` - Compare images from URLs
 - `POST /api/v1/compare/batch` - Compare multiple images in batch (up to 5)
+- `POST /api/v1/compare/find-match` - Find matching images from reference database (1-5 images)
 - `GET /api/v1/health` - Check API health status
 - `GET /api/v1/docs` - Get API documentation
+
+#### Reference Image Management
+- `POST /api/v1/reference-images/upload` - Upload reference images (up to 5)
+- `GET /api/v1/reference-images` - List all reference images
+- `DELETE /api/v1/reference-images/{filename}` - Delete specific reference image
+- `DELETE /api/v1/reference-images/bulk` - Bulk delete reference images
 
 #### Legacy Endpoints (for backward compatibility)
 - `POST /api/compare/images` - Compare uploaded images
@@ -143,6 +387,21 @@ curl -X POST http://localhost:8000/api/v1/compare/batch \
   -F "images[]=@path/to/image1.jpg" \
   -F "images[]=@path/to/image2.jpg" \
   -F "images[]=@path/to/image3.jpg"
+
+# Find matching images (with 70% threshold)
+curl -X POST http://localhost:8000/api/v1/compare/find-match \
+  -F "images[]=@path/to/search_image1.jpg" \
+  -F "images[]=@path/to/search_image2.jpg" \
+  -F "threshold=0.7" \
+  -F "limit=10"
+
+# Upload reference images
+curl -X POST http://localhost:8000/api/v1/reference-images/upload \
+  -F "images[]=@path/to/reference1.jpg" \
+  -F "images[]=@path/to/reference2.jpg"
+
+# List reference images
+curl -X GET http://localhost:8000/api/v1/reference-images
 ```
 
 ### API Testing
