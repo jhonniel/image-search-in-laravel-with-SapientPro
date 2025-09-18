@@ -6,9 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use SapientPro\ImageComparator\ImageComparator;
-use SapientPro\ImageComparator\ImageComparatorException;
+use SapientPro\ImageComparator\ImageResourceException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -24,17 +25,17 @@ use Illuminate\Support\Str;
  *         url="https://opensource.org/licenses/MIT"
  *     )
  * )
- * 
+ *
  * @OA\Server(
  *     url="http://localhost:8000/api/v1",
  *     description="Local Development Server"
  * )
- * 
+ *
  * @OA\Tag(
  *     name="Image Comparison",
  *     description="API Endpoints for image comparison operations"
  * )
- * 
+ *
  * @OA\Tag(
  *     name="System",
  *     description="API system endpoints"
@@ -49,7 +50,7 @@ class ImageComparisonApiController extends Controller
 
     /**
      * Compare two uploaded images
-     * 
+     *
      * @OA\Post(
      *     path="/compare/upload",
      *     operationId="compareUploadedImages",
@@ -153,7 +154,7 @@ class ImageComparisonApiController extends Controller
                 'success' => true,
                 'data' => [
                     'similarity' => $similarity,
-                    'similarity_percentage' => round($similarity * 100, 2),
+                    'similarity_percentage' => round($similarity, 2),
                     'comparison_id' => 'comp_' . Str::random(10),
                     'timestamp' => now()->toISOString(),
                     'method' => 'upload'
@@ -161,7 +162,7 @@ class ImageComparisonApiController extends Controller
                 'message' => 'Images compared successfully'
             ]);
 
-        } catch (ImageComparatorException $e) {
+        } catch (ImageResourceException $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Image comparison failed',
@@ -178,7 +179,7 @@ class ImageComparisonApiController extends Controller
 
     /**
      * Compare images from URLs
-     * 
+     *
      * @OA\Post(
      *     path="/compare/urls",
      *     operationId="compareImagesFromUrls",
@@ -286,7 +287,7 @@ class ImageComparisonApiController extends Controller
                 'success' => true,
                 'data' => [
                     'similarity' => $similarity,
-                    'similarity_percentage' => round($similarity * 100, 2),
+                    'similarity_percentage' => round($similarity, 2),
                     'comparison_id' => 'comp_' . Str::random(10),
                     'timestamp' => now()->toISOString(),
                     'method' => 'url',
@@ -298,7 +299,7 @@ class ImageComparisonApiController extends Controller
                 'message' => 'Images compared successfully'
             ]);
 
-        } catch (ImageComparatorException $e) {
+        } catch (ImageResourceException $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Image comparison failed',
@@ -315,7 +316,7 @@ class ImageComparisonApiController extends Controller
 
     /**
      * Compare multiple images in batch
-     * 
+     *
      * @OA\Post(
      *     path="/compare/batch",
      *     operationId="batchCompare",
@@ -434,7 +435,7 @@ class ImageComparisonApiController extends Controller
                         'image1' => $images[$i]->getClientOriginalName(),
                         'image2' => $images[$j]->getClientOriginalName(),
                         'similarity' => $similarity,
-                        'similarity_percentage' => round($similarity * 100, 2)
+                        'similarity_percentage' => round($similarity, 2)
                     ];
                 }
             }
@@ -451,7 +452,7 @@ class ImageComparisonApiController extends Controller
                 'message' => 'Batch comparison completed'
             ]);
 
-        } catch (ImageComparatorException $e) {
+        } catch (ImageResourceException $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Batch comparison failed',
@@ -468,7 +469,7 @@ class ImageComparisonApiController extends Controller
 
     /**
      * Get API health status
-     * 
+     *
      * @OA\Get(
      *     path="/health",
      *     operationId="getHealth",
@@ -514,8 +515,686 @@ class ImageComparisonApiController extends Controller
     }
 
     /**
+     * Find matching images from stored reference images
+     *
+     * @OA\Post(
+     *     path="/compare/find-match",
+     *     operationId="findMatchingImages",
+     *     tags={"Image Comparison"},
+     *     summary="Find matching images from stored reference images",
+     *     description="Upload one or more images and find similar matches from the stored reference images collection",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(
+     *                     property="images[]",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="string",
+     *                         format="binary"
+     *                     ),
+     *                     description="Array of image files to match against stored images (max 10MB each, max 5 images)"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="threshold",
+     *                     type="number",
+     *                     format="float",
+     *                     description="Similarity threshold (0.0-1.0, default: 0.7)",
+     *                     example=0.7
+     *                 ),
+     *                 @OA\Property(
+     *                     property="limit",
+     *                     type="integer",
+     *                     description="Maximum number of matches to return (default: 10)",
+     *                     example=10
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Matching images found successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="matches",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         @OA\Property(property="uploaded_image", type="string", example="uploaded_image_1.jpg"),
+     *                         @OA\Property(property="reference_filename", type="string", example="reference_image_1.jpg"),
+     *                         @OA\Property(property="similarity", type="number", format="float", example=0.85),
+     *                         @OA\Property(property="similarity_percentage", type="number", format="float", example=85.0),
+     *                         @OA\Property(property="path", type="string", example="storage/reference-images/reference_image_1.jpg")
+     *                     )
+     *                 ),
+     *                 @OA\Property(property="total_matches", type="integer", example=3),
+     *                 @OA\Property(property="threshold_used", type="number", format="float", example=0.7),
+     *                 @OA\Property(property="uploaded_images_count", type="integer", example=2),
+     *                 @OA\Property(property="search_id", type="string", example="search_abc123def4"),
+     *                 @OA\Property(property="timestamp", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Found 3 matching images")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Validation failed"),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="images",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="The images field is required.")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Internal server error"),
+     *             @OA\Property(property="message", type="string", example="An unexpected error occurred")
+     *         )
+     *     )
+     * )
+     */
+    public function findMatchingImages(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'images' => 'required|array|min:1|max:5',
+            'images.*' => 'required|image|max:10240', // 10MB max per image
+            'threshold' => 'sometimes|numeric|min:0|max:1',
+            'limit' => 'sometimes|integer|min:1|max:50',
+        ], [
+            'images.required' => 'Images array is required',
+            'images.array' => 'Images must be an array',
+            'images.min' => 'At least one image is required',
+            'images.max' => 'Maximum 5 images allowed',
+            'images.*.required' => 'Each image is required',
+            'images.*.image' => 'Each file must be an image',
+            'images.*.max' => 'Each image must not exceed 10MB',
+            'threshold.numeric' => 'Threshold must be a number',
+            'threshold.min' => 'Threshold must be between 0 and 1',
+            'threshold.max' => 'Threshold must be between 0 and 1',
+            'limit.integer' => 'Limit must be an integer',
+            'limit.min' => 'Limit must be at least 1',
+            'limit.max' => 'Limit cannot exceed 50',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $uploadedImages = $request->file('images');
+            $threshold = (float) $request->input('threshold', 0.7); // Changed default to 70%
+            $limit = (int) $request->input('limit', 10);
+
+            // Get all reference images from storage
+            $referenceImagesPath = storage_path('app/public/reference-images');
+            $allMatches = [];
+
+            if (!is_dir($referenceImagesPath)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No reference images directory found',
+                    'message' => 'Reference images directory does not exist'
+                ], 404);
+            }
+
+            $referenceImages = glob($referenceImagesPath . '/*.{jpg,jpeg,png,gif,bmp}', GLOB_BRACE);
+
+            if (empty($referenceImages)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No reference images found',
+                    'message' => 'No images found in the reference images directory'
+                ], 404);
+            }
+
+            // Compare each uploaded image with each reference image
+            foreach ($uploadedImages as $uploadedImage) {
+                $uploadedImagePath = $uploadedImage->getPathname();
+                $uploadedImageName = $uploadedImage->getClientOriginalName();
+
+                foreach ($referenceImages as $referenceImagePath) {
+                    try {
+                        $similarity = $this->imageComparator->compare($uploadedImagePath, $referenceImagePath);
+
+                        // Convert similarity to decimal if it's returned as percentage (0-100)
+                        $similarityDecimal = $similarity > 1 ? $similarity / 100 : $similarity;
+
+                        if ($similarityDecimal >= $threshold) {
+                            $allMatches[] = [
+                                'uploaded_image' => $uploadedImageName,
+                                'reference_filename' => basename($referenceImagePath),
+                                'similarity' => $similarityDecimal,
+                                'similarity_percentage' => round($similarityDecimal * 100, 2),
+                                'path' => 'storage/reference-images/' . basename($referenceImagePath)
+                            ];
+                        }
+                    } catch (ImageResourceException $e) {
+                        // Skip images that can't be compared
+                        continue;
+                    }
+                }
+            }
+
+            // Sort matches by similarity (highest first)
+            usort($allMatches, function($a, $b) {
+                return $b['similarity'] <=> $a['similarity'];
+            });
+
+            // Remove duplicates (same reference image matched by multiple uploaded images)
+            $uniqueMatches = [];
+            $seenReferences = [];
+
+            foreach ($allMatches as $match) {
+                if (!in_array($match['reference_filename'], $seenReferences)) {
+                    $uniqueMatches[] = $match;
+                    $seenReferences[] = $match['reference_filename'];
+                }
+            }
+
+            // Limit results
+            $matches = array_slice($uniqueMatches, 0, $limit);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'matches' => $matches,
+                    'total_matches' => count($matches),
+                    'threshold_used' => $threshold,
+                    'uploaded_images_count' => count($uploadedImages),
+                    'search_id' => 'search_' . Str::random(10),
+                    'timestamp' => now()->toISOString()
+                ],
+                'message' => count($matches) > 0 ?
+                    'Found ' . count($matches) . ' matching image(s) with ' . (count($uploadedImages) > 1 ? count($uploadedImages) . ' uploaded images' : '1 uploaded image') :
+                    'No matching images found with the given threshold'
+            ]);
+
+        } catch (ImageResourceException $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Image comparison failed',
+                'message' => $e->getMessage()
+            ], 400);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Internal server error',
+                'message' => 'An unexpected error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Upload reference images for matching
+     *
+     * @OA\Post(
+     *     path="/reference-images/upload",
+     *     operationId="uploadReferenceImages",
+     *     tags={"Image Management"},
+     *     summary="Upload reference images",
+     *     description="Upload one or more images to be used as reference for matching",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(
+     *                     property="images[]",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="string",
+     *                         format="binary"
+     *                     ),
+     *                     description="Array of image files to upload as references (max 10MB each, max 5 images)"
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reference images uploaded successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="uploaded_images",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         @OA\Property(property="original_name", type="string", example="image1.jpg"),
+     *                         @OA\Property(property="stored_name", type="string", example="image1_1234567890.jpg"),
+     *                         @OA\Property(property="path", type="string", example="storage/reference-images/image1_1234567890.jpg"),
+     *                         @OA\Property(property="size", type="integer", example=1024000)
+     *                     )
+     *                 ),
+     *                 @OA\Property(property="total_uploaded", type="integer", example=3),
+     *                 @OA\Property(property="upload_id", type="string", example="upload_xyz789abc1"),
+     *                 @OA\Property(property="timestamp", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Successfully uploaded 3 reference images")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Validation error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Validation failed"),
+     *             @OA\Property(
+     *                 property="errors",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="images",
+     *                     type="array",
+     *                     @OA\Items(type="string", example="At least one image is required.")
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Internal server error"),
+     *             @OA\Property(property="message", type="string", example="An unexpected error occurred")
+     *         )
+     *     )
+     * )
+     */
+    public function uploadReferenceImages(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'images' => 'required|array|min:1|max:5',
+            'images.*' => 'required|image|max:10240',
+        ], [
+            'images.required' => 'Images array is required',
+            'images.array' => 'Images must be an array',
+            'images.min' => 'At least one image is required',
+            'images.max' => 'Maximum 5 images allowed per upload',
+            'images.*.required' => 'Each image is required',
+            'images.*.image' => 'Each file must be an image',
+            'images.*.max' => 'Each image must not exceed 10MB',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            $images = $request->file('images');
+            $uploadedImages = [];
+            $uploadId = 'upload_' . Str::random(10);
+
+            // Ensure directory exists
+            $referenceImagesPath = storage_path('app/public/reference-images');
+            if (!is_dir($referenceImagesPath)) {
+                mkdir($referenceImagesPath, 0755, true);
+            }
+
+            foreach ($images as $image) {
+                $originalName = $image->getClientOriginalName();
+                $extension = $image->getClientOriginalExtension();
+                $timestamp = time();
+                $randomString = Str::random(10);
+                $storedName = pathinfo($originalName, PATHINFO_FILENAME) . '_' . $timestamp . '_' . $randomString . '.' . $extension;
+
+                // Get file size before moving
+                $fileSize = $image->getSize();
+
+                // Store the image
+                $image->move($referenceImagesPath, $storedName);
+
+                $uploadedImages[] = [
+                    'original_name' => $originalName,
+                    'stored_name' => $storedName,
+                    'path' => 'storage/reference-images/' . $storedName,
+                    'size' => $fileSize
+                ];
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'uploaded_images' => $uploadedImages,
+                    'total_uploaded' => count($uploadedImages),
+                    'upload_id' => $uploadId,
+                    'timestamp' => now()->toISOString()
+                ],
+                'message' => 'Successfully uploaded ' . count($uploadedImages) . ' reference image(s)'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Upload failed',
+                'message' => 'An unexpected error occurred while uploading images'
+            ], 500);
+        }
+    }
+
+    /**
+     * List all reference images
+     *
+     * @OA\Get(
+     *     path="/reference-images",
+     *     operationId="listReferenceImages",
+     *     tags={"Image Management"},
+     *     summary="List all reference images",
+     *     description="Get a list of all stored reference images",
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reference images retrieved successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(
+     *                     property="images",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="object",
+     *                         @OA\Property(property="filename", type="string", example="image1_1234567890_abc123.jpg"),
+     *                         @OA\Property(property="original_name", type="string", example="image1.jpg"),
+     *                         @OA\Property(property="path", type="string", example="storage/reference-images/image1_1234567890_abc123.jpg"),
+     *                         @OA\Property(property="size", type="integer", example=1024000),
+     *                         @OA\Property(property="uploaded_at", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *                     )
+     *                 ),
+     *                 @OA\Property(property="total_images", type="integer", example=15),
+     *                 @OA\Property(property="total_size", type="string", example="15.2 MB"),
+     *                 @OA\Property(property="timestamp", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Retrieved 15 reference images")
+     *         )
+     *     )
+     * )
+     */
+    public function listReferenceImages(): JsonResponse
+    {
+        try {
+            $referenceImagesPath = storage_path('app/public/reference-images');
+            $images = [];
+            $totalSize = 0;
+
+            if (is_dir($referenceImagesPath)) {
+                $files = glob($referenceImagesPath . '/*.{jpg,jpeg,png,gif,bmp}', GLOB_BRACE);
+
+                foreach ($files as $file) {
+                    $fileInfo = pathinfo($file);
+                    $filename = $fileInfo['basename'];
+                    $size = filesize($file);
+                    $totalSize += $size;
+
+                    // Try to extract original name from stored filename
+                    $originalName = $filename;
+                    if (preg_match('/^(.+)_\d+_[a-zA-Z0-9]+\.(.+)$/', $filename, $matches)) {
+                        $originalName = $matches[1] . '.' . $matches[2];
+                    }
+
+                    $images[] = [
+                        'filename' => $filename,
+                        'original_name' => $originalName,
+                        'path' => 'storage/reference-images/' . $filename,
+                        'size' => $size,
+                        'uploaded_at' => date('c', filemtime($file))
+                    ];
+                }
+
+                // Sort by upload time (newest first)
+                usort($images, function($a, $b) {
+                    return strtotime($b['uploaded_at']) <=> strtotime($a['uploaded_at']);
+                });
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'images' => $images,
+                    'total_images' => count($images),
+                    'total_size' => $this->formatBytes($totalSize),
+                    'timestamp' => now()->toISOString()
+                ],
+                'message' => 'Retrieved ' . count($images) . ' reference image(s)'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to retrieve reference images',
+                'message' => 'An unexpected error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Delete reference images
+     *
+     * @OA\Delete(
+     *     path="/reference-images/{filename}",
+     *     operationId="deleteReferenceImage",
+     *     tags={"Image Management"},
+     *     summary="Delete a reference image",
+     *     description="Delete a specific reference image by filename",
+     *     @OA\Parameter(
+     *         name="filename",
+     *         in="path",
+     *         required=true,
+     *         description="Filename of the reference image to delete",
+     *         @OA\Schema(type="string", example="image1_1234567890_abc123.jpg")
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reference image deleted successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="deleted_filename", type="string", example="image1_1234567890_abc123.jpg"),
+     *                 @OA\Property(property="timestamp", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Reference image deleted successfully")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Reference image not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Reference image not found"),
+     *             @OA\Property(property="message", type="string", example="The specified reference image does not exist")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=500,
+     *         description="Internal server error",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Internal server error"),
+     *             @OA\Property(property="message", type="string", example="An unexpected error occurred")
+     *         )
+     *     )
+     * )
+     */
+    public function deleteReferenceImage(string $filename): JsonResponse
+    {
+        try {
+            $referenceImagesPath = storage_path('app/public/reference-images');
+            $filePath = $referenceImagesPath . '/' . $filename;
+
+            if (!file_exists($filePath)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Reference image not found',
+                    'message' => 'The specified reference image does not exist'
+                ], 404);
+            }
+
+            if (!unlink($filePath)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Failed to delete reference image',
+                    'message' => 'Could not delete the reference image file'
+                ], 500);
+            }
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'deleted_filename' => $filename,
+                    'timestamp' => now()->toISOString()
+                ],
+                'message' => 'Reference image deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Internal server error',
+                'message' => 'An unexpected error occurred'
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk delete reference images
+     *
+     * @OA\Delete(
+     *     path="/reference-images/bulk",
+     *     operationId="bulkDeleteReferenceImages",
+     *     tags={"Image Management"},
+     *     summary="Delete multiple reference images",
+     *     description="Delete multiple reference images by their filenames",
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="application/json",
+     *             @OA\Schema(
+     *                 @OA\Property(
+     *                     property="filenames",
+     *                     type="array",
+     *                     @OA\Items(type="string"),
+     *                     description="Array of filenames to delete"
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Bulk delete operation completed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="deleted_count", type="integer", example=3),
+     *                 @OA\Property(property="failed_count", type="integer", example=0),
+     *                 @OA\Property(property="deleted_filenames", type="array", @OA\Items(type="string")),
+     *                 @OA\Property(property="failed_filenames", type="array", @OA\Items(type="string")),
+     *                 @OA\Property(property="timestamp", type="string", format="date-time")
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Bulk delete operation completed")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Invalid request",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Validation failed"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function bulkDeleteReferenceImages(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'filenames' => 'required|array|min:1|max:50',
+            'filenames.*' => 'required|string|max:255',
+        ], [
+            'filenames.required' => 'Filenames array is required',
+            'filenames.array' => 'Filenames must be an array',
+            'filenames.min' => 'At least one filename is required',
+            'filenames.max' => 'Maximum 50 filenames allowed per bulk delete',
+            'filenames.*.required' => 'Each filename is required',
+            'filenames.*.string' => 'Each filename must be a string',
+            'filenames.*.max' => 'Each filename must not exceed 255 characters',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        $filenames = $request->input('filenames');
+        $referenceImagesPath = storage_path('app/public/reference-images');
+
+        $deletedFilenames = [];
+        $failedFilenames = [];
+
+        foreach ($filenames as $filename) {
+            $imagePath = $referenceImagesPath . '/' . $filename;
+
+            if (file_exists($imagePath)) {
+                try {
+                    unlink($imagePath);
+                    $deletedFilenames[] = $filename;
+                } catch (\Exception $e) {
+                    $failedFilenames[] = $filename;
+                    \Log::error("Failed to delete reference image {$filename}: " . $e->getMessage());
+                }
+            } else {
+                $failedFilenames[] = $filename;
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'deleted_count' => count($deletedFilenames),
+                'failed_count' => count($failedFilenames),
+                'deleted_filenames' => $deletedFilenames,
+                'failed_filenames' => $failedFilenames,
+                'timestamp' => now()->toISOString()
+            ],
+            'message' => 'Bulk delete operation completed'
+        ]);
+    }
+
+    /**
      * Get API documentation
-     * 
+     *
      * @OA\Get(
      *     path="/docs",
      *     operationId="getDocumentation",
@@ -577,6 +1256,28 @@ class ImageComparisonApiController extends Controller
                         'parameters' => ['images (array of files)']
                     ],
                     [
+                        'method' => 'POST',
+                        'path' => '/api/v1/compare/find-match',
+                        'description' => 'Find matching images from stored reference images',
+                        'parameters' => ['image (file)', 'threshold (optional)', 'limit (optional)']
+                    ],
+                    [
+                        'method' => 'POST',
+                        'path' => '/api/v1/reference-images/upload',
+                        'description' => 'Upload reference images for matching',
+                        'parameters' => ['images (array of files)']
+                    ],
+                    [
+                        'method' => 'GET',
+                        'path' => '/api/v1/reference-images',
+                        'description' => 'List all reference images'
+                    ],
+                    [
+                        'method' => 'DELETE',
+                        'path' => '/api/v1/reference-images/{filename}',
+                        'description' => 'Delete a reference image'
+                    ],
+                    [
                         'method' => 'GET',
                         'path' => '/api/v1/health',
                         'description' => 'Get API health status'
@@ -590,10 +1291,25 @@ class ImageComparisonApiController extends Controller
                 'rate_limits' => [
                     'requests_per_minute' => 60,
                     'file_size_limit' => '10MB per image',
-                    'batch_limit' => '5 images per batch'
+                    'batch_limit' => '5 images per batch',
+                    'reference_upload_limit' => '5 images per upload'
                 ]
             ],
             'message' => 'API documentation retrieved successfully'
         ]);
+    }
+
+    /**
+     * Format bytes to human readable format
+     */
+    private function formatBytes(int $bytes, int $precision = 2): string
+    {
+        $units = ['B', 'KB', 'MB', 'GB', 'TB'];
+
+        for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
+            $bytes /= 1024;
+        }
+
+        return round($bytes, $precision) . ' ' . $units[$i];
     }
 }
