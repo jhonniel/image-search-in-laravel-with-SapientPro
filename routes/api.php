@@ -68,6 +68,14 @@ Route::prefix('v1')->group(function () {
         Route::delete('/bulk', [ImageComparisonApiController::class, 'bulkDeleteReferenceImages'])
             ->name('api.reference-images.bulk-delete');
 
+        // Update a specific reference image
+        Route::put('/{metadataId}', [ImageComparisonApiController::class, 'updateReferenceImage'])
+            ->name('api.reference-images.update');
+
+        // Update a specific reference image (POST with method spoofing)
+        Route::post('/{metadataId}', [ImageComparisonApiController::class, 'updateReferenceImage'])
+            ->name('api.reference-images.update-post');
+
         // Delete a specific reference image
         Route::delete('/{filename}', [ImageComparisonApiController::class, 'deleteReferenceImage'])
             ->name('api.reference-images.delete');

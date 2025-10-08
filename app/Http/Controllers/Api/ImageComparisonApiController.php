@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Models\ImageMetadata;
+use App\Services\SimilarityNotificationService;
 
 /**
  * @OA\Info(
@@ -45,7 +47,8 @@ use Illuminate\Support\Str;
 class ImageComparisonApiController extends Controller
 {
     public function __construct(
-        private ImageComparator $imageComparator
+        private ImageComparator $imageComparator,
+        private SimilarityNotificationService $similarityNotificationService
     ) {}
 
     /**
@@ -549,6 +552,26 @@ class ImageComparisonApiController extends Controller
      *                     type="integer",
      *                     description="Maximum number of matches to return (default: 10)",
      *                     example=10
+     *                 ),
+     *                 @OA\Property(
+     *                     property="text_threshold",
+     *                     type="number",
+     *                     format="float",
+     *                     description="Text similarity threshold (0.0-1.0, default: 0.5)",
+     *                     example=0.5
+     *                 ),
+     *                 @OA\Property(
+     *                     property="text_weight",
+     *                     type="number",
+     *                     format="float",
+     *                     description="Weight of text similarity in overall score (0.0-1.0, default: 0.3)",
+     *                     example=0.3
+     *                 ),
+     *                 @OA\Property(
+     *                     property="search_text",
+     *                     type="string",
+     *                     description="Optional text to search for in descriptions and tags",
+     *                     example="sunset landscape"
      *                 )
      *             )
      *         )
@@ -568,13 +591,27 @@ class ImageComparisonApiController extends Controller
      *                         type="object",
      *                         @OA\Property(property="uploaded_image", type="string", example="uploaded_image_1.jpg"),
      *                         @OA\Property(property="reference_filename", type="string", example="reference_image_1.jpg"),
-     *                         @OA\Property(property="similarity", type="number", format="float", example=0.85),
-     *                         @OA\Property(property="similarity_percentage", type="number", format="float", example=85.0),
-     *                         @OA\Property(property="path", type="string", example="storage/reference-images/reference_image_1.jpg")
+     *                         @OA\Property(property="visual_similarity", type="number", format="float", example=0.85),
+     *                         @OA\Property(property="visual_similarity_percentage", type="number", format="float", example=85.0),
+     *                         @OA\Property(property="overall_similarity", type="number", format="float", example=0.82),
+     *                         @OA\Property(property="overall_similarity_percentage", type="number", format="float", example=82.0),
+     *                         @OA\Property(property="path", type="string", example="storage/reference-images/reference_image_1.jpg"),
+     *                         @OA\Property(
+     *                             property="metadata",
+     *                             type="object",
+     *                             @OA\Property(property="description", type="string", example="Beautiful sunset landscape"),
+     *                             @OA\Property(property="tags", type="array", @OA\Items(type="string"), example={"sunset", "landscape", "nature"}),
+     *                             @OA\Property(property="description_similarity", type="number", format="float", example=75.5),
+     *                             @OA\Property(property="tags_similarity", type="number", format="float", example=80.0),
+     *                             @OA\Property(property="text_similarity", type="number", format="float", example=80.0)
+     *                         )
      *                     )
      *                 ),
      *                 @OA\Property(property="total_matches", type="integer", example=3),
-     *                 @OA\Property(property="threshold_used", type="number", format="float", example=0.7),
+     *                 @OA\Property(property="visual_threshold_used", type="number", format="float", example=0.7),
+     *                 @OA\Property(property="text_threshold_used", type="number", format="float", example=0.5),
+     *                 @OA\Property(property="text_weight_used", type="number", format="float", example=0.3),
+     *                 @OA\Property(property="search_text", type="string", example="sunset landscape"),
      *                 @OA\Property(property="uploaded_images_count", type="integer", example=2),
      *                 @OA\Property(property="search_id", type="string", example="search_abc123def4"),
      *                 @OA\Property(property="timestamp", type="string", format="date-time", example="2024-01-01T12:00:00Z")
@@ -612,11 +649,28 @@ class ImageComparisonApiController extends Controller
      */
     public function findMatchingImages(Request $request): JsonResponse
     {
+        try {
+            Log::info('Find matching images request received', [
+                'request_data' => $request->except(['images']), // Log everything except file data
+                'images_count' => $request->hasFile('images') ? count($request->file('images')) : 0
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error logging find matching images request', ['error' => $e->getMessage()]);
+        }
+
         $validator = Validator::make($request->all(), [
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|image|max:10240', // 10MB max per image
             'threshold' => 'sometimes|numeric|min:0|max:1',
             'limit' => 'sometimes|integer|min:1|max:50',
+            'text_threshold' => 'sometimes|numeric|min:0|max:1',
+            'text_weight' => 'sometimes|numeric|min:0|max:1',
+            'search_text' => 'sometimes|string|max:1000',
+            'uploaded_descriptions' => 'sometimes|array|max:5',
+            'uploaded_descriptions.*' => 'nullable|string|max:1000',
+            'uploaded_tags' => 'sometimes|array|max:5',
+            'uploaded_tags.*' => 'nullable|string|max:255',
+            'uploader_email' => 'nullable|email|max:255',
         ], [
             'images.required' => 'Images array is required',
             'images.array' => 'Images must be an array',
@@ -631,6 +685,24 @@ class ImageComparisonApiController extends Controller
             'limit.integer' => 'Limit must be an integer',
             'limit.min' => 'Limit must be at least 1',
             'limit.max' => 'Limit cannot exceed 50',
+            'text_threshold.numeric' => 'Text threshold must be a number',
+            'text_threshold.min' => 'Text threshold must be between 0 and 1',
+            'text_threshold.max' => 'Text threshold must be between 0 and 1',
+            'text_weight.numeric' => 'Text weight must be a number',
+            'text_weight.min' => 'Text weight must be between 0 and 1',
+            'text_weight.max' => 'Text weight must be between 0 and 1',
+            'search_text.string' => 'Search text must be a string',
+            'search_text.max' => 'Search text must not exceed 1000 characters',
+            'uploaded_descriptions.array' => 'Uploaded descriptions must be an array',
+            'uploaded_descriptions.max' => 'Maximum 5 uploaded descriptions allowed',
+            'uploaded_descriptions.*.string' => 'Each uploaded description must be a string',
+            'uploaded_descriptions.*.max' => 'Each uploaded description must not exceed 1000 characters',
+            'uploaded_tags.array' => 'Uploaded tags must be an array',
+            'uploaded_tags.max' => 'Maximum 5 uploaded tag arrays allowed',
+            'uploaded_tags.*.string' => 'Each uploaded tag must be a string',
+            'uploaded_tags.*.max' => 'Each uploaded tag must not exceed 255 characters',
+            'uploader_email.email' => 'Uploader email must be a valid email address',
+            'uploader_email.max' => 'Uploader email must not exceed 255 characters',
         ]);
 
         if ($validator->fails()) {
@@ -643,8 +715,15 @@ class ImageComparisonApiController extends Controller
 
         try {
             $uploadedImages = $request->file('images');
-            $threshold = (float) $request->input('threshold', 0.7); // Changed default to 70%
+            $threshold = (float) $request->input('threshold', 0.7); // Visual similarity threshold
+            $textThreshold = (float) $request->input('text_threshold', 0.5); // Text similarity threshold
+            $textWeight = (float) $request->input('text_weight', 0.3); // Weight of text similarity in overall score
+            $searchText = $request->input('search_text', ''); // Optional search text
             $limit = (int) $request->input('limit', 10);
+
+            // Get uploaded image metadata
+            $uploadedDescriptions = $request->input('uploaded_descriptions', []);
+            $uploadedTags = $request->input('uploaded_tags', []);
 
             // Get all reference images from storage
             $referenceImagesPath = storage_path('app/public/reference-images');
@@ -668,26 +747,112 @@ class ImageComparisonApiController extends Controller
                 ], 404);
             }
 
+            // Get all metadata for reference images
+            $metadataMap = [];
+            $allMetadata = ImageMetadata::whereIn('filename', array_map('basename', $referenceImages))->get();
+            foreach ($allMetadata as $metadata) {
+                $metadataMap[$metadata->filename] = $metadata;
+            }
+
             // Compare each uploaded image with each reference image
-            foreach ($uploadedImages as $uploadedImage) {
+            foreach ($uploadedImages as $index => $uploadedImage) {
                 $uploadedImagePath = $uploadedImage->getPathname();
                 $uploadedImageName = $uploadedImage->getClientOriginalName();
 
+                // Get uploaded image metadata for this image
+                $uploadedDescription = $uploadedDescriptions[$index] ?? '';
+                $uploadedTagsString = $uploadedTags[$index] ?? '';
+                $uploadedTagsArray = !empty($uploadedTagsString) ?
+                    array_map('trim', explode(',', $uploadedTagsString)) : [];
+
                 foreach ($referenceImages as $referenceImagePath) {
                     try {
-                        $similarity = $this->imageComparator->compare($uploadedImagePath, $referenceImagePath);
+                        $referenceFilename = basename($referenceImagePath);
+                        $metadata = $metadataMap[$referenceFilename] ?? null;
 
-                        // Convert similarity to decimal if it's returned as percentage (0-100)
-                        $similarityDecimal = $similarity > 1 ? $similarity / 100 : $similarity;
+                        // Calculate visual similarity
+                        $visualSimilarity = $this->imageComparator->compare($uploadedImagePath, $referenceImagePath);
+                        $visualSimilarityDecimal = $visualSimilarity > 1 ? $visualSimilarity / 100 : $visualSimilarity;
 
-                        if ($similarityDecimal >= $threshold) {
-                            $allMatches[] = [
+                        // Calculate text similarity
+                        $textSimilarity = 0.0;
+                        $descriptionSimilarity = 0.0;
+                        $tagsSimilarity = 0.0;
+                        $uploadedDescriptionSimilarity = 0.0;
+                        $uploadedTagsSimilarity = 0.0;
+
+                        if ($metadata) {
+                            // Compare with search text if provided
+                            if (!empty($searchText)) {
+                                if (!empty($metadata->description)) {
+                                    $descriptionSimilarity = $this->calculateTextSimilarity($searchText, $metadata->description);
+                                }
+                                if (!empty($metadata->tags)) {
+                                    $tagsText = implode(' ', $metadata->tags);
+                                    $tagsSimilarity = $this->calculateTextSimilarity($searchText, $tagsText);
+                                }
+                            }
+
+                            // Compare uploaded image metadata with reference image metadata
+                            if (!empty($uploadedDescription)) {
+                                if (!empty($metadata->description)) {
+                                    $uploadedDescriptionSimilarity = $this->calculateTextSimilarity($uploadedDescription, $metadata->description);
+                                }
+                            }
+
+                            if (!empty($uploadedTagsArray)) {
+                                if (!empty($metadata->tags)) {
+                                    $uploadedTagsText = implode(' ', $uploadedTagsArray);
+                                    $referenceTagsText = implode(' ', $metadata->tags);
+                                    $uploadedTagsSimilarity = $this->calculateTextSimilarity($uploadedTagsText, $referenceTagsText);
+                                }
+                            }
+
+                            // Use the maximum similarity from all comparisons
+                            $textSimilarity = max($descriptionSimilarity, $tagsSimilarity, $uploadedDescriptionSimilarity, $uploadedTagsSimilarity);
+                        }
+
+                        // Calculate overall similarity
+                        $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarityDecimal, $textSimilarity, $textWeight);
+
+                        // Check if it meets the threshold (either visual or overall)
+                        $meetsThreshold = $visualSimilarityDecimal >= $threshold;
+
+                        // If text search is provided or uploaded metadata exists, also check text threshold
+                        if ((!empty($searchText) || !empty($uploadedDescription) || !empty($uploadedTagsArray)) && $textSimilarity > 0) {
+                            $meetsThreshold = $meetsThreshold && $textSimilarity >= $textThreshold;
+                        }
+
+                        if ($meetsThreshold) {
+                            $match = [
                                 'uploaded_image' => $uploadedImageName,
-                                'reference_filename' => basename($referenceImagePath),
-                                'similarity' => $similarityDecimal,
-                                'similarity_percentage' => round($similarityDecimal * 100, 2),
-                                'path' => 'storage/reference-images/' . basename($referenceImagePath)
+                                'reference_filename' => $referenceFilename,
+                                'visual_similarity' => $visualSimilarityDecimal,
+                                'visual_similarity_percentage' => round($visualSimilarityDecimal * 100, 2),
+                                'overall_similarity' => $overallSimilarity,
+                                'overall_similarity_percentage' => round($overallSimilarity * 100, 2),
+                                'path' => 'storage/reference-images/' . $referenceFilename,
+                                'uploaded_metadata' => [
+                                    'description' => $uploadedDescription,
+                                    'tags' => $uploadedTagsArray,
+                                    'uploaded_description_similarity' => round($uploadedDescriptionSimilarity * 100, 2),
+                                    'uploaded_tags_similarity' => round($uploadedTagsSimilarity * 100, 2)
+                                ],
+                                'reference_metadata' => null
                             ];
+
+                            // Add reference metadata information
+                            if ($metadata) {
+                                $match['reference_metadata'] = [
+                                    'description' => $metadata->description,
+                                    'tags' => $metadata->tags,
+                                    'description_similarity' => round($descriptionSimilarity * 100, 2),
+                                    'tags_similarity' => round($tagsSimilarity * 100, 2),
+                                    'text_similarity' => round($textSimilarity * 100, 2)
+                                ];
+                            }
+
+                            $allMatches[] = $match;
                         }
                     } catch (ImageResourceException $e) {
                         // Skip images that can't be compared
@@ -696,9 +861,9 @@ class ImageComparisonApiController extends Controller
                 }
             }
 
-            // Sort matches by similarity (highest first)
+            // Sort matches by overall similarity (highest first)
             usort($allMatches, function($a, $b) {
-                return $b['similarity'] <=> $a['similarity'];
+                return $b['overall_similarity'] <=> $a['overall_similarity'];
             });
 
             // Remove duplicates (same reference image matched by multiple uploaded images)
@@ -720,14 +885,17 @@ class ImageComparisonApiController extends Controller
                 'data' => [
                     'matches' => $matches,
                     'total_matches' => count($matches),
-                    'threshold_used' => $threshold,
+                    'visual_threshold_used' => $threshold,
+                    'text_threshold_used' => $textThreshold,
+                    'text_weight_used' => $textWeight,
+                    'search_text' => $searchText,
                     'uploaded_images_count' => count($uploadedImages),
                     'search_id' => 'search_' . Str::random(10),
                     'timestamp' => now()->toISOString()
                 ],
                 'message' => count($matches) > 0 ?
                     'Found ' . count($matches) . ' matching image(s) with ' . (count($uploadedImages) > 1 ? count($uploadedImages) . ' uploaded images' : '1 uploaded image') :
-                    'No matching images found with the given threshold'
+                    'No matching images found with the given thresholds'
             ]);
 
         } catch (ImageResourceException $e) {
@@ -767,6 +935,24 @@ class ImageComparisonApiController extends Controller
      *                         format="binary"
      *                     ),
      *                     description="Array of image files to upload as references (max 10MB each, max 5 images)"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="descriptions[]",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="string",
+     *                         maxLength=1000
+     *                     ),
+     *                     description="Optional array of descriptions for each image (max 1000 chars each)"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="tags[]",
+     *                     type="array",
+     *                     @OA\Items(
+     *                         type="string",
+     *                         maxLength=255
+     *                     ),
+     *                     description="Optional array of tags for each image (comma-separated string or array of strings)"
      *                 )
      *             )
      *         )
@@ -787,7 +973,10 @@ class ImageComparisonApiController extends Controller
      *                         @OA\Property(property="original_name", type="string", example="image1.jpg"),
      *                         @OA\Property(property="stored_name", type="string", example="image1_1234567890.jpg"),
      *                         @OA\Property(property="path", type="string", example="storage/reference-images/image1_1234567890.jpg"),
-     *                         @OA\Property(property="size", type="integer", example=1024000)
+     *                         @OA\Property(property="size", type="integer", example=1024000),
+     *                         @OA\Property(property="description", type="string", example="A beautiful sunset landscape"),
+     *                         @OA\Property(property="tags", type="array", @OA\Items(type="string"), example={"sunset", "landscape", "nature"}),
+     *                         @OA\Property(property="metadata_id", type="integer", example=123)
      *                     )
      *                 ),
      *                 @OA\Property(property="total_uploaded", type="integer", example=3),
@@ -830,6 +1019,12 @@ class ImageComparisonApiController extends Controller
         $validator = Validator::make($request->all(), [
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|image|max:10240',
+            'descriptions' => 'sometimes|array|max:5',
+            'descriptions.*' => 'nullable|string|max:1000',
+            'tags' => 'sometimes|array|max:5',
+            'tags.*' => 'nullable|string|max:255',
+            'uploader_email' => 'nullable|email|max:255',
+            'status' => 'sometimes|in:lost,found',
         ], [
             'images.required' => 'Images array is required',
             'images.array' => 'Images must be an array',
@@ -838,6 +1033,16 @@ class ImageComparisonApiController extends Controller
             'images.*.required' => 'Each image is required',
             'images.*.image' => 'Each file must be an image',
             'images.*.max' => 'Each image must not exceed 10MB',
+            'descriptions.array' => 'Descriptions must be an array',
+            'descriptions.max' => 'Maximum 5 descriptions allowed',
+            'descriptions.*.string' => 'Each description must be a string',
+            'descriptions.*.max' => 'Each description must not exceed 1000 characters',
+            'tags.array' => 'Tags must be an array',
+            'tags.max' => 'Maximum 5 tag arrays allowed',
+            'tags.*.string' => 'Each tag must be a string',
+            'tags.*.max' => 'Each tag must not exceed 255 characters',
+            'uploader_email.email' => 'Uploader email must be a valid email address',
+            'uploader_email.max' => 'Uploader email must not exceed 255 characters',
         ]);
 
         if ($validator->fails()) {
@@ -850,8 +1055,11 @@ class ImageComparisonApiController extends Controller
 
         try {
             $images = $request->file('images');
+            $descriptions = $request->input('descriptions', []);
+            $tags = $request->input('tags', []);
             $uploadedImages = [];
             $uploadId = 'upload_' . Str::random(10);
+            $similarityResults = [];
 
             // Ensure directory exists
             $referenceImagesPath = storage_path('app/public/reference-images');
@@ -859,26 +1067,85 @@ class ImageComparisonApiController extends Controller
                 mkdir($referenceImagesPath, 0755, true);
             }
 
-            foreach ($images as $image) {
+            foreach ($images as $index => $image) {
                 $originalName = $image->getClientOriginalName();
                 $extension = $image->getClientOriginalExtension();
                 $timestamp = time();
                 $randomString = Str::random(10);
                 $storedName = pathinfo($originalName, PATHINFO_FILENAME) . '_' . $timestamp . '_' . $randomString . '.' . $extension;
 
-                // Get file size before moving
+                // Get file size and MIME type before moving
                 $fileSize = $image->getSize();
+                $mimeType = $image->getMimeType();
 
                 // Store the image
                 $image->move($referenceImagesPath, $storedName);
+
+                // Get description and tags for this image (by index)
+                $description = $descriptions[$index] ?? null;
+                $imageTags = $tags[$index] ?? [];
+
+                // Parse tags if they're provided as a comma-separated string
+                if (is_string($imageTags)) {
+                    $imageTags = array_map('trim', explode(',', $imageTags));
+                    $imageTags = array_filter($imageTags); // Remove empty tags
+                }
+
+                // Store metadata in database
+                $metadata = ImageMetadata::create([
+                    'filename' => $storedName,
+                    'original_name' => $originalName,
+                    'description' => $description,
+                    'tags' => $imageTags,
+                    'upload_id' => $uploadId,
+                    'file_size' => $fileSize,
+                    'mime_type' => $mimeType,
+                    'uploader_email' => $request->input('uploader_email'),
+                    'status' => $request->input('status', 'lost'), // Default to 'lost' if not provided
+                ]);
 
                 $uploadedImages[] = [
                     'original_name' => $originalName,
                     'stored_name' => $storedName,
                     'path' => 'storage/reference-images/' . $storedName,
-                    'size' => $fileSize
+                    'size' => $fileSize,
+                    'description' => $description,
+                    'tags' => $imageTags,
+                    'metadata_id' => $metadata->id,
                 ];
+
+                // Check for similar images and send notifications
+                try {
+                    $newImageMetadata = [
+                        'description' => $description,
+                        'tags' => $imageTags,
+                        'original_name' => $originalName
+                    ];
+
+                    $storedPath = storage_path('app/public/reference-images/' . $storedName);
+                    $similarityResult = $this->similarityNotificationService->checkAndNotifySimilarImages(
+                        $storedPath,
+                        $newImageMetadata,
+                        $request->input('uploader_email')
+                    );
+
+                    $similarityResults[] = [
+                        'image_name' => $originalName,
+                        'similar_images_found' => $similarityResult['similar_images_found'],
+                        'notifications_sent' => $similarityResult['notifications_sent'],
+                        'emails_notified' => $similarityResult['emails_notified']
+                    ];
+
+                    Log::info('Similarity check completed for image: ' . $originalName, $similarityResult);
+                } catch (\Exception $e) {
+                    Log::error('Error checking similarity for image: ' . $originalName . ' - ' . $e->getMessage());
+                }
             }
+
+            // Calculate total similarity statistics
+            $totalSimilarFound = array_sum(array_column($similarityResults, 'similar_images_found'));
+            $totalNotificationsSent = array_sum(array_column($similarityResults, 'notifications_sent'));
+            $allEmailsNotified = array_unique(array_merge(...array_column($similarityResults, 'emails_notified')));
 
             return response()->json([
                 'success' => true,
@@ -886,9 +1153,17 @@ class ImageComparisonApiController extends Controller
                     'uploaded_images' => $uploadedImages,
                     'total_uploaded' => count($uploadedImages),
                     'upload_id' => $uploadId,
+                    'similarity_check_results' => $similarityResults,
+                    'similarity_summary' => [
+                        'total_similar_images_found' => $totalSimilarFound,
+                        'total_notifications_sent' => $totalNotificationsSent,
+                        'unique_emails_notified' => count($allEmailsNotified),
+                        'emails_notified' => $allEmailsNotified
+                    ],
                     'timestamp' => now()->toISOString()
                 ],
-                'message' => 'Successfully uploaded ' . count($uploadedImages) . ' reference image(s)'
+                'message' => 'Successfully uploaded ' . count($uploadedImages) . ' reference image(s)' .
+                           ($totalSimilarFound > 0 ? ' and found ' . $totalSimilarFound . ' similar images' : '')
             ]);
 
         } catch (\Exception $e) {
@@ -926,7 +1201,10 @@ class ImageComparisonApiController extends Controller
      *                         @OA\Property(property="original_name", type="string", example="image1.jpg"),
      *                         @OA\Property(property="path", type="string", example="storage/reference-images/image1_1234567890_abc123.jpg"),
      *                         @OA\Property(property="size", type="integer", example=1024000),
-     *                         @OA\Property(property="uploaded_at", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *                         @OA\Property(property="uploaded_at", type="string", format="date-time", example="2024-01-01T12:00:00Z"),
+     *                         @OA\Property(property="description", type="string", example="A beautiful sunset landscape"),
+     *                         @OA\Property(property="tags", type="array", @OA\Items(type="string"), example={"sunset", "landscape", "nature"}),
+     *                         @OA\Property(property="metadata_id", type="integer", example=123)
      *                     )
      *                 ),
      *                 @OA\Property(property="total_images", type="integer", example=15),
@@ -954,19 +1232,30 @@ class ImageComparisonApiController extends Controller
                     $size = filesize($file);
                     $totalSize += $size;
 
-                    // Try to extract original name from stored filename
-                    $originalName = $filename;
-                    if (preg_match('/^(.+)_\d+_[a-zA-Z0-9]+\.(.+)$/', $filename, $matches)) {
-                        $originalName = $matches[1] . '.' . $matches[2];
-                    }
+                    // Get metadata from database
+                    $metadata = ImageMetadata::where('filename', $filename)->first();
 
-                    $images[] = [
+                    $imageData = [
                         'filename' => $filename,
-                        'original_name' => $originalName,
+                        'original_name' => $metadata ? $metadata->original_name : $filename,
                         'path' => 'storage/reference-images/' . $filename,
                         'size' => $size,
-                        'uploaded_at' => date('c', filemtime($file))
+                        'uploaded_at' => $metadata ? $metadata->created_at->toISOString() : date('c', filemtime($file)),
+                        'description' => $metadata ? $metadata->description : null,
+                        'tags' => $metadata ? $metadata->tags : [],
+                        'uploader_email' => $metadata ? $metadata->uploader_email : null,
+                        'status' => $metadata ? $metadata->status : 'lost', // Default to 'lost' if no metadata
+                        'metadata_id' => $metadata ? $metadata->id : null,
                     ];
+
+                    // If no metadata exists, try to extract original name from filename
+                    if (!$metadata) {
+                        if (preg_match('/^(.+)_\d+_[a-zA-Z0-9]+\.(.+)$/', $filename, $matches)) {
+                            $imageData['original_name'] = $matches[1] . '.' . $matches[2];
+                        }
+                    }
+
+                    $images[] = $imageData;
                 }
 
                 // Sort by upload time (newest first)
@@ -1172,7 +1461,7 @@ class ImageComparisonApiController extends Controller
                     $deletedFilenames[] = $filename;
                 } catch (\Exception $e) {
                     $failedFilenames[] = $filename;
-                    \Log::error("Failed to delete reference image {$filename}: " . $e->getMessage());
+                    Log::error("Failed to delete reference image {$filename}: " . $e->getMessage());
                 }
             } else {
                 $failedFilenames[] = $filename;
@@ -1311,5 +1600,427 @@ class ImageComparisonApiController extends Controller
         }
 
         return round($bytes, $precision) . ' ' . $units[$i];
+    }
+
+    /**
+     * Calculate text similarity between two strings using multiple algorithms
+     */
+    public function calculateTextSimilarity(string $text1, string $text2): float
+    {
+        if (empty($text1) || empty($text2)) {
+            return 0.0;
+        }
+
+        // Normalize text (lowercase, trim)
+        $text1 = strtolower(trim($text1));
+        $text2 = strtolower(trim($text2));
+
+        if ($text1 === $text2) {
+            return 1.0; // Perfect match
+        }
+
+        // Calculate Jaro-Winkler similarity
+        $jaroWinkler = $this->jaroWinklerSimilarity($text1, $text2);
+
+        // Calculate Levenshtein similarity
+        $levenshtein = $this->levenshteinSimilarity($text1, $text2);
+
+        // Calculate word overlap similarity
+        $wordOverlap = $this->wordOverlapSimilarity($text1, $text2);
+
+        // Weighted average of different similarity measures
+        $similarity = ($jaroWinkler * 0.4) + ($levenshtein * 0.3) + ($wordOverlap * 0.3);
+
+        return min(1.0, max(0.0, $similarity));
+    }
+
+    /**
+     * Calculate Jaro-Winkler similarity
+     */
+    public function jaroWinklerSimilarity(string $s1, string $s2): float
+    {
+        $len1 = strlen($s1);
+        $len2 = strlen($s2);
+
+        if ($len1 === 0 || $len2 === 0) {
+            return 0.0;
+        }
+
+        $matchWindow = max($len1, $len2) / 2 - 1;
+        $matchWindow = max(0, floor($matchWindow));
+
+        $s1Matches = array_fill(0, $len1, false);
+        $s2Matches = array_fill(0, $len2, false);
+
+        $matches = 0;
+        $transpositions = 0;
+
+        // Find matches
+        for ($i = 0; $i < $len1; $i++) {
+            $start = max(0, $i - $matchWindow);
+            $end = min($i + $matchWindow + 1, $len2);
+
+            for ($j = $start; $j < $end; $j++) {
+                if ($s2Matches[$j] || $s1[$i] !== $s2[$j]) {
+                    continue;
+                }
+                $s1Matches[$i] = true;
+                $s2Matches[$j] = true;
+                $matches++;
+                break;
+            }
+        }
+
+        if ($matches === 0) {
+            return 0.0;
+        }
+
+        // Count transpositions
+        $k = 0;
+        for ($i = 0; $i < $len1; $i++) {
+            if (!$s1Matches[$i]) {
+                continue;
+            }
+            while (!$s2Matches[$k]) {
+                $k++;
+            }
+            if ($s1[$i] !== $s2[$k]) {
+                $transpositions++;
+            }
+            $k++;
+        }
+
+        $jaro = ($matches / $len1 + $matches / $len2 + ($matches - $transpositions / 2) / $matches) / 3;
+
+        // Winkler modification
+        if ($jaro < 0.7) {
+            return $jaro;
+        }
+
+        $prefix = 0;
+        $prefixLimit = min(4, min($len1, $len2));
+        for ($i = 0; $i < $prefixLimit; $i++) {
+            if ($s1[$i] === $s2[$i]) {
+                $prefix++;
+            } else {
+                break;
+            }
+        }
+
+        return $jaro + (0.1 * $prefix * (1 - $jaro));
+    }
+
+    /**
+     * Calculate Levenshtein similarity
+     */
+    public function levenshteinSimilarity(string $s1, string $s2): float
+    {
+        $len1 = strlen($s1);
+        $len2 = strlen($s2);
+
+        if ($len1 === 0) return $len2 === 0 ? 1.0 : 0.0;
+        if ($len2 === 0) return 0.0;
+
+        $distance = levenshtein($s1, $s2);
+        $maxLen = max($len1, $len2);
+
+        return 1 - ($distance / $maxLen);
+    }
+
+    /**
+     * Calculate word overlap similarity
+     */
+    public function wordOverlapSimilarity(string $s1, string $s2): float
+    {
+        $words1 = array_filter(array_map('trim', explode(' ', $s1)));
+        $words2 = array_filter(array_map('trim', explode(' ', $s2)));
+
+        if (empty($words1) || empty($words2)) {
+            return 0.0;
+        }
+
+        $intersection = array_intersect($words1, $words2);
+        $union = array_unique(array_merge($words1, $words2));
+
+        return count($intersection) / count($union);
+    }
+
+    /**
+     * Calculate overall similarity including text similarity
+     */
+    public function calculateOverallSimilarity(float $visualSimilarity, float $textSimilarity, float $textWeight = 0.3): float
+    {
+        $visualWeight = 1 - $textWeight;
+        return ($visualSimilarity * $visualWeight) + ($textSimilarity * $textWeight);
+    }
+
+    /**
+     * Update reference image details and/or image file
+     *
+     * @OA\Put(
+     *     path="/reference-images/{metadataId}",
+     *     operationId="updateReferenceImage",
+     *     tags={"Image Management"},
+     *     summary="Update reference image details and/or image file",
+     *     description="Update the metadata (description, tags, email) and optionally replace the image file",
+     *     @OA\Parameter(
+     *         name="metadataId",
+     *         in="path",
+     *         required=true,
+     *         description="ID of the image metadata to update",
+     *         @OA\Schema(type="integer", example=1)
+     *     ),
+     *     @OA\RequestBody(
+     *         required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(
+     *                     property="image",
+     *                     type="string",
+     *                     format="binary",
+     *                     description="Optional new image file to replace the existing one (max 10MB)"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="description",
+     *                     type="string",
+     *                     maxLength=1000,
+     *                     description="Updated description for the image (max 1000 chars)"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="tags",
+     *                     type="string",
+     *                     maxLength=255,
+     *                     description="Updated tags for the image (comma-separated string or JSON array)"
+     *                 ),
+     *                 @OA\Property(
+     *                     property="uploader_email",
+     *                     type="string",
+     *                     format="email",
+     *                     maxLength=255,
+     *                     description="Updated uploader email address"
+     *                 )
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=200,
+     *         description="Reference image updated successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(
+     *                 property="data",
+     *                 type="object",
+     *                 @OA\Property(property="updated_image", type="object"),
+     *                 @OA\Property(property="image_replaced", type="boolean", example=true),
+     *                 @OA\Property(property="metadata_updated", type="boolean", example=true),
+     *                 @OA\Property(property="timestamp", type="string", format="date-time", example="2024-01-01T12:00:00Z")
+     *             ),
+     *             @OA\Property(property="message", type="string", example="Reference image updated successfully")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=404,
+     *         description="Reference image not found",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Reference image not found"),
+     *             @OA\Property(property="message", type="string", example="The specified reference image does not exist")
+     *         )
+     *     ),
+     *     @OA\Response(
+     *         response=400,
+     *         description="Validation failed",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=false),
+     *             @OA\Property(property="error", type="string", example="Validation failed"),
+     *             @OA\Property(property="errors", type="object")
+     *         )
+     *     )
+     * )
+     */
+    public function updateReferenceImage(Request $request, int $metadataId): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'image' => 'sometimes|image|max:10240',
+            'description' => 'sometimes|string|max:1000',
+            'tags' => 'sometimes|string|max:255',
+            'uploader_email' => 'sometimes|email|max:255',
+            'status' => 'sometimes|in:lost,found',
+        ], [
+            'image.image' => 'The uploaded file must be an image',
+            'image.max' => 'The image must not exceed 10MB',
+            'description.string' => 'Description must be a string',
+            'description.max' => 'Description must not exceed 1000 characters',
+            'tags.string' => 'Tags must be a string',
+            'tags.max' => 'Tags must not exceed 255 characters',
+            'uploader_email.email' => 'Uploader email must be a valid email address',
+            'uploader_email.max' => 'Uploader email must not exceed 255 characters',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        try {
+            // Debug logging
+            Log::info('Update reference image request', [
+                'metadata_id' => $metadataId,
+                'request_data' => $request->except(['image']),
+                'has_uploader_email' => $request->has('uploader_email'),
+                'uploader_email_value' => $request->input('uploader_email'),
+                'has_status' => $request->has('status'),
+                'status_value' => $request->input('status'),
+                'all_input' => $request->all(),
+                'method' => $request->method(),
+                'content_type' => $request->header('Content-Type')
+            ]);
+
+            // Find the metadata record
+            $metadata = ImageMetadata::find($metadataId);
+
+            if (!$metadata) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Reference image not found',
+                    'message' => 'The specified reference image does not exist'
+                ], 404);
+            }
+
+            $imageReplaced = false;
+            $metadataUpdated = false;
+            $oldFilename = $metadata->filename;
+            $oldPath = storage_path('app/public/reference-images/' . $oldFilename);
+
+            // Handle image file replacement
+            if ($request->hasFile('image')) {
+                $newImage = $request->file('image');
+                $originalName = $newImage->getClientOriginalName();
+                $extension = $newImage->getClientOriginalExtension();
+                $fileSize = $newImage->getSize();
+                $mimeType = $newImage->getMimeType();
+
+                // Generate new filename
+                $timestamp = time();
+                $randomString = Str::random(10);
+                $newFilename = pathinfo($originalName, PATHINFO_FILENAME) . '_' . $timestamp . '_' . $randomString . '.' . $extension;
+
+                // Store the new image
+                $newImage->storeAs('public/reference-images', $newFilename);
+
+                // Delete the old image file
+                if (file_exists($oldPath)) {
+                    unlink($oldPath);
+                }
+
+                // Update metadata with new file information
+                $metadata->filename = $newFilename;
+                $metadata->original_name = $originalName;
+                $metadata->file_size = $fileSize;
+                $metadata->mime_type = $mimeType;
+
+                $imageReplaced = true;
+            }
+
+            // Update metadata fields
+            if ($request->has('description')) {
+                $metadata->description = $request->input('description');
+                $metadataUpdated = true;
+            }
+
+            if ($request->has('tags')) {
+                $tagsInput = $request->input('tags');
+                if (is_string($tagsInput)) {
+                    // Parse comma-separated tags
+                    $tags = array_map('trim', explode(',', $tagsInput));
+                    $tags = array_filter($tags); // Remove empty tags
+                } else {
+                    $tags = $tagsInput;
+                }
+                $metadata->tags = $tags;
+                $metadataUpdated = true;
+            }
+
+            if ($request->has('uploader_email')) {
+                $oldEmail = $metadata->uploader_email;
+                $newEmail = $request->input('uploader_email');
+                // Handle empty email - set to null if empty string
+                $newEmail = empty($newEmail) ? null : $newEmail;
+                $metadata->uploader_email = $newEmail;
+                $metadataUpdated = true;
+
+                Log::info('Updating uploader email', [
+                    'metadata_id' => $metadataId,
+                    'old_email' => $oldEmail,
+                    'new_email' => $newEmail,
+                    'email_changed' => $oldEmail !== $newEmail
+                ]);
+            }
+
+            if ($request->has('status')) {
+                $oldStatus = $metadata->status;
+                $newStatus = $request->input('status');
+                $metadata->status = $newStatus;
+                $metadataUpdated = true;
+
+                Log::info('Updating status', [
+                    'metadata_id' => $metadataId,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus,
+                    'status_changed' => $oldStatus !== $newStatus
+                ]);
+            }
+
+            // Save the updated metadata
+            if ($imageReplaced || $metadataUpdated) {
+                $metadata->save();
+
+                Log::info('Metadata saved successfully', [
+                    'metadata_id' => $metadataId,
+                    'image_replaced' => $imageReplaced,
+                    'metadata_updated' => $metadataUpdated,
+                    'final_uploader_email' => $metadata->uploader_email
+                ]);
+            }
+
+            // Prepare response data
+            $updatedImage = [
+                'metadata_id' => $metadata->id,
+                'filename' => $metadata->filename,
+                'original_name' => $metadata->original_name,
+                'path' => 'storage/reference-images/' . $metadata->filename,
+                'size' => $metadata->file_size,
+                'description' => $metadata->description,
+                'tags' => $metadata->tags,
+                'uploader_email' => $metadata->uploader_email,
+                'status' => $metadata->status,
+                'updated_at' => $metadata->updated_at->toISOString(),
+            ];
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'updated_image' => $updatedImage,
+                    'image_replaced' => $imageReplaced,
+                    'metadata_updated' => $metadataUpdated,
+                    'old_filename' => $imageReplaced ? $oldFilename : null,
+                    'new_filename' => $imageReplaced ? $metadata->filename : null,
+                    'timestamp' => now()->toISOString()
+                ],
+                'message' => 'Reference image updated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error updating reference image: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Update failed',
+                'message' => 'An unexpected error occurred while updating the image'
+            ], 500);
+        }
     }
 }
