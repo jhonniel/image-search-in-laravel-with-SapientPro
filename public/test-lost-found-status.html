@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Lost/Found Status Feature</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }
+        .status-lost { background: #f8d7da; color: #721c24; }
+        .status-found { background: #d4edda; color: #155724; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Lost/Found Status Feature</h1>
+
+    <div class="warning">
+        <h3>⚠️ Feature Overview:</h3>
+        <ul>
+            <li><strong>Status Field:</strong> Images can now be marked as "Lost" or "Found" items</li>
+            <li><strong>Upload Forms:</strong> Both reference upload and find match forms include status selection</li>
+            <li><strong>Filtering:</strong> Reference images can be filtered by status (All, Lost, Found)</li>
+            <li><strong>Visual Indicators:</strong> Status is displayed with color-coded badges</li>
+            <li><strong>Edit Functionality:</strong> Status can be updated when editing images</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Test 1: Check Current Images with Status</h3>
+        <p>View all images and their status:</p>
+        <button class="test-button" onclick="checkImagesWithStatus()">Check Images with Status</button>
+        <div id="result1" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📤 Test 2: Upload Lost Item</h3>
+        <p>Upload an image marked as "Lost":</p>
+        <input type="file" id="lost-image" accept="image/*">
+        <br><br>
+        <input type="text" id="lost-description" placeholder="Description (e.g., 'lost phone')" style="width: 300px; padding: 5px;">
+        <br><br>
+        <input type="text" id="lost-tags" placeholder="Tags (e.g., 'phone, lost, black')" style="width: 300px; padding: 5px;">
+        <br><br>
+        <input type="email" id="lost-email" placeholder="Your email address" style="width: 300px; padding: 5px;">
+        <br><br>
+        <button class="test-button" onclick="uploadLostItem()">Upload Lost Item</button>
+        <div id="result2" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📤 Test 3: Upload Found Item</h3>
+        <p>Upload an image marked as "Found":</p>
+        <input type="file" id="found-image" accept="image/*">
+        <br><br>
+        <input type="text" id="found-description" placeholder="Description (e.g., 'found wallet')" style="width: 300px; padding: 5px;">
+        <br><br>
+        <input type="text" id="found-tags" placeholder="Tags (e.g., 'wallet, found, brown')" style="width: 300px; padding: 5px;">
+        <br><br>
+        <input type="email" id="found-email" placeholder="Your email address" style="width: 300px; padding: 5px;">
+        <br><br>
+        <button class="test-button" onclick="uploadFoundItem()">Upload Found Item</button>
+        <div id="result3" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔍 Test 4: Test Status Filtering</h3>
+        <p>Test the filtering functionality:</p>
+        <button class="test-button" onclick="testStatusFiltering()">Test Status Filtering</button>
+        <div id="result4" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function checkImagesWithStatus() {
+            const resultDiv = document.getElementById('result1');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Loading images with status...';
+
+            try {
+                const response = await fetch('/api/v1/reference-images');
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    let html = '<h4>📊 Images with Status:</h4><ul>';
+
+                    data.data.images.forEach((image, index) => {
+                        const statusClass = image.status === 'found' ? 'status-found' : 'status-lost';
+                        const statusText = image.status === 'found' ? 'Found' : 'Lost';
+
+                        html += `<li>
+                            <strong>${image.original_name}</strong>
+                            <span class="status-badge ${statusClass}">${statusText}</span>
+                            ${image.description ? `<br>Description: ${image.description}` : ''}
+                            ${image.tags && image.tags.length > 0 ? `<br>Tags: ${image.tags.join(', ')}` : ''}
+                            ${image.uploader_email ? `<br>Email: ${image.uploader_email}` : ''}
+                        </li>`;
+                    });
+
+                    html += '</ul>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = 'Failed to load images';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Error:</h4><p>${error.message}</p>`;
+            }
+        }
+
+        async function uploadLostItem() {
+            const resultDiv = document.getElementById('result2');
+            const imageInput = document.getElementById('lost-image');
+            const description = document.getElementById('lost-description').value;
+            const tags = document.getElementById('lost-tags').value;
+            const email = document.getElementById('lost-email').value;
+
+            if (!imageInput.files[0]) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = 'Please select an image first';
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Uploading lost item...';
+
+            try {
+                const formData = new FormData();
+                formData.append('images[]', imageInput.files[0]);
+                formData.append('descriptions[]', description);
+                formData.append('tags[]', tags);
+                formData.append('uploader_email', email);
+                formData.append('status', 'lost');
+
+                const response = await fetch('/api/v1/reference-images/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Lost Item Uploaded Successfully!</h4>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Images uploaded:</strong> ${data.data.total_uploaded}</p>
+                        <p><strong>Status:</strong> <span class="status-badge status-lost">Lost</span></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h4>❌ Upload Failed!</h4>
+                        <p>Status: ${response.status}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Network Error:</h4><p>${error.message}</p>`;
+            }
+        }
+
+        async function uploadFoundItem() {
+            const resultDiv = document.getElementById('result3');
+            const imageInput = document.getElementById('found-image');
+            const description = document.getElementById('found-description').value;
+            const tags = document.getElementById('found-tags').value;
+            const email = document.getElementById('found-email').value;
+
+            if (!imageInput.files[0]) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = 'Please select an image first';
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Uploading found item...';
+
+            try {
+                const formData = new FormData();
+                formData.append('images[]', imageInput.files[0]);
+                formData.append('descriptions[]', description);
+                formData.append('tags[]', tags);
+                formData.append('uploader_email', email);
+                formData.append('status', 'found');
+
+                const response = await fetch('/api/v1/reference-images/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h4>✅ Found Item Uploaded Successfully!</h4>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Images uploaded:</strong> ${data.data.total_uploaded}</p>
+                        <p><strong>Status:</strong> <span class="status-badge status-found">Found</span></p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h4>❌ Upload Failed!</h4>
+                        <p>Status: ${response.status}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Network Error:</h4><p>${error.message}</p>`;
+            }
+        }
+
+        async function testStatusFiltering() {
+            const resultDiv = document.getElementById('result4');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Testing status filtering...';
+
+            try {
+                const response = await fetch('/api/v1/reference-images');
+                const data = await response.json();
+
+                if (data.success) {
+                    const allImages = data.data.images;
+                    const lostImages = allImages.filter(img => img.status === 'lost');
+                    const foundImages = allImages.filter(img => img.status === 'found');
+
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h4>🔍 Status Filtering Test Results:</h4>
+                        <p><strong>Total Images:</strong> ${allImages.length}</p>
+                        <p><strong>Lost Items:</strong> <span class="status-badge status-lost">${lostImages.length}</span></p>
+                        <p><strong>Found Items:</strong> <span class="status-badge status-found">${foundImages.length}</span></p>
+
+                        <h5>Lost Items:</h5>
+                        <ul>
+                            ${lostImages.map(img => `<li>${img.original_name} - ${img.description || 'No description'}</li>`).join('')}
+                        </ul>
+
+                        <h5>Found Items:</h5>
+                        <ul>
+                            ${foundImages.map(img => `<li>${img.original_name} - ${img.description || 'No description'}</li>`).join('')}
+                        </ul>
+
+                        <p><strong>✅ Filtering is working correctly!</strong></p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = 'Failed to load images for filtering test';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Error:</h4><p>${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

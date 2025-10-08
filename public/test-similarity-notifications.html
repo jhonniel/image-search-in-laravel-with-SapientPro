@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Similarity Notifications</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .test-button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        .warning { background: #fff3cd; color: #856404; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Similarity Notifications</h1>
+
+    <div class="warning">
+        <h3>⚠️ Important Notes:</h3>
+        <ul>
+            <li>Make sure you have uploaded some reference images with email addresses first</li>
+            <li>Upload images with similar descriptions/tags to trigger notifications</li>
+            <li>Check the logs to see detailed similarity calculations</li>
+            <li>Both existing image owners AND new uploaders will receive notifications</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h3>📧 Test 1: Upload Similar Image (Should Trigger Notifications)</h3>
+        <p>Upload an image similar to existing ones to test the notification system:</p>
+        <input type="file" id="similar-image" accept="image/*">
+        <br><br>
+        <input type="text" id="similar-description" placeholder="Description (e.g., 'rose flower')" style="width: 300px; padding: 5px;">
+        <br><br>
+        <input type="text" id="similar-tags" placeholder="Tags (e.g., 'rose, flower, red')" style="width: 300px; padding: 5px;">
+        <br><br>
+        <input type="email" id="similar-email" placeholder="Your email address" style="width: 300px; padding: 5px;">
+        <br><br>
+        <button class="test-button" onclick="testSimilarityUpload()">Upload Similar Image</button>
+        <div id="result1" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Test 2: Check Current Images</h3>
+        <p>See what images are currently in the system:</p>
+        <button class="test-button" onclick="checkCurrentImages()">Check Current Images</button>
+        <div id="result2" class="result" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Test 3: Check Logs</h3>
+        <p>View recent similarity check logs:</p>
+        <button class="test-button" onclick="checkLogs()">Check Logs</button>
+        <div id="result3" class="result" style="display: none;"></div>
+    </div>
+
+    <script>
+        async function testSimilarityUpload() {
+            const resultDiv = document.getElementById('result1');
+            const imageInput = document.getElementById('similar-image');
+            const description = document.getElementById('similar-description').value;
+            const tags = document.getElementById('similar-tags').value;
+            const email = document.getElementById('similar-email').value;
+
+            if (!imageInput.files[0]) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = 'Please select an image first';
+                return;
+            }
+
+            if (!email) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = 'Please enter your email address';
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Uploading image and checking for similarities...';
+
+            try {
+                const formData = new FormData();
+                formData.append('images[]', imageInput.files[0]);
+                formData.append('descriptions[]', description);
+                formData.append('tags[]', tags);
+                formData.append('uploader_email', email);
+
+                const response = await fetch('/api/v1/reference-images/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    let html = `
+                        <h4>✅ Upload Successful!</h4>
+                        <p><strong>Status:</strong> ${response.status}</p>
+                        <p><strong>Images uploaded:</strong> ${data.data.total_uploaded}</p>
+                    `;
+
+                    if (data.data.similarity_summary && data.data.similarity_summary.total_similar_images_found > 0) {
+                        html += `
+                            <div style="background: #e7f3ff; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                <h4>🔍 Similarity Check Results:</h4>
+                                <p><strong>Similar images found:</strong> ${data.data.similarity_summary.total_similar_images_found}</p>
+                                <p><strong>Notifications sent:</strong> ${data.data.similarity_summary.notifications_sent}</p>
+                                <p><strong>Emails notified:</strong> ${data.data.similarity_summary.unique_emails_notified}</p>
+                                <p><strong>Recipients:</strong> ${data.data.similarity_summary.emails_notified.join(', ')}</p>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div style="background: #f0f8f0; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                                <p>✅ No similar images found - no notifications sent</p>
+                            </div>
+                        `;
+                    }
+
+                    html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `
+                        <h4>❌ Upload Failed!</h4>
+                        <p>Status: ${response.status}</p>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Network Error:</h4><p>${error.message}</p>`;
+            }
+        }
+
+        async function checkCurrentImages() {
+            const resultDiv = document.getElementById('result2');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Loading current images...';
+
+            try {
+                const response = await fetch('/api/v1/reference-images');
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    let html = '<h4>📊 Current Images in System:</h4><ul>';
+
+                    data.data.images.forEach((image, index) => {
+                        html += `<li>
+                            <strong>${image.original_name}</strong>
+                            ${image.description ? `<br>Description: ${image.description}` : ''}
+                            ${image.tags && image.tags.length > 0 ? `<br>Tags: ${image.tags.join(', ')}` : ''}
+                            ${image.uploader_email ? `<br>Email: ${image.uploader_email}` : '<br>Email: Not provided'}
+                        </li>`;
+                    });
+
+                    html += '</ul>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = 'Failed to load images';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Error:</h4><p>${error.message}</p>`;
+            }
+        }
+
+        async function checkLogs() {
+            const resultDiv = document.getElementById('result3');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result info';
+            resultDiv.innerHTML = 'Checking logs...';
+
+            try {
+                const response = await fetch('/test-email');
+                const data = await response.json();
+
+                if (data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <h4>📝 System Status:</h4>
+                        <p><strong>Mail Driver:</strong> ${data.results.config.mail_driver}</p>
+                        <p><strong>Similarity Enabled:</strong> ${data.results.config.similarity_enabled}</p>
+                        <p><strong>Visual Threshold:</strong> ${data.results.config.visual_threshold}</p>
+                        <p><strong>Total Images:</strong> ${data.results.database.total_images}</p>
+                        <p><strong>Images with Email:</strong> ${data.results.database.images_with_email}</p>
+                        <p><strong>Email Notifications in Logs:</strong> ${data.results.logs.email_notifications}</p>
+                        <p><strong>Email Sending Status:</strong> ${data.results.email_sending.status}</p>
+                        <p><strong>Message:</strong> ${data.results.email_sending.message}</p>
+                    `;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = 'Failed to check logs';
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<h4>❌ Error:</h4><p>${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>
