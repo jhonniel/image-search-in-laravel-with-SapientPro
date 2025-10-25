@@ -1019,10 +1019,8 @@ class ImageComparisonApiController extends Controller
         $validator = Validator::make($request->all(), [
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|image|max:10240',
-            'descriptions' => 'sometimes|array|max:5',
-            'descriptions.*' => 'nullable|string|max:1000',
-            'tags' => 'sometimes|array|max:5',
-            'tags.*' => 'nullable|string|max:255',
+            'general_description' => 'nullable|string|max:1000',
+            'general_tags' => 'nullable|string|max:255',
             'uploader_email' => 'nullable|email|max:255',
             'status' => 'sometimes|in:lost,found',
         ], [
@@ -1033,14 +1031,10 @@ class ImageComparisonApiController extends Controller
             'images.*.required' => 'Each image is required',
             'images.*.image' => 'Each file must be an image',
             'images.*.max' => 'Each image must not exceed 10MB',
-            'descriptions.array' => 'Descriptions must be an array',
-            'descriptions.max' => 'Maximum 5 descriptions allowed',
-            'descriptions.*.string' => 'Each description must be a string',
-            'descriptions.*.max' => 'Each description must not exceed 1000 characters',
-            'tags.array' => 'Tags must be an array',
-            'tags.max' => 'Maximum 5 tag arrays allowed',
-            'tags.*.string' => 'Each tag must be a string',
-            'tags.*.max' => 'Each tag must not exceed 255 characters',
+            'general_description.string' => 'General description must be a string',
+            'general_description.max' => 'General description must not exceed 1000 characters',
+            'general_tags.string' => 'General tags must be a string',
+            'general_tags.max' => 'General tags must not exceed 255 characters',
             'uploader_email.email' => 'Uploader email must be a valid email address',
             'uploader_email.max' => 'Uploader email must not exceed 255 characters',
         ]);
@@ -1055,8 +1049,8 @@ class ImageComparisonApiController extends Controller
 
         try {
             $images = $request->file('images');
-            $descriptions = $request->input('descriptions', []);
-            $tags = $request->input('tags', []);
+            $generalDescription = $request->input('general_description');
+            $generalTags = $request->input('general_tags');
             $uploadedImages = [];
             $uploadId = 'upload_' . Str::random(10);
             $similarityResults = [];
@@ -1081,9 +1075,9 @@ class ImageComparisonApiController extends Controller
                 // Store the image
                 $image->move($referenceImagesPath, $storedName);
 
-                // Get description and tags for this image (by index)
-                $description = $descriptions[$index] ?? null;
-                $imageTags = $tags[$index] ?? [];
+                // Use general description and tags for all images
+                $description = $generalDescription;
+                $imageTags = $generalTags;
 
                 // Parse tags if they're provided as a comma-separated string
                 if (is_string($imageTags)) {
@@ -1241,6 +1235,8 @@ class ImageComparisonApiController extends Controller
                         'path' => 'storage/reference-images/' . $filename,
                         'size' => $size,
                         'uploaded_at' => $metadata ? $metadata->created_at->toISOString() : date('c', filemtime($file)),
+                        'created_at' => $metadata ? $metadata->created_at->toISOString() : date('c', filemtime($file)),
+                        'upload_id' => $metadata ? $metadata->upload_id : null,
                         'description' => $metadata ? $metadata->description : null,
                         'tags' => $metadata ? $metadata->tags : [],
                         'uploader_email' => $metadata ? $metadata->uploader_email : null,
@@ -1340,29 +1336,39 @@ class ImageComparisonApiController extends Controller
             $referenceImagesPath = storage_path('app/public/reference-images');
             $filePath = $referenceImagesPath . '/' . $filename;
 
-            if (!file_exists($filePath)) {
+            // Find the metadata record first
+            $metadata = ImageMetadata::where('filename', $filename)->first();
+
+            if (!$metadata) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Reference image not found',
-                    'message' => 'The specified reference image does not exist'
+                    'error' => 'Reference image metadata not found',
+                    'message' => 'The specified reference image metadata does not exist in the database'
                 ], 404);
             }
 
-            if (!unlink($filePath)) {
-                return response()->json([
-                    'success' => false,
-                    'error' => 'Failed to delete reference image',
-                    'message' => 'Could not delete the reference image file'
-                ], 500);
+            // Delete the physical file if it exists
+            if (file_exists($filePath)) {
+                if (!unlink($filePath)) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Failed to delete reference image file',
+                        'message' => 'Could not delete the reference image file from storage'
+                    ], 500);
+                }
             }
+
+            // Delete the metadata record from database
+            $metadata->delete();
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'deleted_filename' => $filename,
+                    'deleted_metadata_id' => $metadata->id,
                     'timestamp' => now()->toISOString()
                 ],
-                'message' => 'Reference image deleted successfully'
+                'message' => 'Reference image and metadata deleted successfully'
             ]);
 
         } catch (\Exception $e) {
@@ -1455,16 +1461,23 @@ class ImageComparisonApiController extends Controller
         foreach ($filenames as $filename) {
             $imagePath = $referenceImagesPath . '/' . $filename;
 
-            if (file_exists($imagePath)) {
-                try {
-                    unlink($imagePath);
-                    $deletedFilenames[] = $filename;
-                } catch (\Exception $e) {
-                    $failedFilenames[] = $filename;
-                    Log::error("Failed to delete reference image {$filename}: " . $e->getMessage());
+            try {
+                // Find and delete the metadata record first
+                $metadata = ImageMetadata::where('filename', $filename)->first();
+
+                if ($metadata) {
+                    $metadata->delete();
                 }
-            } else {
+
+                // Delete the physical file if it exists
+                if (file_exists($imagePath)) {
+                    unlink($imagePath);
+                }
+
+                $deletedFilenames[] = $filename;
+            } catch (\Exception $e) {
                 $failedFilenames[] = $filename;
+                Log::error("Failed to delete reference image {$filename}: " . $e->getMessage());
             }
         }
 
