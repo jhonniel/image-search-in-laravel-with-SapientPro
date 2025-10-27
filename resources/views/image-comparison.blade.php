@@ -261,8 +261,32 @@
                                     <div id="reference-preview" class="hidden mt-4 grid grid-cols-2 md:grid-cols-4 gap-2"></div>
                                 </div>
 
-                                <!-- Email Field -->
+                                <!-- General Description and Tags -->
                                 <div class="space-y-4 mt-6">
+                                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                        <h4 class="text-md font-semibold text-blue-800 mb-3">📝 Add Description and Tags</h4>
+                                        <p class="text-sm text-blue-700 mb-4">Add a general description and tags that will apply to all uploaded images, or leave blank to add individual descriptions for each image.</p>
+
+                                        <div class="space-y-4">
+                                            <div>
+                                                <label for="general-description" class="block text-sm font-medium text-gray-700 mb-2">General Description (Optional)</label>
+                                                <textarea id="general-description" name="general_description" rows="3"
+                                                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                          placeholder="Describe the items you're uploading (e.g., 'Lost items from Central Park on Monday')"></textarea>
+                                                <p class="text-xs text-gray-500 mt-1">This description will be applied to all uploaded images</p>
+                                            </div>
+
+                                            <div>
+                                                <label for="general-tags" class="block text-sm font-medium text-gray-700 mb-2">General Tags (Optional)</label>
+                                                <input type="text" id="general-tags" name="general_tags"
+                                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                       placeholder="Enter tags separated by commas (e.g., lost, Central Park, Monday, personal items)">
+                                                <p class="text-xs text-gray-500 mt-1">These tags will be applied to all uploaded images</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Email Field -->
                                     <div>
                                         <label for="reference-uploader-email" class="block text-sm font-medium text-gray-700 mb-2">Your Email Address</label>
                                         <input type="email" id="reference-uploader-email" name="uploader_email"
@@ -283,11 +307,6 @@
                                     </div>
                                 </div>
 
-                                <!-- Image Metadata Fields Container -->
-                                <div id="image-metadata-container" class="hidden space-y-4">
-                                    <h4 class="text-md font-semibold text-gray-700">Add Descriptions and Tags (Optional)</h4>
-                                    <div id="metadata-fields" class="space-y-4"></div>
-                                </div>
                             </div>
                             <div class="flex justify-center space-x-4">
                                 <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
@@ -526,51 +545,12 @@
             });
 
             // Show metadata fields if this is for reference images or match images
-            if (preview.id === 'reference-preview') {
-                showMetadataFields(files);
-            } else if (preview.id === 'match-preview') {
+            if (preview.id === 'match-preview') {
                 showUploadedDescriptionsFields(files);
                 showUploadedTagsFields(files);
             }
         }
 
-        function showMetadataFields(files) {
-            const container = document.getElementById('image-metadata-container');
-            const fieldsContainer = document.getElementById('metadata-fields');
-
-            container.classList.remove('hidden');
-            fieldsContainer.innerHTML = '';
-
-            files.forEach((file, index) => {
-                const fieldGroup = document.createElement('div');
-                fieldGroup.className = 'border rounded-lg p-4 bg-gray-50';
-                fieldGroup.innerHTML = `
-                    <div class="flex items-center space-x-2 mb-3">
-                        <img src="${URL.createObjectURL(file)}" alt="${file.name}" class="w-12 h-12 object-cover rounded">
-                        <div>
-                            <p class="text-sm font-medium text-gray-800 truncate" title="${file.name}">${file.name}</p>
-                            <p class="text-xs text-gray-500">${formatBytes(file.size)}</p>
-                        </div>
-                    </div>
-                    <div class="space-y-3">
-                        <div>
-                            <label for="description-${index}" class="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                            <textarea id="description-${index}" name="descriptions[${index}]" rows="2"
-                                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                      placeholder="Optional description for this image..."></textarea>
-                        </div>
-                        <div>
-                            <label for="tags-${index}" class="block text-sm font-medium text-gray-700 mb-1">Tags</label>
-                            <input type="text" id="tags-${index}" name="tags[${index}]"
-                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                   placeholder="Enter tags separated by commas (e.g., sunset, landscape, nature)">
-                            <p class="text-xs text-gray-500 mt-1">Separate multiple tags with commas</p>
-                        </div>
-                    </div>
-                `;
-                fieldsContainer.appendChild(fieldGroup);
-            });
-        }
 
         function showUploadedDescriptionsFields(files) {
             const container = document.getElementById('uploaded-descriptions-container');
@@ -740,6 +720,17 @@
             console.log('Uploading files:', files.length);
             for (let i = 0; i < files.length; i++) {
                 console.log('File', i, ':', files[i].name, files[i].size, files[i].type);
+            }
+
+            // Add general description and tags if provided
+            const generalDescription = document.getElementById('general-description').value;
+            const generalTags = document.getElementById('general-tags').value;
+
+            if (generalDescription.trim()) {
+                formData.append('general_description', generalDescription.trim());
+            }
+            if (generalTags.trim()) {
+                formData.append('general_tags', generalTags.trim());
             }
 
             // Ensure form data includes all files
@@ -1089,11 +1080,24 @@
                     </div>
                 `;
             } else {
+                // Group images by upload_id
+                const groupedImages = {};
+                images.forEach(image => {
+                    const uploadId = image.upload_id || 'single';
+                    if (!groupedImages[uploadId]) {
+                        groupedImages[uploadId] = [];
+                    }
+                    groupedImages[uploadId].push(image);
+                });
+
+                const totalImages = images.length;
+                const totalUploads = Object.keys(groupedImages).length;
+
                 listContainer.innerHTML = `
                     <div class="mb-4 p-3 bg-blue-50 rounded-lg">
                         <div class="flex items-center justify-between">
                             <p class="text-sm text-blue-800">
-                                <strong>${images.length}</strong> reference images
+                                <strong>${totalImages}</strong> reference images in <strong>${totalUploads}</strong> upload${totalUploads > 1 ? 's' : ''}
                             </p>
                             <div class="flex items-center space-x-2">
                                 <label class="flex items-center space-x-2 text-sm text-blue-800">
@@ -1106,68 +1110,76 @@
                             </div>
                         </div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        ${images.map(image => `
-                            <div class="border rounded-lg p-4 bg-white relative">
-                                <div class="absolute top-2 left-2">
-                                    <input type="checkbox" class="image-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" value="${image.filename}" onchange="updateBulkDeleteButton()">
-                                </div>
-                                <div class="aspect-w-16 aspect-h-9 mb-3">
-                                    <img src="/${image.path}" alt="${image.original_name}" class="w-full h-32 object-cover rounded">
-                                </div>
-                                <div class="space-y-2">
-                                    <p class="text-sm font-medium text-gray-800 truncate" title="${image.original_name}">${image.original_name}</p>
-                                    <p class="text-xs text-gray-500">${image.filename}</p>
-                                    ${image.description ? `
-                                        <div class="mt-2">
-                                            <p class="text-xs text-gray-600 bg-blue-50 p-2 rounded border-l-2 border-blue-200">
-                                                <span class="font-medium">Description:</span> ${image.description}
-                                            </p>
+                    <div class="space-y-6">
+                        ${Object.entries(groupedImages).map(([uploadId, uploadImages]) => `
+                            <div class="border-2 border-blue-200 rounded-lg p-6 bg-white shadow-sm">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        <input type="checkbox" class="batch-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" value="${uploadId}" onchange="updateBulkDeleteButton()">
+                                        <div>
+                                            <h4 class="text-lg font-semibold text-blue-900">📦 Batch Upload</h4>
+                                            <p class="text-sm text-blue-700">${uploadImages.length} image${uploadImages.length > 1 ? 's' : ''} • Uploaded: ${new Date(uploadImages[0].created_at).toLocaleString()}</p>
                                         </div>
-                                    ` : ''}
-                                    ${image.tags && image.tags.length > 0 ? `
-                                        <div class="mt-2">
-                                            <p class="text-xs text-gray-600 mb-1"><span class="font-medium">Tags:</span></p>
-                                            <div class="flex flex-wrap gap-1">
-                                                ${image.tags.map(tag => `
-                                                    <span class="inline-block bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">${tag}</span>
-                                                `).join('')}
+                                    </div>
+                                    <div class="flex space-x-2">
+                                        <button onclick="editBatchUpload('${uploadId}')" class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors">
+                                            Edit Batch
+                                        </button>
+                                        <button onclick="deleteBatchUpload('${uploadId}')" class="bg-red-600 hover:bg-red-700 text-white text-sm font-medium py-2 px-4 rounded transition-colors">
+                                            Delete Batch
+                                        </button>
+                                    </div>
+                                </div>
+
+                                ${uploadImages[0].description ? `
+                                    <div class="mb-4 p-3 bg-blue-50 rounded-lg border-l-4 border-blue-400">
+                                        <p class="text-sm text-blue-800"><span class="font-medium">Description:</span> ${uploadImages[0].description}</p>
+                                    </div>
+                                ` : ''}
+
+                                ${uploadImages[0].tags && uploadImages[0].tags.length > 0 ? `
+                                    <div class="mb-4 p-3 bg-green-50 rounded-lg border-l-4 border-green-400">
+                                        <p class="text-sm text-green-800 mb-2"><span class="font-medium">Tags:</span></p>
+                                        <div class="flex flex-wrap gap-2">
+                                            ${Array.isArray(uploadImages[0].tags) ? uploadImages[0].tags.map(tag => `
+                                                <span class="inline-block bg-green-100 text-green-800 text-sm px-3 py-1 rounded-full">${tag}</span>
+                                            `).join('') : ''}
+                                        </div>
+                                    </div>
+                                ` : ''}
+
+                                ${uploadImages[0].uploader_email ? `
+                                    <div class="mb-4 p-3 bg-purple-50 rounded-lg border-l-4 border-purple-400">
+                                        <p class="text-sm text-purple-800"><span class="font-medium">Uploaded by:</span> ${uploadImages[0].uploader_email}</p>
+                                    </div>
+                                ` : ''}
+
+                                <div class="mb-4 p-3 bg-${uploadImages[0].status === 'found' ? 'green' : 'red'}-50 rounded-lg border-l-4 border-${uploadImages[0].status === 'found' ? 'green' : 'red'}-400">
+                                    <p class="text-sm text-${uploadImages[0].status === 'found' ? 'green' : 'red'}-800">
+                                        <span class="font-medium">Status:</span>
+                                        <span class="inline-block px-3 py-1 text-sm font-medium rounded-full ${uploadImages[0].status === 'found' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'} ml-2">
+                                            ${uploadImages[0].status === 'found' ? 'Found Item' : 'Lost Item'}
+                                        </span>
+                                    </p>
+                                </div>
+
+                                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                    ${uploadImages.map(image => `
+                                        <div class="relative group">
+                                            <div class="aspect-w-16 aspect-h-9">
+                                                <img src="/${image.path}" alt="${image.original_name}" class="w-full h-32 object-cover rounded-lg shadow-sm">
+                                            </div>
+                                            <div class="mt-2">
+                                                <p class="text-xs font-medium text-gray-800 truncate" title="${image.original_name}">${image.original_name}</p>
+                                                <p class="text-xs text-gray-500">${formatBytes(image.size)}</p>
+                                            </div>
+                                            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onclick="deleteReferenceImage('${image.filename}')" class="bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-1 px-2 rounded transition-colors">
+                                                    Delete
+                                                </button>
                                             </div>
                                         </div>
-                                    ` : ''}
-                                    ${image.uploader_email ? `
-                                        <div class="mt-2">
-                                            <p class="text-xs text-gray-600 bg-purple-50 p-2 rounded border-l-2 border-purple-200">
-                                                <span class="font-medium">Uploaded by:</span> ${image.uploader_email}
-                                            </p>
-                                        </div>
-                                    ` : ''}
-                                    <div class="mt-2">
-                                        <p class="text-xs text-gray-600 bg-${image.status === 'found' ? 'green' : 'red'}-50 p-2 rounded border-l-2 border-${image.status === 'found' ? 'green' : 'red'}-200">
-                                            <span class="font-medium">Status:</span>
-                                            <span class="inline-block px-2 py-1 text-xs font-medium rounded-full ${image.status === 'found' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                                ${image.status === 'found' ? 'Found Item' : 'Lost Item'}
-                                            </span>
-                                        </p>
-                                    </div>
-                                    <div class="flex items-center justify-between mt-2">
-                                        <span class="text-xs text-gray-500">Size:</span>
-                                        <span class="text-xs text-gray-600">${formatBytes(image.size)}</span>
-                                    </div>
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-xs text-gray-500">Uploaded:</span>
-                                        <span class="text-xs text-gray-600">${new Date(image.uploaded_at).toLocaleDateString()}</span>
-                                    </div>
-                                    <div class="flex space-x-2 mt-2">
-                                        <button onclick="editReferenceImageFromButton(this, ${image.metadata_id || 'null'}, '${(image.original_name || '').replace(/'/g, "\\'")}', '${(image.description || '').replace(/'/g, "\\'")}', '${(image.tags || []).join(', ').replace(/'/g, "\\'")}', '${(image.uploader_email || '').replace(/'/g, "\\'")}', '${(image.status || 'lost').replace(/'/g, "\\'")}')"
-                                                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium py-1 px-2 rounded transition-colors">
-                                            Edit
-                                        </button>
-                                        <button onclick="deleteReferenceImage('${image.filename}')"
-                                                class="flex-1 bg-red-600 hover:bg-red-700 text-white text-xs font-medium py-1 px-2 rounded transition-colors">
-                                            Delete
-                                        </button>
-                                    </div>
+                                    `).join('')}
                                 </div>
                             </div>
                         `).join('')}
@@ -1251,6 +1263,49 @@
             }
         }
 
+        // Batch upload functions
+        window.editBatchUpload = function(uploadId) {
+            // TODO: Implement batch edit functionality
+            alert('Batch edit functionality will be implemented soon!');
+        };
+
+        window.deleteBatchUpload = function(uploadId) {
+            if (!confirm('Are you sure you want to delete this entire batch upload?')) {
+                return;
+            }
+
+            // Get all images with this upload_id
+            const batchImages = allReferenceImages.filter(img => img.upload_id === uploadId);
+            const filenames = batchImages.map(img => img.filename);
+
+            // Delete all images in the batch
+            deleteMultipleImages(filenames);
+        };
+
+        async function deleteMultipleImages(filenames) {
+            try {
+                const response = await fetch('/api/v1/reference-images/bulk', {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    },
+                    body: JSON.stringify({ filenames: filenames })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    loadReferenceImages(); // Refresh the list
+                } else {
+                    alert('Error deleting images: ' + (data.error || data.message));
+                }
+            } catch (error) {
+                console.error('Error deleting images:', error);
+                alert('Error deleting images. Please try again.');
+            }
+        }
+
         // Make clearReferenceUploadForm globally accessible
         window.clearReferenceUploadForm = function() {
             // Clear the file input
@@ -1265,10 +1320,6 @@
             // Clear email field
             document.getElementById('reference-uploader-email').value = '';
 
-            // Clear metadata fields
-            const metadataContainer = document.getElementById('image-metadata-container');
-            metadataContainer.classList.add('hidden');
-            document.getElementById('metadata-fields').innerHTML = '';
 
             // Reset the drop zone
             const dropZone = document.getElementById('reference-drop-zone');

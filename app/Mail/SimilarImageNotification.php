@@ -5,7 +5,6 @@ namespace App\Mail;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Address;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -29,31 +28,12 @@ class SimilarImageNotification extends Mailable
      */
     public function envelope(): Envelope
     {
-        $config = config('similarity.email', []);
-        $fromName = $config['from_name'] ?? config('mail.from.name', 'Image Search System');
-
-        // Dynamic subject prefix based on notification type
-        $notificationType = $this->data['notification_type'] ?? 'default';
-        $status = $this->data['new_image_metadata']['status'] ?? 'item';
-
-            switch ($notificationType) {
-                case 'no_match':
-                    $subjectPrefix = "📝 {$status} Uploaded - We'll Notify You";
-                    break;
-                case 'new_uploader':
-                    $subjectPrefix = "🔍 Similar Item Found!";
-                    break;
-                default:
-                    $subjectPrefix = "🔍 Similar Item Found!";
-                    break;
-            }
+        $subject = $this->data['notification_type'] === 'existing_owner'
+            ? 'Similar Image Found - Someone uploaded a similar item!'
+            : 'Image Upload Status - Similar items found!';
 
         return new Envelope(
-            subject: $subjectPrefix . ' - ' . $fromName,
-            from: new Address(
-                $config['from_address'] ?? config('mail.from.address', 'noreply@example.com'),
-                $fromName
-            ),
+            subject: $subject,
         );
     }
 
@@ -65,11 +45,7 @@ class SimilarImageNotification extends Mailable
         return new Content(
             view: 'emails.similar-image-notification',
             with: [
-                'email' => $this->data['email'],
-                'similarImages' => $this->data['similar_images'],
-                'newImageMetadata' => $this->data['new_image_metadata'],
-                'totalSimilar' => $this->data['total_similar'],
-                'notification_type' => $this->data['notification_type']
+                'data' => $this->data,
             ]
         );
     }
