@@ -2,18 +2,84 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ImageComparisonController;
+use App\Http\Controllers\AuthController;
 
 Route::get('/', function () {
-    return redirect('/image-comparison');
+    return view('welcome');
 });
 
-Route::get('/image-comparison', function () {
-    return view('image-comparison');
-});
+// Authentication routes
+Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+Route::post('/login', [AuthController::class, 'login']);
+Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('register');
+Route::post('/register', [AuthController::class, 'register']);
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+
+// Protected routes
+Route::middleware(['auth'])->group(function () {
+    // Admin Dashboard
+    Route::get('/admin/dashboard', function () {
+        return view('admin.dashboard');
+    });
+
+    // User Dashboard
+    Route::get('/user/dashboard', function () {
+        return view('user.dashboard');
+    });
+
+    // User Routes
+    Route::get('/user/reported-items', function () {
+        return view('user.reported-items');
+    });
+
+    Route::get('/user/claim-verify', function () {
+        return view('user.claim-verify');
+    });
+
+        // Image Comparison (admin only - testing feature)
+        Route::middleware(['admin'])->group(function () {
+            Route::get('/image-comparison', function () {
+                return view('image-comparison');
+            });
+
+    Route::get('/admin/reported-items', [\App\Http\Controllers\AdminController::class, 'reportedItems'])->name('admin.reported-items');
+    Route::delete('/admin/reported-items/{uploadId}', [\App\Http\Controllers\AdminController::class, 'deleteItem'])->name('admin.delete-item');
+    Route::get('/admin/claim-verify', [\App\Http\Controllers\AdminController::class, 'claimVerify'])->name('admin.claim-verify');
+    Route::get('/admin/users', [\App\Http\Controllers\AdminController::class, 'users'])->name('admin.users');
+    Route::get('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'showUser'])->name('admin.users.show');
+    Route::get('/admin/users/{user}/edit', [\App\Http\Controllers\AdminController::class, 'editUser'])->name('admin.users.edit');
+    Route::put('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'updateUser'])->name('admin.users.update');
+        });
+
+        // User Items API Routes (moved from API routes for better session handling)
+        Route::post('/api/user/items/upload', [\App\Http\Controllers\Api\UserItemController::class, 'uploadItems']);
+        Route::get('/api/user/items', [\App\Http\Controllers\Api\UserItemController::class, 'getUserItems']);
+        Route::delete('/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'deleteItem']);
+        Route::get('/api/user/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
+        Route::post('/api/user/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
+
+        // User Profile Routes
+        Route::get('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('user.profile');
+        Route::get('/user/profile/edit', [\App\Http\Controllers\UserProfileController::class, 'edit'])->name('user.profile.edit');
+        Route::put('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'update'])->name('user.profile.update');
+        Route::post('/user/profile/avatar', [\App\Http\Controllers\UserProfileController::class, 'uploadAvatar'])->name('user.profile.avatar');
+
+        // Chat Routes
+        Route::get('/user/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('user.chat');
+        Route::get('/user/chat/messages/{userId}', [\App\Http\Controllers\ChatController::class, 'getMessages'])->name('user.chat.messages');
+        Route::post('/user/chat/send', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('user.chat.send');
+        Route::get('/user/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('user.chat.unread-count');
+        Route::post('/user/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('user.chat.mark-read');
+        Route::post('/user/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('user.chat.get-user-by-email');
+    });
 
 Route::get('/debug-test', function () {
     return view('debug-test');
 });
+
+// Guest posting routes
+Route::get('/post', [\App\Http\Controllers\GuestItemController::class, 'showForm'])->name('guest.post.form');
+Route::post('/post', [\App\Http\Controllers\GuestItemController::class, 'submit'])->name('guest.post.submit');
 
 Route::post('/debug-upload', function (Illuminate\Http\Request $request) {
     $result = [
