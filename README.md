@@ -7,6 +7,79 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## FindITFast - Setup and Run Guide
+
+This section provides a concise, step-by-step setup for the FindITFast app (landing, guest posting, chat with item context, claim & verify, similarity notifications).
+
+### 1) Requirements
+- PHP 8.2+
+- Composer 2+
+- Node.js 18+ and npm 8+
+- SQLite (local) or MySQL 8+
+- PHP extensions: pdo, pdo_sqlite or pdo_mysql, mbstring, openssl, fileinfo, json, ctype, tokenizer, xml, curl, bcmath, and either gd or imagick
+
+### 2) Clone and install
+```bash
+git clone <repo-url> image-search
+cd image-search
+composer install --no-interaction --prefer-dist
+npm install
+```
+
+### 3) Configure environment
+```bash
+cp .env.example .env
+php artisan key:generate
+```
+- App URL: `APP_URL=http://127.0.0.1:8000`
+- Database (SQLite local):
+  ```bash
+  touch database/database.sqlite
+  ```
+  Set in `.env`: `DB_CONNECTION=sqlite`
+- Mail (required for item upload/similarity emails): set SMTP envs: `MAIL_MAILER, MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_ENCRYPTION, MAIL_FROM_ADDRESS, MAIL_FROM_NAME`.
+  - See `SMTP_CONFIGURATION_GUIDE.md` and `SMTP_TROUBLESHOOTING_GUIDE.md`.
+
+### 4) Storage link and migrate
+```bash
+php artisan storage:link
+php artisan migrate --force
+```
+
+### 5) Build assets
+```bash
+npm run dev   # dev (watch) in one terminal
+# or
+npm run build # production build
+```
+
+### 6) Run the app
+```bash
+php artisan serve --host=127.0.0.1 --port=8000
+```
+Open `http://127.0.0.1:8000`.
+
+### 7) Key flows to test
+- Landing page UI and buttons link to `/post?type=lost` or `/post?type=found`.
+- Guest item post: fill form → redirected to register → after registration, files move from `public/temp-guest` to `public/user-items` and items are created.
+- Similarity & emails: for every created item, system checks for similar items; sends “Similar Items Found” or “Item Uploaded Successfully”.
+- Your items: `/user/reported-items`
+- Claim & Verify: `/user/claim-verify` (users), `/admin/claim-verify` (admin)
+- Chat with item context: `/user/chat`
+
+Admin login redirects to `/admin/dashboard` (rule in `AuthController`).
+
+### 8) File storage locations
+- User items: `storage/app/public/user-items` → `/storage/user-items/...`
+- Temp guest: `storage/app/public/temp-guest` (moved after registration)
+- Reference images (if used): `storage/app/public/reference-images`
+
+### 9) Troubleshooting
+- Images 403/404: run `php artisan storage:link`; ensure files exist; hard refresh.
+- SQLite migration error (NOT NULL): already handled by nullable `username`. Re-run migrate.
+- Emails not sending: verify SMTP; see guides; check `storage/logs/laravel.log`.
+- Similarity errors: ensure PHP `gd` or `imagick` is enabled.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
