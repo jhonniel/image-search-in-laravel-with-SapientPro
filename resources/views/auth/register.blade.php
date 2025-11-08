@@ -55,6 +55,24 @@
             <div class="mb-8">
                 <h2 class="text-5xl md:text-6xl font-extrabold text-[#213A8F] mb-2">Sign up</h2>
                 <p class="text-gray-600 text-lg">Join our community to help find lost items</p>
+                
+                @if(session('status'))
+                <div class="mt-4 bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        <span>{{ session('status') }}</span>
+                    </div>
+                </div>
+                @endif
+                
+                @if(isset($hasPendingItem) && $hasPendingItem)
+                <div class="mt-4 bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>Your item is ready to be posted! Complete your registration to publish it.</span>
+                    </div>
+                </div>
+                @endif
             </div>
 
             <form method="POST" action="{{ route('register') }}" class="space-y-6">

@@ -99,8 +99,8 @@
         <!-- Chat Area -->
         <div class="flex-1 flex flex-col">
             <!-- Chat Header -->
-            <div id="chat-header" class="p-4 border-b border-gray-200 bg-gray-50 hidden">
-                <div class="flex items-center justify-between">
+            <div id="chat-header" class="p-4 border-b border-gray-200 bg-white hidden">
+                <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div id="chat-user-avatar" class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
@@ -112,10 +112,14 @@
                             <p id="chat-user-status" class="text-sm text-gray-500">Online</p>
                         </div>
                     </div>
-                    <div id="item-context-info" class="hidden">
-                        <div class="text-right">
-                            <p class="text-sm font-medium text-gray-900" id="item-context-title">About Item</p>
-                            <p class="text-xs text-gray-500" id="item-context-details"></p>
+                </div>
+                <!-- Item Context Info (shown when chatting about an item) -->
+                <div id="item-context-info" class="hidden mt-3 pt-3 border-t border-gray-200 bg-purple-50 rounded-lg p-3">
+                    <div class="flex items-start space-x-2">
+                        <i class="fas fa-info-circle text-purple-500 mt-0.5"></i>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-purple-900" id="item-context-title">About Item</p>
+                            <p class="text-xs text-purple-700 mt-1" id="item-context-details">Item details will appear here</p>
                         </div>
                     </div>
                 </div>
@@ -247,9 +251,16 @@ async function loadMessages(userId) {
             updateChatHeader(data.other_user);
             displayMessages(data.messages);
 
-            // Update item context if provided by server
-            if (data.item_context) {
+            // Update item context if provided by server (this ensures both users see it)
+            if (data.item_context && !itemContext) {
                 itemContext = data.item_context;
+                // Also store in sessionStorage for persistence
+                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                showItemContext();
+            } else if (data.item_context) {
+                // Update existing context
+                itemContext = data.item_context;
+                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
                 showItemContext();
             }
         }
@@ -416,13 +427,28 @@ document.addEventListener('DOMContentLoaded', function() {
     const userId = urlParams.get('user');
     const itemId = urlParams.get('item');
 
-    if (userId && itemId) {
-        // Load item context from sessionStorage
+    // Try to get item context from server-side data first
+    @if(isset($itemContextData) && $itemContextData)
+        itemContext = @json($itemContextData);
+    @endif
+
+    // Fallback to sessionStorage if not available from server
+    if (!itemContext) {
         const storedContext = sessionStorage.getItem('chatItemContext');
         if (storedContext) {
-            itemContext = JSON.parse(storedContext);
-            selectUser(parseInt(userId));
-            showItemContext();
+            try {
+                itemContext = JSON.parse(storedContext);
+            } catch (e) {
+                console.error('Error parsing item context from sessionStorage:', e);
+            }
+        }
+    }
+
+    if (userId) {
+        selectUser(parseInt(userId));
+        // Show item context if available
+        if (itemContext) {
+            setTimeout(() => showItemContext(), 100);
         }
     }
 });
@@ -437,52 +463,66 @@ function showItemContext() {
     const contextTitle = document.getElementById('item-context-title');
     const contextDetails = document.getElementById('item-context-details');
 
-    // Show item context in message input area
+    // Show item context in message input area (enhanced display)
     contextElement.classList.remove('hidden');
+    contextElement.classList.add('bg-purple-50', 'border-purple-300');
+    
+    const firstImage = itemContext.images && itemContext.images.length > 0 ? itemContext.images[0] : null;
+    const itemType = itemContext.item_type || itemContext.itemType || 'item';
+    const uploadId = itemContext.upload_id || itemContext.uploadId;
+    
     contextContent.innerHTML = `
-        <div class="space-y-3">
-            <div class="flex items-start space-x-3">
-                <div class="flex-shrink-0">
-                    ${itemContext.images && itemContext.images.length > 0 ? `
-                        <img src="${itemContext.images[0].path}" alt="${itemContext.images[0].original_name}"
-                             class="w-16 h-16 object-cover rounded-lg border border-gray-200">
-                    ` : `
-                        <div class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center">
-                            <i class="fas fa-image text-gray-400"></i>
-                        </div>
-                    `}
-                </div>
-                <div class="flex-1 min-w-0">
-                    <div class="space-y-1">
-                        <div class="flex items-center space-x-2">
-                            <span class="px-2 py-1 rounded-full text-xs font-medium ${itemContext.item_type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                                ${itemContext.item_type === 'lost' ? 'Lost Item' : 'Found Item'}
-                            </span>
-                            <span class="text-xs text-gray-500">
-                                by ${itemContext.uploader_name}
-                            </span>
-                        </div>
-                        <div class="text-sm font-medium text-gray-900">${itemContext.description}</div>
-                        <div class="text-sm text-gray-600">📍 ${itemContext.location}</div>
-                        ${itemContext.tags && itemContext.tags.length > 0 ? `
-                            <div class="flex flex-wrap gap-1 mt-1">
-                                ${itemContext.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">${tag}</span>`).join('')}
-                            </div>
-                        ` : ''}
+        <div class="flex items-start space-x-4">
+            <div class="flex-shrink-0">
+                ${firstImage ? `
+                    <img src="${firstImage.path}" alt="${firstImage.original_name || 'Item image'}"
+                         class="w-20 h-20 object-cover rounded-lg border-2 border-purple-300 shadow-sm cursor-pointer"
+                         onclick="window.open('/item/${uploadId}', '_blank')">
+                ` : `
+                    <div class="w-20 h-20 bg-purple-100 rounded-lg flex items-center justify-center border-2 border-purple-300">
+                        <i class="fas fa-image text-purple-400 text-2xl"></i>
                     </div>
+                `}
+            </div>
+            <div class="flex-1 min-w-0">
+                <div class="space-y-2">
+                    <div class="flex items-center space-x-2 flex-wrap">
+                        <span class="px-3 py-1 rounded-full text-xs font-semibold ${itemType === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                            ${itemType === 'lost' ? '📌 Lost Item' : '📌 Found Item'}
+                        </span>
+                        <span class="text-xs text-gray-600">
+                            Posted by ${itemContext.uploader_name || 'Unknown'}
+                        </span>
+                    </div>
+                    <div class="text-sm font-semibold text-gray-900">${itemContext.description || 'No description'}</div>
+                    ${itemContext.location ? `<div class="text-sm text-gray-600">📍 ${itemContext.location}</div>` : ''}
+                    ${itemContext.tags && itemContext.tags.length > 0 ? `
+                        <div class="flex flex-wrap gap-1 mt-2">
+                            ${itemContext.tags.map(tag => `<span class="px-2 py-1 bg-white text-purple-700 rounded-full text-xs border border-purple-200">${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    ${uploadId ? `
+                        <a href="/item/${uploadId}" target="_blank" class="inline-block text-xs text-purple-600 hover:text-purple-800 font-medium mt-2">
+                            <i class="fas fa-external-link-alt mr-1"></i>View Full Item Details
+                        </a>
+                    ` : ''}
                 </div>
             </div>
         </div>
     `;
 
     // Show item context in header
-    contextInfo.classList.remove('hidden');
-    contextTitle.textContent = `About ${itemContext.item_type === 'lost' ? 'Lost' : 'Found'} Item`;
-    contextDetails.textContent = `${itemContext.description} (${itemContext.location})`;
+    if (contextInfo) {
+        contextInfo.classList.remove('hidden');
+        if (contextTitle) contextTitle.textContent = `💬 Chatting about: ${itemType === 'lost' ? 'Lost' : 'Found'} Item`;
+        if (contextDetails) contextDetails.textContent = `${itemContext.description || 'Item'}${itemContext.location ? ' • ' + itemContext.location : ''}`;
+    }
 
     // Update message placeholder
     const messageInput = document.getElementById('message-input');
-    messageInput.placeholder = `Message about this ${itemContext.item_type} item...`;
+    if (messageInput) {
+        messageInput.placeholder = `Type your message about this ${itemType} item...`;
+    }
 }
 
 // Clear item context

@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class ImageMetadata extends Model
 {
+    use SoftDeletes;
     /**
      * The table associated with the model.
      */
@@ -20,6 +22,7 @@ class ImageMetadata extends Model
         'file_path',
         'original_name',
         'description',
+        'location',
         'tags',
         'upload_id',
         'file_size',
@@ -40,6 +43,7 @@ class ImageMetadata extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'claimed_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     /**

@@ -19,6 +19,71 @@ class SimilarityNotificationService
     {
         $this->imageComparator = $imageComparator;
         $this->config = config('similarity', []);
+        
+        // Apply mail configuration from database settings
+        $this->applyMailConfigurationFromSettings();
+    }
+    
+    /**
+     * Apply mail configuration from database settings
+     */
+    private function applyMailConfigurationFromSettings(): void
+    {
+        try {
+            // Check if email notifications are enabled
+            $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
+            $similarityAlertsEnabled = \App\Models\Setting::get('similarity_alerts', true);
+            
+            // Only apply mail config if notifications are enabled
+            if ($emailNotificationsEnabled && $similarityAlertsEnabled) {
+                // Get mail settings from database
+                $mailMailer = \App\Models\Setting::get('mail_mailer', env('MAIL_MAILER', 'log'));
+                $mailHost = \App\Models\Setting::get('mail_host', env('MAIL_HOST'));
+                $mailPort = \App\Models\Setting::get('mail_port', env('MAIL_PORT', 587));
+                $mailUsername = \App\Models\Setting::get('mail_username', env('MAIL_USERNAME'));
+                $mailPassword = \App\Models\Setting::get('mail_password', env('MAIL_PASSWORD'));
+                $mailEncryption = \App\Models\Setting::get('mail_encryption', env('MAIL_ENCRYPTION', 'tls'));
+                $mailFromAddress = \App\Models\Setting::get('mail_from_address', env('MAIL_FROM_ADDRESS'));
+                $mailFromName = \App\Models\Setting::get('mail_from_name', env('MAIL_FROM_NAME'));
+                
+                // Update config dynamically
+                if ($mailMailer && $mailMailer !== 'log') {
+                    config([
+                        'mail.default' => $mailMailer,
+                        'mail.mailers.smtp.host' => $mailHost ?? config('mail.mailers.smtp.host'),
+                        'mail.mailers.smtp.port' => $mailPort ?? config('mail.mailers.smtp.port'),
+                        'mail.mailers.smtp.username' => $mailUsername ?? config('mail.mailers.smtp.username'),
+                        'mail.mailers.smtp.password' => $mailPassword ?? config('mail.mailers.smtp.password'),
+                        'mail.mailers.smtp.encryption' => $mailEncryption ?? config('mail.mailers.smtp.encryption'),
+                        'mail.from.address' => $mailFromAddress ?? config('mail.from.address'),
+                        'mail.from.name' => $mailFromName ?? config('mail.from.name'),
+                    ]);
+                    
+                    // Reconfigure mailer if SMTP settings are available
+                    if ($mailMailer === 'smtp' && $mailHost && $mailUsername && $mailPassword) {
+                        \Illuminate\Support\Facades\Config::set('mail.default', 'smtp');
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Check if email notifications are enabled
+     */
+    private function areEmailNotificationsEnabled(): bool
+    {
+        try {
+            $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
+            $similarityAlertsEnabled = \App\Models\Setting::get('similarity_alerts', true);
+            
+            return $emailNotificationsEnabled && $similarityAlertsEnabled;
+        } catch (\Exception $e) {
+            Log::warning('Error checking email notification settings: ' . $e->getMessage());
+            return true; // Default to enabled if settings can't be read
+        }
     }
 
     /**
@@ -287,7 +352,18 @@ class SimilarityNotificationService
      */
     private function sendBulkSimilarityNotification(string $email, array $similarImages, array $newImageMetadata): void
     {
+        // Check if email notifications are enabled
+        if (!$this->areEmailNotificationsEnabled()) {
+            Log::info('Email notifications disabled - skipping bulk similarity notification', [
+                'email' => $email
+            ]);
+            return;
+        }
+        
         try {
+            // Apply mail configuration before sending
+            $this->applyMailConfigurationFromSettings();
+            
             $data = [
                 'email' => $email,
                 'similar_images' => $similarImages,
@@ -301,11 +377,14 @@ class SimilarityNotificationService
 
             Log::info('Similarity notification sent to: ' . $email, [
                 'total_similar' => count($similarImages),
-                'emails_sent' => 1
+                'emails_sent' => 1,
+                'mail_driver' => config('mail.default')
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to send similarity notification to ' . $email . ': ' . $e->getMessage());
+            Log::error('Failed to send similarity notification to ' . $email . ': ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
         }
     }
 
@@ -415,7 +494,18 @@ class SimilarityNotificationService
      */
     private function sendNewUploaderNotification(string $newUploaderEmail, array $similarImages, array $newImageMetadata): void
     {
+        // Check if email notifications are enabled
+        if (!$this->areEmailNotificationsEnabled()) {
+            Log::info('Email notifications disabled - skipping new uploader notification', [
+                'email' => $newUploaderEmail
+            ]);
+            return;
+        }
+        
         try {
+            // Apply mail configuration before sending
+            $this->applyMailConfigurationFromSettings();
+            
             $data = [
                 'email' => $newUploaderEmail,
                 'similar_images' => $similarImages,
@@ -428,12 +518,14 @@ class SimilarityNotificationService
 
             Log::info('New uploader notification sent', [
                 'email' => $newUploaderEmail,
-                'similar_images_count' => count($similarImages)
+                'similar_images_count' => count($similarImages),
+                'mail_driver' => config('mail.default')
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send new uploader notification', [
                 'email' => $newUploaderEmail,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -443,7 +535,18 @@ class SimilarityNotificationService
      */
     private function sendNoMatchNotification(string $newUploaderEmail, array $newImageMetadata): void
     {
+        // Check if email notifications are enabled
+        if (!$this->areEmailNotificationsEnabled()) {
+            Log::info('Email notifications disabled - skipping no match notification', [
+                'email' => $newUploaderEmail
+            ]);
+            return;
+        }
+        
         try {
+            // Apply mail configuration before sending
+            $this->applyMailConfigurationFromSettings();
+            
             $data = [
                 'email' => $newUploaderEmail,
                 'similar_images' => [], // No similar images
@@ -456,12 +559,14 @@ class SimilarityNotificationService
 
             Log::info('No match notification sent', [
                 'email' => $newUploaderEmail,
-                'status' => $newImageMetadata['status'] ?? 'unknown'
+                'status' => $newImageMetadata['status'] ?? 'unknown',
+                'mail_driver' => config('mail.default')
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send no match notification', [
                 'email' => $newUploaderEmail,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -579,7 +684,18 @@ class SimilarityNotificationService
      */
     private function sendUserSimilarityNotification(string $userEmail, ImageMetadata $newItem, array $similarItems): void
     {
+        // Check if email notifications are enabled
+        if (!$this->areEmailNotificationsEnabled()) {
+            Log::info('Email notifications disabled - skipping similarity notification', [
+                'email' => $userEmail
+            ]);
+            return;
+        }
+        
         try {
+            // Apply mail configuration before sending
+            $this->applyMailConfigurationFromSettings();
+            
             $data = [
                 'notification_type' => 'similar_item_found',
                 'item_type' => $newItem->status,
@@ -598,12 +714,14 @@ class SimilarityNotificationService
 
             Log::info('User similarity notification sent', [
                 'email' => $userEmail,
-                'similar_items_count' => count($similarItems)
+                'similar_items_count' => count($similarItems),
+                'mail_driver' => config('mail.default')
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send user similarity notification', [
                 'email' => $userEmail,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }
@@ -613,7 +731,18 @@ class SimilarityNotificationService
      */
     private function sendUserUploadConfirmation(string $userEmail, ImageMetadata $newItem): void
     {
+        // Check if email notifications are enabled
+        if (!$this->areEmailNotificationsEnabled()) {
+            Log::info('Email notifications disabled - skipping upload confirmation', [
+                'email' => $userEmail
+            ]);
+            return;
+        }
+        
         try {
+            // Apply mail configuration before sending
+            $this->applyMailConfigurationFromSettings();
+            
             $data = [
                 'notification_type' => 'new_item_uploaded',
                 'item_type' => $newItem->status,
@@ -631,12 +760,14 @@ class SimilarityNotificationService
 
             Log::info('User upload confirmation sent', [
                 'email' => $userEmail,
-                'item_type' => $newItem->status
+                'item_type' => $newItem->status,
+                'mail_driver' => config('mail.default')
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send user upload confirmation', [
                 'email' => $userEmail,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
         }
     }

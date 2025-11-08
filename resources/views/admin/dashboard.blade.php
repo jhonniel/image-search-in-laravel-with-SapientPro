@@ -15,13 +15,13 @@
                             <i class="fas fa-file-search text-pink-primary text-lg"></i>
                         </div>
                         <div>
-                            <h3 class="text-2xl font-bold text-gray-900">1,380</h3>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ number_format($totalReports) }}</h3>
                             <p class="text-sm text-gray-600">Total Reports</p>
                         </div>
                     </div>
-                    <div class="flex items-center text-green-600">
-                        <i class="fas fa-arrow-up text-sm mr-1"></i>
-                        <span class="text-sm font-medium">30%</span>
+                    <div class="flex items-center {{ $reportsChange >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        <i class="fas fa-arrow-{{ $reportsChange >= 0 ? 'up' : 'down' }} text-sm mr-1"></i>
+                        <span class="text-sm font-medium">{{ abs($reportsChange) }}%</span>
                     </div>
                 </div>
             </div>
@@ -36,13 +36,13 @@
                             <i class="fas fa-clock text-purple-primary text-lg"></i>
                         </div>
                         <div>
-                            <h3 class="text-2xl font-bold text-gray-900">21</h3>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ number_format($itemsInProgress) }}</h3>
                             <p class="text-sm text-gray-600">Items in progress</p>
                         </div>
                     </div>
-                    <div class="flex items-center text-red-600">
-                        <i class="fas fa-arrow-down text-sm mr-1"></i>
-                        <span class="text-sm font-medium">83%</span>
+                    <div class="flex items-center {{ $itemsInProgressChange >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        <i class="fas fa-arrow-{{ $itemsInProgressChange >= 0 ? 'up' : 'down' }} text-sm mr-1"></i>
+                        <span class="text-sm font-medium">{{ abs($itemsInProgressChange) }}%</span>
                     </div>
                 </div>
             </div>
@@ -57,13 +57,13 @@
                             <i class="fas fa-gift text-pink-primary text-lg"></i>
                         </div>
                         <div>
-                            <h3 class="text-2xl font-bold text-gray-900">729</h3>
+                            <h3 class="text-2xl font-bold text-gray-900">{{ number_format($contributors) }}</h3>
                             <p class="text-sm text-gray-600">Contributors</p>
                         </div>
                     </div>
-                    <div class="flex items-center text-green-600">
-                        <i class="fas fa-arrow-up text-sm mr-1"></i>
-                        <span class="text-sm font-medium">11%</span>
+                    <div class="flex items-center {{ $contributorsChange >= 0 ? 'text-green-600' : 'text-red-600' }}">
+                        <i class="fas fa-arrow-{{ $contributorsChange >= 0 ? 'up' : 'down' }} text-sm mr-1"></i>
+                        <span class="text-sm font-medium">{{ abs($contributorsChange) }}%</span>
                     </div>
                 </div>
             </div>
@@ -77,69 +77,15 @@
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Lost vs Found Items</h3>
             <div class="h-64 flex items-end space-x-2">
                 <!-- Chart bars for each month -->
+                @foreach($monthlyData as $data)
                 <div class="flex flex-col items-center space-y-2">
                     <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 80px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 120px;"></div>
+                        <div class="w-6 bg-pink-primary rounded-t" style="height: {{ max($data['lost_height'], 5) }}px;" title="Lost: {{ $data['lost'] }}"></div>
+                        <div class="w-6 bg-blue-primary rounded-t" style="height: {{ max($data['found_height'], 5) }}px;" title="Found: {{ $data['found'] }}"></div>
                     </div>
-                    <span class="text-xs text-gray-600">Jan</span>
+                    <span class="text-xs text-gray-600">{{ $data['month'] }}</span>
                 </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 100px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 140px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Feb</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 90px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 130px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Mar</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 70px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 90px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Apr</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 60px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 80px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">May</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 110px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 150px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Jun</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 85px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 95px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Jul</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 95px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 125px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Aug</span>
-                </div>
-                <div class="flex flex-col items-center space-y-2">
-                    <div class="flex space-x-1">
-                        <div class="w-6 bg-pink-primary rounded-t" style="height: 75px;"></div>
-                        <div class="w-6 bg-blue-primary rounded-t" style="height: 105px;"></div>
-                    </div>
-                    <span class="text-xs text-gray-600">Sep</span>
-                </div>
+                @endforeach
             </div>
             <!-- Legend -->
             <div class="flex items-center justify-center space-x-6 mt-4">
@@ -158,51 +104,28 @@
         <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
             <div class="space-y-4">
+                @forelse($recentItems as $item)
                 <div class="flex items-start space-x-3">
                     <div class="w-2 h-2 bg-pink-primary rounded-full mt-2"></div>
                     <div>
                         <p class="text-sm text-gray-900">
-                            <strong>John Dela Cruz</strong> submitted a lost item report: <strong>Black Wallet</strong>
+                            @if($item['is_claimed'])
+                                <strong>{{ $item['user_name'] }}</strong> requested to claim the item: <strong>{{ \Illuminate\Support\Str::limit($item['description'], 50) }}</strong>
+                            @else
+                                <strong>{{ $item['user_name'] }}</strong> submitted a {{ $item['status'] }} item report: <strong>{{ \Illuminate\Support\Str::limit($item['description'], 50) }}</strong>
+                            @endif
                         </p>
-                        <p class="text-xs text-gray-500">3 mins ago</p>
+                        <p class="text-xs text-gray-500">{{ $item['created_at']->diffForHumans() }}</p>
                     </div>
                 </div>
+                @empty
                 <div class="flex items-start space-x-3">
-                    <div class="w-2 h-2 bg-pink-primary rounded-full mt-2"></div>
+                    <div class="w-2 h-2 bg-gray-300 rounded-full mt-2"></div>
                     <div>
-                        <p class="text-sm text-gray-900">
-                            <strong>Anna Reyes</strong> requested to claim the item: <strong>Red Umbrella</strong>
-                        </p>
-                        <p class="text-xs text-gray-500">10 mins ago</p>
+                        <p class="text-sm text-gray-500">No recent activity</p>
                     </div>
                 </div>
-                <div class="flex items-start space-x-3">
-                    <div class="w-2 h-2 bg-pink-primary rounded-full mt-2"></div>
-                    <div>
-                        <p class="text-sm text-gray-900">
-                            <strong>Admin Lisa</strong> flagged a report for suspicious content
-                        </p>
-                        <p class="text-xs text-gray-500">25 mins ago</p>
-                    </div>
-                </div>
-                <div class="flex items-start space-x-3">
-                    <div class="w-2 h-2 bg-pink-primary rounded-full mt-2"></div>
-                    <div>
-                        <p class="text-sm text-gray-900">
-                            Report <strong>Missing Backpack</strong> was approved by <strong>Admin Mark</strong>
-                        </p>
-                        <p class="text-xs text-gray-500">1 hour ago</p>
-                    </div>
-                </div>
-                <div class="flex items-start space-x-3">
-                    <div class="w-2 h-2 bg-pink-primary rounded-full mt-2"></div>
-                    <div>
-                        <p class="text-sm text-gray-900">
-                            <strong>Admin Lisa</strong> flagged a report for suspicious content
-                        </p>
-                        <p class="text-xs text-gray-500">1 hour ago</p>
-                    </div>
-                </div>
+                @endforelse
             </div>
         </div>
     </div>
@@ -226,11 +149,20 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
+                    @forelse($topContributors as $index => $contributor)
                     <tr>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
-                                <i class="fas fa-medal text-yellow-500 text-lg mr-2"></i>
-                                <span class="text-sm font-medium text-gray-900">1</span>
+                                @if($index === 0)
+                                    <i class="fas fa-medal text-yellow-500 text-lg mr-2"></i>
+                                @elseif($index === 1)
+                                    <i class="fas fa-medal text-gray-400 text-lg mr-2"></i>
+                                @elseif($index === 2)
+                                    <i class="fas fa-medal text-orange-500 text-lg mr-2"></i>
+                                @else
+                                    <i class="fas fa-circle text-gray-300 text-xs mr-2"></i>
+                                @endif
+                                <span class="text-sm font-medium text-gray-900">{{ $index + 1 }}</span>
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
@@ -238,63 +170,22 @@
                                 <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
                                     <i class="fas fa-user text-purple-primary text-sm"></i>
                                 </div>
-                                <span class="text-sm font-medium text-gray-900">JaneDoe_23</span>
+                                <span class="text-sm font-medium text-gray-900">{{ $contributor['username'] !== 'N/A' ? $contributor['username'] : $contributor['name'] }}</span>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">42</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">30</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">25</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Today, 10:14 AM</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $contributor['report_count'] }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $contributor['verified_count'] }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $contributor['claimed_count'] }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $contributor['last_active'] ? $contributor['last_active']->diffForHumans() : 'N/A' }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             <i class="fas fa-ellipsis-v"></i>
                         </td>
                     </tr>
+                    @empty
                     <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <i class="fas fa-medal text-gray-400 text-lg mr-2"></i>
-                                <span class="text-sm font-medium text-gray-900">2</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                                    <i class="fas fa-user text-purple-primary text-sm"></i>
-                                </div>
-                                <span class="text-sm font-medium text-gray-900">MicaReports</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">36</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">27</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">21</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">Yesterday</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </td>
+                        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No contributors yet</td>
                     </tr>
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <i class="fas fa-medal text-orange-500 text-lg mr-2"></i>
-                                <span class="text-sm font-medium text-gray-900">3</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center mr-3">
-                                    <i class="fas fa-user text-purple-primary text-sm"></i>
-                                </div>
-                                <span class="text-sm font-medium text-gray-900">JohnLovesCats</span>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">28</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">18</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">15</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">2 days ago</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </td>
-                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>

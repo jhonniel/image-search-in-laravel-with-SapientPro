@@ -26,59 +26,176 @@
     </script>
 </head>
 <body class="bg-gray-50">
-    <div class="flex h-screen">
+    <div class="flex h-screen overflow-hidden" x-data="{ sidebarOpen: false }">
+        <!-- Mobile Sidebar Overlay -->
+        <div x-show="sidebarOpen" 
+             @click="sidebarOpen = false"
+             x-transition:enter="transition-opacity ease-linear duration-300"
+             x-transition:enter-start="opacity-0"
+             x-transition:enter-end="opacity-100"
+             x-transition:leave="transition-opacity ease-linear duration-300"
+             x-transition:leave-start="opacity-100"
+             x-transition:leave-end="opacity-0"
+             class="fixed inset-0 bg-gray-600 bg-opacity-75 z-40 lg:hidden"
+             style="display: none;"></div>
+
         <!-- Sidebar -->
-        <div class="w-64 bg-white shadow-lg">
+        <div :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+             class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:transition-none overflow-y-auto">
             <!-- Logo -->
-            <div class="p-6 border-b border-gray-200">
-                <h1 class="text-2xl font-bold">
+            <div class="p-4 sm:p-6 border-b border-gray-200 flex items-center justify-between">
+                <h1 class="text-xl sm:text-2xl font-bold">
                     <span class="text-purple-primary">FindIT</span>
                     <span class="text-pink-primary">Fast</span>
                 </h1>
+                <button @click="sidebarOpen = false" class="lg:hidden text-gray-600 hover:text-gray-900">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
 
             <!-- Navigation -->
-            <nav class="mt-6">
-                <ul class="space-y-2 px-4">
+            <nav class="mt-4 sm:mt-6">
+                <ul class="space-y-2 px-2 sm:px-4">
                     <li>
-                        <a href="/admin/dashboard" class="flex items-center px-4 py-3 rounded-lg bg-pink-50 text-purple-primary border-l-4 border-purple-primary">
-                            <i class="fas fa-th-large w-5 h-5 mr-3"></i>
-                            <span class="font-medium">Dashboard</span>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isDashboard = ($currentRoute === 'admin.dashboard' || $currentPath === 'admin/dashboard') 
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isDashboard ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
+                            <span>Dashboard</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('admin.reported-items') }}" class="flex items-center px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="fas fa-lock w-5 h-5 mr-3"></i>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isReportedItems = (in_array($currentRoute, ['admin.reported-items', 'admin.delete-item']) || str_starts_with($currentPath, 'admin/reported-items')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-lock w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Reported Items</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('admin.claim-verify') }}" class="flex items-center px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="fas fa-check-circle w-5 h-5 mr-3"></i>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isClaimVerify = ($currentRoute === 'admin.claim-verify' || str_starts_with($currentPath, 'admin/claim-verify')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.claim-verify') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Claim and Verify</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ route('admin.users') }}" class="flex items-center px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="fas fa-users w-5 h-5 mr-3"></i>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isUsers = (str_starts_with($currentRoute, 'admin.users') || str_starts_with($currentPath, 'admin/users')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.users') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isUsers ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-users w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Users</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/admin/insights" class="flex items-center px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="fas fa-chart-line w-5 h-5 mr-3"></i>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isInsights = ($currentRoute === 'admin.insights' || str_starts_with($currentPath, 'admin/insights')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.insights') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isInsights ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-chart-line w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Insights</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/admin/settings" class="flex items-center px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="fas fa-cog w-5 h-5 mr-3"></i>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isSettings = (str_starts_with($currentRoute, 'admin.settings') || str_starts_with($currentPath, 'admin/settings')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.settings') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSettings ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-cog w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Settings</span>
                         </a>
                     </li>
                     <li>
-                        <a href="/image-comparison" class="flex items-center px-4 py-3 rounded-lg text-gray-600 hover:bg-gray-50">
-                            <i class="fas fa-search w-5 h-5 mr-3"></i>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isSponsors = (str_starts_with($currentRoute, 'admin.sponsors') || str_starts_with($currentPath, 'admin/sponsors')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-handshake w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
+                            <span>Sponsors</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentPath = request()->path();
+                            $isImageComparison = str_starts_with($currentPath, 'image-comparison') 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors');
+                        @endphp
+                        <a href="/image-comparison" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isImageComparison ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-search w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Image Comparison</span>
                         </a>
                     </li>
@@ -86,11 +203,11 @@
             </nav>
 
             <!-- Logout Button -->
-            <div class="mt-auto p-4">
+            <div class="mt-auto p-3 sm:p-4">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="flex items-center w-full px-4 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-colors">
-                        <i class="fas fa-sign-out-alt w-5 h-5 mr-3"></i>
+                    <button type="submit" class="flex items-center w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base text-red-600 hover:bg-red-50 transition-colors">
+                        <i class="fas fa-sign-out-alt w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                         <span>Logout</span>
                     </button>
                 </form>
@@ -98,39 +215,44 @@
         </div>
 
         <!-- Main Content -->
-        <div class="flex-1 flex flex-col">
+        <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
-            <header class="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
-                <div class="flex items-center justify-between">
+            <header class="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                <div class="flex items-center justify-between gap-3">
+                    <!-- Mobile Menu Button -->
+                    <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+
                     <!-- Search Bar -->
                     <div class="flex-1 max-w-md">
                         <div class="relative">
                             <input type="text"
                                    placeholder="Search here"
-                                   class="w-full pl-4 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
-                            <i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                                   class="w-full pl-3 sm:pl-4 pr-8 sm:pr-10 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                            <i class="fas fa-search absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                         </div>
                     </div>
 
                     <!-- Right Side -->
-                    <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2 sm:space-x-4">
                         <!-- Notifications -->
                         <button class="relative p-2 text-gray-600 hover:text-purple-primary">
-                            <i class="fas fa-bell w-5 h-5"></i>
-                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">3</span>
+                            <i class="fas fa-bell w-4 h-4 sm:w-5 sm:h-5"></i>
+                            <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-xs">3</span>
                         </button>
 
                         <!-- User Profile Dropdown -->
                         <div class="relative" x-data="{ open: false }">
-                            <button @click="open = !open" class="flex items-center space-x-3 bg-purple-50 px-4 py-2 rounded-full hover:bg-purple-100 transition-colors">
-                                <div class="w-8 h-8 bg-purple-primary rounded-full flex items-center justify-center">
-                                    <i class="fas fa-user text-white text-sm"></i>
+                            <button @click="open = !open" class="flex items-center space-x-2 sm:space-x-3 bg-purple-50 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full hover:bg-purple-100 transition-colors">
+                                <div class="w-7 h-7 sm:w-8 sm:h-8 bg-purple-primary rounded-full flex items-center justify-center">
+                                    <i class="fas fa-user text-white text-xs sm:text-sm"></i>
                                 </div>
-                                <div>
-                                    <p class="text-sm font-medium text-gray-900">John Doe</p>
-                                    <p class="text-xs text-gray-500">User</p>
+                                <div class="hidden sm:block">
+                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ Auth::user()->name }}</p>
+                                    <p class="text-xs text-gray-500">Admin</p>
                                 </div>
-                                <i class="fas fa-chevron-down text-gray-400 text-xs"></i>
+                                <i class="fas fa-chevron-down text-gray-400 text-xs hidden sm:block"></i>
                             </button>
 
                             <!-- Dropdown Menu -->
@@ -167,7 +289,7 @@
             </header>
 
             <!-- Page Content -->
-            <main class="flex-1 p-6">
+            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
                 @yield('content')
             </main>
         </div>

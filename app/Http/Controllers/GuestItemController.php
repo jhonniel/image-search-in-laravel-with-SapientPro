@@ -11,7 +11,8 @@ class GuestItemController extends Controller
     public function showForm(Request $request)
     {
         $itemType = $request->query('type', 'lost');
-        return view('guest.post', compact('itemType'));
+        $searchQuery = $request->query('search', '');
+        return view('guest.post', compact('itemType', 'searchQuery'));
     }
 
     public function submit(Request $request)
@@ -40,7 +41,21 @@ class GuestItemController extends Controller
             'files' => $storedFiles,
         ];
 
+        // Store in session
         $request->session()->put('guest_pending_item', $pending);
+        
+        // Log for debugging
+        Log::info('Guest item stored in session', [
+            'session_id' => $request->session()->getId(),
+            'item_type' => $pending['item_type'],
+            'files_count' => count($storedFiles),
+            'files' => $storedFiles,
+            'has_session' => $request->session()->has('guest_pending_item')
+        ]);
+        
+        // Save session explicitly to ensure it persists
+        $request->session()->save();
+        
         return redirect()->route('register')->with('status', 'Create your account to finish posting your item.');
     }
 }
