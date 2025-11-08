@@ -19,14 +19,42 @@ class AuthController extends Controller
     /**
      * Show the login form
      */
-    public function showLoginForm()
+    public function showLoginForm(Request $request)
     {
-        return view('auth.login');
+        // Check if redirecting from item page
+        $itemId = $request->get('item');
+        $redirectToItem = $itemId ? route('public.item.show', $itemId) : null;
+        
+        // Store item ID in session for redirect after login
+        if ($itemId) {
+            $request->session()->put('redirect_after_login', $redirectToItem);
+        }
+        
+        return view('auth.login', compact('redirectToItem'));
     }
 
-    public function showRegistrationForm()
+    public function showRegistrationForm(Request $request)
     {
-        return view('auth.register');
+        // Check if there's a pending guest item
+        $hasPendingItem = $request->session()->has('guest_pending_item');
+        
+        // Check if redirecting from item page
+        $itemId = $request->get('item');
+        $redirectToItem = $itemId ? route('public.item.show', $itemId) : null;
+        
+        if ($hasPendingItem) {
+            Log::info('Registration form shown with pending guest item', [
+                'session_id' => $request->session()->getId(),
+                'has_guest_pending_item' => true
+            ]);
+        }
+        
+        // Store item ID in session for redirect after registration
+        if ($itemId) {
+            $request->session()->put('redirect_after_register', $redirectToItem);
+        }
+        
+        return view('auth.register', compact('hasPendingItem', 'redirectToItem'));
     }
 
     public function register(Request $request)
@@ -61,47 +89,21 @@ class AuthController extends Controller
 
             Auth::login($user);
 
-            // If there's a pending guest item in session, finalize it under this new account
-            if ($request->session()->has('guest_pending_item')) {
-                $pending = $request->session()->pull('guest_pending_item');
-                try {
-                    $uploadId = 'user_upload_' . Str::random(10);
-                    foreach ($pending['files'] as $index => $storedPath) {
-                        $filename = basename($storedPath);
-                        // Move file from temp-guest to user-items
-                        $targetPath = 'user-items/' . $filename;
-                        if (Storage::disk('public')->exists($storedPath)) {
-                            Storage::disk('public')->move($storedPath, $targetPath);
-                        } else {
-                            continue;
-                        }
-                        $metadata = ImageMetadata::create([
-                            'filename' => $filename,
-                            'file_path' => Storage::url($targetPath),
-                            'original_name' => $filename,
-                            'uploader_email' => $user->email,
-                            'description' => $pending['description'],
-                            'tags' => $pending['tags'] ? explode(',', $pending['tags']) : [],
-                            'file_size' => 0,
-                            'mime_type' => null,
-                            'status' => $pending['item_type'],
-                            'upload_id' => $uploadId,
-                        ]);
-
-                        // Check for similar images and notify involved users
-                        try {
-                            $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
-                            $similarityService->checkAndNotifySimilarities($metadata, $user->email);
-                        } catch (\Throwable $e) {
-                            Log::error('Similarity check failed for guest finalization: '.$e->getMessage());
-                        }
-                    }
-                } catch (\Throwable $e) {
-                    Log::error('Failed to finalize guest item: '.$e->getMessage());
-                }
+            // Process guest pending item if exists
+            $itemsLinked = $this->processGuestPendingItem($request, $user);
+            
+            $successMessage = 'Account created successfully! Welcome to FindITFast!';
+            if ($itemsLinked > 0) {
+                $successMessage .= " Your {$itemsLinked} item(s) have been linked to your account.";
             }
 
-            return redirect()->intended('/user/dashboard')->with('success', 'Account created successfully! Welcome to FindITFast!');
+            // Check if there's a redirect URL in session (from item page)
+            $redirectUrl = $request->session()->pull('redirect_after_register', null);
+            if ($redirectUrl) {
+                return redirect($redirectUrl)->with('success', $successMessage);
+            }
+
+            return redirect()->intended('/user/dashboard')->with('success', $successMessage);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Registration failed. Please try again.'])->withInput();
         }
@@ -121,23 +123,194 @@ class AuthController extends Controller
         $remember = $request->boolean('remember');
 
         if (Auth::attempt($credentials, $remember)) {
+            $user = Auth::user();
+            
+            // Check if there's a pending guest item in session and link it to the logged-in user
+            // Do this BEFORE session regeneration to preserve the session data
+            $this->processGuestPendingItem($request, $user);
+            
             $request->session()->regenerate();
 
             // Check if user is admin based on email
-            $user = Auth::user();
+            $email = strtolower($user->email);
+
+            // Check if there's a redirect URL in session (from item page)
+            $redirectUrl = $request->session()->pull('redirect_after_login', null);
+            if ($redirectUrl) {
+                return redirect($redirectUrl);
+            }
 
             // Redirect admin users to admin dashboard
-            if (str_ends_with($user->email, 'admin@imagesearch.com') || str_contains(strtolower($user->email), 'admin')) {
-                return redirect()->intended('/admin/dashboard');
+            // Check for admin@finditfast.com or emails containing 'admin'
+            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
+                return redirect('/admin/dashboard');
             }
 
             // Redirect regular users to user dashboard
-            return redirect()->intended('/user/dashboard');
+            return redirect('/user/dashboard');
         }
 
         throw ValidationException::withMessages([
             'email' => 'The provided credentials do not match our records.',
         ]);
+    }
+
+    /**
+     * Process guest pending item and link it to user account
+     * Returns the number of items successfully linked
+     */
+    private function processGuestPendingItem(Request $request, User $user)
+    {
+        $itemsLinked = 0;
+        
+        // Log session info for debugging
+        Log::info('Checking for guest pending item', [
+            'session_id' => $request->session()->getId(),
+            'has_guest_pending_item' => $request->session()->has('guest_pending_item'),
+            'all_session_keys' => array_keys($request->session()->all()),
+            'user_email' => $user->email,
+            'user_id' => $user->id
+        ]);
+        
+        // If there's a pending guest item in session, finalize it under this account
+        if ($request->session()->has('guest_pending_item')) {
+            $pending = $request->session()->pull('guest_pending_item');
+            
+            Log::info('Guest pending item found in session', [
+                'item_type' => $pending['item_type'] ?? 'unknown',
+                'files_count' => count($pending['files'] ?? []),
+                'has_description' => !empty($pending['description']),
+                'user_email' => $user->email,
+                'user_id' => $user->id,
+                'pending_data' => $pending
+            ]);
+            
+            try {
+                $uploadId = 'user_upload_' . Str::random(10);
+                
+                Log::info('Processing guest pending item on login/register', [
+                    'user_email' => $user->email,
+                    'user_id' => $user->id,
+                    'item_type' => $pending['item_type'] ?? 'unknown',
+                    'files_count' => count($pending['files'] ?? [])
+                ]);
+                
+                foreach ($pending['files'] as $index => $storedPath) {
+                    // $storedPath is already relative to public disk (e.g., 'temp-guest/filename.jpg')
+                    Log::info('Processing file', [
+                        'index' => $index,
+                        'stored_path' => $storedPath,
+                        'file_exists' => Storage::disk('public')->exists($storedPath)
+                    ]);
+                    
+                    if (!Storage::disk('public')->exists($storedPath)) {
+                        Log::warning('Guest file not found', [
+                            'path' => $storedPath,
+                            'full_path' => storage_path('app/public/' . $storedPath)
+                        ]);
+                        continue;
+                    }
+                    
+                    // Get file info before moving
+                    $fileSize = Storage::disk('public')->size($storedPath);
+                    $mimeType = Storage::disk('public')->mimeType($storedPath);
+                    
+                    // Extract original filename from stored path (format: time_index_originalname)
+                    $filename = basename($storedPath);
+                    $originalName = $filename;
+                    // Try to extract original name if it follows the pattern: time_index_originalname
+                    if (preg_match('/^\d+_\d+_(.+)$/', $filename, $matches)) {
+                        $originalName = $matches[1];
+                    }
+                    
+                    // Move file from temp-guest to user-items
+                    $targetPath = 'user-items/' . $filename;
+                    $moved = Storage::disk('public')->move($storedPath, $targetPath);
+                    
+                    if (!$moved) {
+                        Log::error('Failed to move guest file', [
+                            'from' => $storedPath,
+                            'to' => $targetPath,
+                            'from_exists' => Storage::disk('public')->exists($storedPath),
+                            'to_exists' => Storage::disk('public')->exists($targetPath)
+                        ]);
+                        continue;
+                    }
+                    
+                    // Create metadata record with explicit user email
+                    $metadata = ImageMetadata::create([
+                        'filename' => $filename,
+                        'file_path' => Storage::url($targetPath),
+                        'original_name' => $originalName,
+                        'uploader_email' => $user->email, // Explicitly set to user's email
+                        'description' => $pending['description'] ?? '',
+                        'location' => $pending['location'] ?? null, // Save location field
+                        'tags' => !empty($pending['tags']) ? array_map('trim', explode(',', $pending['tags'])) : [],
+                        'file_size' => $fileSize ?? 0,
+                        'mime_type' => $mimeType,
+                        'status' => $pending['item_type'] ?? 'lost',
+                        'upload_id' => $uploadId,
+                    ]);
+                    
+                    $itemsLinked++;
+                    
+                    Log::info('Guest item metadata created successfully', [
+                        'metadata_id' => $metadata->id,
+                        'upload_id' => $uploadId,
+                        'uploader_email' => $metadata->uploader_email,
+                        'user_email' => $user->email,
+                        'user_id' => $user->id,
+                        'status' => $metadata->status,
+                        'description' => $metadata->description
+                    ]);
+                    
+                    // Verify the record was created correctly
+                    $verify = ImageMetadata::find($metadata->id);
+                    if ($verify && $verify->uploader_email === $user->email) {
+                        Log::info('Verified: Item linked correctly to user', [
+                            'metadata_id' => $verify->id,
+                            'uploader_email' => $verify->uploader_email,
+                            'user_email' => $user->email
+                        ]);
+                    } else {
+                        Log::error('VERIFICATION FAILED: Item not linked correctly', [
+                            'metadata_id' => $metadata->id,
+                            'stored_uploader_email' => $verify ? $verify->uploader_email : 'NOT FOUND',
+                            'expected_user_email' => $user->email
+                        ]);
+                    }
+
+                    // Check for similar images and notify involved users
+                    try {
+                        $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
+                        $similarityService->checkAndNotifySimilarities($metadata, $user->email);
+                    } catch (\Throwable $e) {
+                        Log::error('Similarity check failed for guest finalization: '.$e->getMessage());
+                    }
+                }
+                
+                Log::info('Guest item finalization completed', [
+                    'user_email' => $user->email,
+                    'user_id' => $user->id,
+                    'upload_id' => $uploadId,
+                    'items_linked' => $itemsLinked
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('Failed to finalize guest item: '.$e->getMessage(), [
+                    'trace' => $e->getTraceAsString(),
+                    'user_id' => $user->id,
+                    'exception_class' => get_class($e)
+                ]);
+            }
+        } else {
+            Log::warning('No guest pending item found in session during registration/login', [
+                'user_email' => $user->email,
+                'user_id' => $user->id,
+                'session_id' => $request->session()->getId()
+            ]);
+        }
+        
+        return $itemsLinked;
     }
 
     /**

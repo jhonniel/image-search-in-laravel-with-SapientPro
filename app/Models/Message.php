@@ -3,10 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Message extends Model
 {
+    use SoftDeletes;
     protected $fillable = [
         'sender_id',
         'receiver_id',
@@ -20,6 +22,7 @@ class Message extends Model
     protected $casts = [
         'is_read' => 'boolean',
         'read_at' => 'datetime',
+        'deleted_at' => 'datetime',
     ];
 
     /**

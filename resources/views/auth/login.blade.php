@@ -41,13 +41,13 @@
     @endphp
 
     <!-- Top Logo -->
-    <div class="px-6 pt-8">
-        <h1 class="text-5xl md:text-6xl font-extrabold tracking-tight">
+    <div class="px-4 sm:px-6 pt-6 sm:pt-8">
+        <h1 class="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight">
             <span class="text-purple-primary">FindIT</span><span class="text-pink-primary">Fast</span>
         </h1>
     </div>
 
-    <div class="container mx-auto px-6 py-8 md:py-12 min-h-[80vh] flex items-center">
+    <div class="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12 min-h-[80vh] flex items-center">
         <div class="grid grid-cols-1 md:grid-cols-2 gap-14 md:gap-20 items-center mx-auto w-full max-w-7xl">
             <!-- Illustration -->
             <div class="hidden md:block">

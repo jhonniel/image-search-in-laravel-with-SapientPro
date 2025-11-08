@@ -1347,19 +1347,8 @@ class ImageComparisonApiController extends Controller
                 ], 404);
             }
 
-            // Delete the physical file if it exists
-            if (file_exists($filePath)) {
-                if (!unlink($filePath)) {
-                    return response()->json([
-                        'success' => false,
-                        'error' => 'Failed to delete reference image file',
-                        'message' => 'Could not delete the reference image file from storage'
-                    ], 500);
-                }
-            }
-
-            // Delete the metadata record from database
-            $metadata->delete();
+            // Soft delete the metadata record (file is kept for potential restore)
+            $metadata->delete(); // This will perform soft delete automatically
 
             return response()->json([
                 'success' => true,
@@ -1462,16 +1451,11 @@ class ImageComparisonApiController extends Controller
             $imagePath = $referenceImagesPath . '/' . $filename;
 
             try {
-                // Find and delete the metadata record first
+                // Find and soft delete the metadata record
                 $metadata = ImageMetadata::where('filename', $filename)->first();
 
                 if ($metadata) {
-                    $metadata->delete();
-                }
-
-                // Delete the physical file if it exists
-                if (file_exists($imagePath)) {
-                    unlink($imagePath);
+                    $metadata->delete(); // Soft delete (file is kept for potential restore)
                 }
 
                 $deletedFilenames[] = $filename;

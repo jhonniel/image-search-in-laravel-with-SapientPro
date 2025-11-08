@@ -121,6 +121,94 @@
     </div>
 </div>
 
+<!-- Edit Item Modal -->
+<div id="edit-item-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden overflow-y-auto">
+    <div class="bg-white rounded-lg max-w-4xl w-full max-h-full overflow-hidden my-8">
+        <div class="flex items-center justify-between p-6 border-b border-gray-200">
+            <h3 class="text-xl font-semibold text-gray-900">Edit Item</h3>
+            <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="edit-item-form" class="p-6 space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+            @csrf
+            <input type="hidden" id="edit-upload-id" name="upload_id">
+            
+            <!-- Item Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Item Type</label>
+                <div class="flex space-x-4">
+                    <label class="flex items-center">
+                        <input type="radio" id="edit-item-type-lost" name="item_type" value="lost" class="mr-2">
+                        <span class="text-sm text-gray-700">Lost Item</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" id="edit-item-type-found" name="item_type" value="found" class="mr-2">
+                        <span class="text-sm text-gray-700">Found Item</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Location -->
+            <div>
+                <label for="edit-location" class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <input type="text" id="edit-location" name="location" required
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="Where was this item found/lost?">
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label for="edit-description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea id="edit-description" name="description" rows="4" required
+                          class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                          placeholder="Describe the item in detail..."></textarea>
+            </div>
+
+            <!-- Tags -->
+            <div>
+                <label for="edit-tags" class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
+                <input type="text" id="edit-tags" name="tags"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                       placeholder="Enter tags separated by commas (e.g., phone, black, case)">
+                <p class="text-xs text-gray-500 mt-1">Tags help others find your item more easily</p>
+            </div>
+
+            <!-- Existing Images -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Current Images</label>
+                <div id="edit-existing-images" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                    <!-- Existing images will be loaded here -->
+                </div>
+                <p class="text-xs text-gray-500">Click on images to remove them</p>
+            </div>
+
+            <!-- New Images -->
+            <div>
+                <label for="edit-new-images" class="block text-sm font-medium text-gray-700 mb-2">Add New Images (Optional)</label>
+                <input type="file" id="edit-new-images" name="images[]" multiple accept="image/*"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                <p class="text-xs text-gray-500 mt-1">You can add up to 5 new images. Maximum 5 images per item.</p>
+            </div>
+
+            <!-- Hidden input for removed images -->
+            <input type="hidden" id="edit-remove-images" name="remove_images">
+
+            <!-- Submit Buttons -->
+            <div class="flex items-center justify-end space-x-4 pt-4 border-t border-gray-200">
+                <button type="button" onclick="closeEditModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" class="bg-purple-primary text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors">
+                    <i class="fas fa-save mr-2"></i>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 // Toggle upload form
 function toggleUploadForm() {
@@ -375,15 +463,21 @@ function displayUserItems(items) {
 
                     <!-- Actions -->
                     <div class="p-6 border-t border-gray-200 bg-gray-50">
-                        <div class="flex items-center justify-between">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
                             <button onclick="viewItemDetails('${item.upload_id}')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium">
                                 <i class="fas fa-info-circle mr-1"></i>
                                 View Details
                             </button>
-                            <button onclick="deleteItem('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
-                                <i class="fas fa-trash mr-1"></i>
-                                Delete Item
-                            </button>
+                            <div class="flex items-center gap-2">
+                                <button onclick="editItem('${item.upload_id}')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium">
+                                    <i class="fas fa-edit mr-1"></i>
+                                    Edit Item
+                                </button>
+                                <button onclick="deleteItem('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
+                                    <i class="fas fa-trash mr-1"></i>
+                                    Delete Item
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -646,5 +740,265 @@ function viewItemDetails(uploadId) {
     `;
     document.body.appendChild(modal);
 }
+
+// Edit item function
+function editItem(uploadId) {
+    const item = window.userItems.find(item => item.upload_id === uploadId);
+    if (!item) {
+        showToast('Item not found', 'error');
+        return;
+    }
+
+    // Populate edit form
+    document.getElementById('edit-upload-id').value = uploadId;
+    document.getElementById('edit-location').value = item.location || '';
+    document.getElementById('edit-description').value = item.description || '';
+    document.getElementById('edit-tags').value = item.tags ? (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) : '';
+    
+    // Set item type radio button
+    if (item.item_type === 'lost') {
+        document.getElementById('edit-item-type-lost').checked = true;
+    } else {
+        document.getElementById('edit-item-type-found').checked = true;
+    }
+
+    // Display existing images
+    const existingImagesContainer = document.getElementById('edit-existing-images');
+    existingImagesContainer.innerHTML = '';
+    
+    const removedImages = [];
+    
+    if (item.images && item.images.length > 0) {
+        item.images.forEach((image, index) => {
+            const imageDiv = document.createElement('div');
+            imageDiv.className = 'relative group';
+            imageDiv.innerHTML = `
+                <div class="relative">
+                    <img src="${image.path}" alt="${image.original_name}" class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 cursor-pointer hover:border-red-300 transition-colors" onclick="toggleRemoveImage('${image.filename}', this)">
+                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-lg flex items-center justify-center">
+                        <span class="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                            <i class="fas fa-trash mr-1"></i>Click to remove
+                        </span>
+                    </div>
+                    <div class="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold hidden remove-indicator">
+                        <i class="fas fa-times"></i>
+                    </div>
+                </div>
+            `;
+            existingImagesContainer.appendChild(imageDiv);
+        });
+    } else {
+        existingImagesContainer.innerHTML = '<p class="text-sm text-gray-500 col-span-4">No images available</p>';
+    }
+
+    // Reset remove images input
+    document.getElementById('edit-remove-images').value = '';
+    document.getElementById('edit-new-images').value = '';
+
+    // Show modal
+    document.getElementById('edit-item-modal').classList.remove('hidden');
+}
+
+// Toggle remove image
+function toggleRemoveImage(filename, element) {
+    const removeInput = document.getElementById('edit-remove-images');
+    let removedImages = removeInput.value ? removeInput.value.split(',').filter(f => f) : [];
+    const existingImagesContainer = document.getElementById('edit-existing-images');
+    const totalImages = existingImagesContainer.querySelectorAll('[data-filename]').length;
+    const newImagesInput = document.getElementById('edit-new-images');
+    const newImagesCount = newImagesInput.files ? newImagesInput.files.length : 0;
+    const remainingAfterRemove = totalImages - removedImages.length - (removedImages.includes(filename) ? 0 : 1);
+    const totalAfterUpdate = remainingAfterRemove + newImagesCount;
+    
+    if (removedImages.includes(filename)) {
+        // Restore image
+        removedImages = removedImages.filter(f => f !== filename);
+        element.classList.remove('border-red-500');
+        const indicator = element.closest('.relative').querySelector(`.remove-indicator-${filename}`);
+        if (indicator) indicator.classList.add('hidden');
+    } else {
+        // Check if removing this image would leave no images
+        if (totalAfterUpdate < 1 && newImagesCount === 0) {
+            showToast('At least one image is required. Please add a new image before removing all existing ones.', 'error');
+            return;
+        }
+        
+        // Mark for removal
+        removedImages.push(filename);
+        element.classList.add('border-red-500');
+        const indicator = element.closest('.relative').querySelector(`.remove-indicator-${filename}`);
+        if (indicator) indicator.classList.remove('hidden');
+    }
+    
+    removeInput.value = removedImages.join(',');
+}
+
+// Close edit modal
+function closeEditModal() {
+    document.getElementById('edit-item-modal').classList.add('hidden');
+    document.getElementById('edit-item-form').reset();
+    document.getElementById('edit-existing-images').innerHTML = '';
+    document.getElementById('edit-remove-images').value = '';
+}
+
+// Handle edit form submission
+document.getElementById('edit-item-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    // Prevent double submission
+    if (this.dataset.submitting === 'true') {
+        return;
+    }
+    this.dataset.submitting = 'true';
+
+    const uploadId = document.getElementById('edit-upload-id').value;
+    const submitButton = this.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+    // Get form values and validate
+    const itemType = document.querySelector('input[name="item_type"]:checked');
+    const locationInput = document.getElementById('edit-location');
+    const descriptionInput = document.getElementById('edit-description');
+    const tagsInput = document.getElementById('edit-tags');
+    
+    const location = locationInput ? locationInput.value.trim() : '';
+    const description = descriptionInput ? descriptionInput.value.trim() : '';
+    const tags = tagsInput ? tagsInput.value.trim() : '';
+
+    // Client-side validation
+    if (!location || location === '') {
+        showToast('Location is required', 'error');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        this.dataset.submitting = 'false';
+        if (locationInput) locationInput.focus();
+        return;
+    }
+
+    if (!description || description === '') {
+        showToast('Description is required', 'error');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        this.dataset.submitting = 'false';
+        if (descriptionInput) descriptionInput.focus();
+        return;
+    }
+
+    // Create FormData manually to avoid conflicts
+    const formData = new FormData();
+    
+    // Add CSRF token
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+    formData.append('_token', csrfToken);
+    formData.append('_method', 'PUT'); // Laravel method spoofing for PUT request
+    
+    // Get item type
+    if (itemType) {
+        formData.append('item_type', itemType.value);
+    }
+
+    // Add required fields - they're already validated above
+    formData.append('location', location);
+    formData.append('description', description);
+
+    // Get tags (optional)
+    if (tags) {
+        formData.append('tags', tags);
+    }
+
+    // Get removed images
+    const removeImages = document.getElementById('edit-remove-images').value;
+    if (removeImages) {
+        const removedArray = removeImages.split(',').filter(f => f);
+        removedArray.forEach(filename => {
+            formData.append('remove_images[]', filename);
+        });
+    }
+
+    // Get new images
+    const newImages = document.getElementById('edit-new-images').files;
+    if (newImages && newImages.length > 0) {
+        for (let file of newImages) {
+            formData.append('images[]', file);
+        }
+    }
+
+    // Debug: Log what we're sending
+    console.log('Sending update request:', {
+        uploadId: uploadId,
+        location: location,
+        description: description,
+        itemType: itemType ? itemType.value : 'none',
+        tags: tags,
+        formDataKeys: Array.from(formData.keys())
+    });
+    
+    // Log FormData contents for debugging
+    for (let pair of formData.entries()) {
+        console.log('FormData:', pair[0], '=', pair[1]);
+    }
+
+    try {
+        // Use POST with method spoofing since PUT might have issues with FormData
+        const response = await fetch(`/api/user/items/${uploadId}`, {
+            method: 'POST',
+            body: formData,
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        // Log response for debugging
+        console.log('Response status:', response.status);
+        
+        // Get response as text first to handle both success and error cases
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+        
+        let data;
+        try {
+            data = JSON.parse(responseText);
+        } catch (e) {
+            console.error('Failed to parse JSON response:', e);
+            showToast('Error updating item. Invalid response from server.', 'error');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            this.dataset.submitting = 'false';
+            return;
+        }
+
+        if (!response.ok || !data.success) {
+            // Handle error response
+            let errorMessage = data.message || data.error || 'Error updating item. Please try again.';
+            if (data.errors) {
+                const errorList = Object.values(data.errors).flat().join(', ');
+                errorMessage = errorMessage + ' ' + errorList;
+            }
+            if (data.debug) {
+                console.error('Debug info:', data.debug);
+                errorMessage += ' (Check console for details)';
+            }
+            showToast(errorMessage, 'error');
+            console.error('Update error:', data);
+        } else {
+            // Success
+            showToast('Item updated successfully!', 'success');
+            closeEditModal();
+            loadItems(); // Reload the items list
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error updating item. Please try again.', 'error');
+    } finally {
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        this.dataset.submitting = 'false';
+    }
+});
 </script>
 @endsection

@@ -41,9 +41,9 @@
                     <i class="fas fa-question-circle text-blue-primary text-2xl"></i>
                 </div>
                 <p class="text-gray-700 mb-4">Can't find something? Let the community help you.</p>
-                <button class="w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                <a href="/post?type=lost" class="block w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors text-center">
                     Report Lost Item
-                </button>
+                </a>
             </div>
         </div>
 
@@ -54,9 +54,9 @@
                     <i class="fas fa-binoculars text-blue-primary text-2xl"></i>
                 </div>
                 <p class="text-gray-700 mb-4">Found something lying around? Post it here.</p>
-                <button class="w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                <a href="/post?type=found" class="block w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors text-center">
                     Report Found Item
-                </button>
+                </a>
             </div>
         </div>
 
@@ -67,9 +67,9 @@
                     <i class="fas fa-search text-blue-primary text-2xl"></i>
                 </div>
                 <p class="text-gray-700 mb-4">View the items you've reported both lost and found.</p>
-                <button class="w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors">
+                <a href="{{ route('user.reported-items') }}" class="block w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors text-center">
                     Track My Reports
-                </button>
+                </a>
             </div>
         </div>
     </div>
@@ -93,51 +93,23 @@
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
+                        @forelse($recentActivity as $activity)
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@sophia_23</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">AirPods</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@{{ $activity['username'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['item_name'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Lost</span>
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $activity['item_type'] === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">
+                                    {{ ucfirst($activity['item_type']) }}
+                                </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Lobby</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4/12/2025</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['location'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $activity['posted_date']->format('M d, Y') }}</td>
                         </tr>
+                        @empty
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@daniel07</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">ID Card</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Found</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Library</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4/12/2025</td>
+                            <td colspan="5" class="px-6 py-4 text-center text-sm text-gray-500">No recent activity</td>
                         </tr>
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@jake.mane</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Water Bottle</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Found</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Gym</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4/12/2025</td>
-                        </tr>
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@rina_chan</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Watch</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Lost</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Room 302</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4/12/2025</td>
-                        </tr>
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@marlowe_ge</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Wallet</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Found</span>
-                            </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">Admin Office</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">4/12/2025</td>
-                        </tr>
+                        @endforelse
                     </tbody>
                 </table>
             </div>
@@ -154,11 +126,15 @@
                         <!-- Background circle -->
                         <circle cx="50" cy="50" r="40" stroke="#e5e7eb" stroke-width="8" fill="none"/>
                         <!-- Progress circle -->
+                        @php
+                            $circumference = 2 * M_PI * 40; // 2πr where r=40
+                            $offset = $circumference - (($successRate / 100) * $circumference);
+                        @endphp
                         <circle cx="50" cy="50" r="40" stroke="#EC4899" stroke-width="8" fill="none"
-                                stroke-dasharray="251.2" stroke-dashoffset="92.9" stroke-linecap="round"/>
+                                stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}" stroke-linecap="round"/>
                     </svg>
                     <div class="absolute inset-0 flex items-center justify-center">
-                        <span class="text-2xl font-bold text-pink-primary">63%</span>
+                        <span class="text-2xl font-bold text-pink-primary">{{ $successRate }}%</span>
                     </div>
                 </div>
             </div>
@@ -167,19 +143,19 @@
             <div class="space-y-4">
                 <div class="flex justify-between items-center">
                     <span class="text-sm text-gray-600">Lost Items Reported:</span>
-                    <span class="text-lg font-bold text-pink-primary">3</span>
+                    <span class="text-lg font-bold text-pink-primary">{{ $lostItems }}</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-sm text-gray-600">Found Items Posted:</span>
-                    <span class="text-lg font-bold text-pink-primary">1</span>
+                    <span class="text-lg font-bold text-pink-primary">{{ $foundItems }}</span>
                 </div>
                 <div class="flex justify-between items-center">
                     <span class="text-sm text-gray-600">Items Claimed:</span>
-                    <span class="text-lg font-bold text-pink-primary">2</span>
+                    <span class="text-lg font-bold text-pink-primary">{{ $claimedItems }}</span>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Reports Resolved:</span>
-                    <span class="text-lg font-bold text-pink-primary">4</span>
+                    <span class="text-sm text-gray-600">Total Reports:</span>
+                    <span class="text-lg font-bold text-pink-primary">{{ $totalItems }}</span>
                 </div>
             </div>
         </div>

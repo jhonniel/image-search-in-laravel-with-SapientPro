@@ -27,8 +27,43 @@ class ChatController extends Controller
         // Check if we have URL parameters for pre-selecting a user
         $selectedUserId = $request->get('user');
         $itemId = $request->get('item');
+        
+        // Get item context if itemId is provided
+        $itemContextData = null;
+        if ($itemId) {
+            $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
+            if ($items->count() > 0) {
+                $firstItem = $items->first();
+                $uploader = User::where('email', $firstItem->uploader_email)->first();
+                
+                $images = $items->map(function ($item) {
+                    $filePath = $item->file_path;
+                    if (str_starts_with($filePath, '/storage/')) {
+                        $filePath = substr($filePath, 9);
+                    }
+                    return [
+                        'path' => \Illuminate\Support\Facades\Storage::url($filePath),
+                        'original_name' => $item->original_name ?? basename($filePath),
+                        'filename' => $item->filename
+                    ];
+                })->toArray();
+                
+                $itemContextData = [
+                    'upload_id' => $firstItem->upload_id,
+                    'uploadId' => $firstItem->upload_id,
+                    'item_type' => $firstItem->status,
+                    'itemType' => $firstItem->status,
+                    'description' => $firstItem->description,
+                    'location' => $firstItem->location ?? 'Location not specified',
+                    'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
+                    'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
+                    'uploader_email' => $firstItem->uploader_email,
+                    'images' => $images
+                ];
+            }
+        }
 
-        return view('user.chat', compact('user', 'users', 'conversations', 'selectedUserId', 'itemId'));
+        return view('user.chat', compact('user', 'users', 'conversations', 'selectedUserId', 'itemId', 'itemContextData'));
     }
 
     /**
@@ -71,33 +106,36 @@ class ChatController extends Controller
             // Fallback: get item context from request parameter
             $itemId = $request->get('item_id');
 
-            // Find the item in ImageMetadata
-            $item = \App\Models\ImageMetadata::where('upload_id', $itemId)->first();
-            if ($item) {
+            // Find all items with this upload_id
+            $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
+            if ($items->count() > 0) {
+                $firstItem = $items->first();
                 // Get the uploader's user information
-                $uploader = User::where('email', $item->uploader_email)->first();
+                $uploader = User::where('email', $firstItem->uploader_email)->first();
 
-                // Fix file path for images
-                $filePath = $item->file_path;
-                if (str_starts_with($filePath, '/storage/')) {
-                    $filePath = substr($filePath, 9);
-                }
+                // Get all images for this item
+                $images = $items->map(function ($item) {
+                    $filePath = $item->file_path;
+                    if (str_starts_with($filePath, '/storage/')) {
+                        $filePath = substr($filePath, 9);
+                    }
+                    return [
+                        'path' => \Illuminate\Support\Facades\Storage::url($filePath),
+                        'original_name' => $item->original_name ?? basename($filePath),
+                        'filename' => $item->filename
+                    ];
+                })->toArray();
 
                 $itemContext = [
-                    'upload_id' => $item->upload_id,
-                    'item_type' => $item->status,
-                    'description' => $item->description,
-                    'location' => $item->location,
-                    'tags' => $item->tags ? (is_string($item->tags) ? json_decode($item->tags, true) : $item->tags) : [],
+                    'upload_id' => $firstItem->upload_id,
+                    'item_type' => $firstItem->status,
+                    'description' => $firstItem->description,
+                    'location' => $firstItem->location ?? 'Location not specified',
+                    'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
                     'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
-                    'uploader_email' => $item->uploader_email,
-                    'created_at' => $item->created_at,
-                    'images' => [
-                        [
-                            'path' => \Illuminate\Support\Facades\Storage::url($filePath),
-                            'original_name' => basename($filePath)
-                        ]
-                    ]
+                    'uploader_email' => $firstItem->uploader_email,
+                    'created_at' => $firstItem->created_at->toIso8601String(),
+                    'images' => $images
                 ];
             }
         }
