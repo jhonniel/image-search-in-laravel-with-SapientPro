@@ -19,8 +19,10 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
+        'profile_picture',
     ];
 
     /**
@@ -44,5 +46,29 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    /**
+     * Get messages sent by this user
+     */
+    public function sentMessages()
+    {
+        return $this->hasMany(Message::class, 'sender_id');
+    }
+
+    /**
+     * Get messages received by this user
+     */
+    public function receivedMessages()
+    {
+        return $this->hasMany(Message::class, 'receiver_id');
+    }
+
+    /**
+     * Get unread messages count
+     */
+    public function unreadMessagesCount()
+    {
+        return $this->receivedMessages()->where('is_read', false)->count();
     }
 }

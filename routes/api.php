@@ -2,6 +2,7 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Api\UserItemController;
 use App\Http\Controllers\Api\ImageComparisonApiController;
 
 /*
@@ -18,6 +19,8 @@ use App\Http\Controllers\Api\ImageComparisonApiController;
 Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
+
+// User Items API Routes moved to web.php for better session handling
 
 /*
 |--------------------------------------------------------------------------

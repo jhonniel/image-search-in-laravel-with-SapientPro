@@ -17,6 +17,7 @@ class ImageMetadata extends Model
      */
     protected $fillable = [
         'filename',
+        'file_path',
         'original_name',
         'description',
         'tags',
@@ -25,6 +26,9 @@ class ImageMetadata extends Model
         'mime_type',
         'uploader_email',
         'status',
+        'is_claimed',
+        'claimed_by_email',
+        'claimed_at',
     ];
 
     /**
@@ -32,8 +36,10 @@ class ImageMetadata extends Model
      */
     protected $casts = [
         'tags' => 'array',
+        'is_claimed' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
+        'claimed_at' => 'datetime',
     ];
 
     /**
@@ -99,5 +105,21 @@ class ImageMetadata extends Model
     public function scopeByStatus($query, string $status)
     {
         return $query->where('status', $status);
+    }
+
+    /**
+     * Scope to filter by claimed status.
+     */
+    public function scopeClaimed($query)
+    {
+        return $query->where('is_claimed', true);
+    }
+
+    /**
+     * Scope to filter by unclaimed status.
+     */
+    public function scopeUnclaimed($query)
+    {
+        return $query->where('is_claimed', false);
     }
 }

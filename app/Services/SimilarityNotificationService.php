@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\ImageMetadata;
 use App\Mail\SimilarImageNotification;
+use App\Mail\UserItemNotification;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use SapientPro\ImageComparator\ImageComparator;
@@ -460,6 +461,181 @@ class SimilarityNotificationService
         } catch (\Exception $e) {
             Log::error('Failed to send no match notification', [
                 'email' => $newUploaderEmail,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Check for similarities with user uploaded items and send notifications
+     */
+    public function checkAndNotifySimilarities(ImageMetadata $newItem, string $userEmail): array
+    {
+        try {
+            // Get all existing items (both reference images and user items)
+            $existingItems = ImageMetadata::where('uploader_email', '!=', $userEmail)
+                ->whereNotNull('uploader_email')
+                ->get();
+
+            $similarItems = [];
+            $notificationsSent = [];
+
+            Log::info('Checking similarities for user item', [
+                'new_item' => $newItem->original_name,
+                'user_email' => $userEmail,
+                'existing_items_count' => $existingItems->count()
+            ]);
+
+            foreach ($existingItems as $existingItem) {
+                // Get the file path for comparison
+                $newItemPath = $this->getItemFilePath($newItem);
+                $existingItemPath = $this->getItemFilePath($existingItem);
+
+                if (!$newItemPath || !$existingItemPath) {
+                    continue;
+                }
+
+                try {
+                    // Calculate similarities
+                    $visualSimilarity = $this->calculateVisualSimilarity($newItemPath, $existingItemPath);
+                    $textSimilarity = $this->calculateTextSimilarity([
+                        'description' => $newItem->description,
+                        'tags' => $newItem->tags
+                    ], $existingItem);
+                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
+
+                    $visualThreshold = $this->config['thresholds']['visual'] ?? 0.7;
+
+                    if ($overallSimilarity >= $visualThreshold) {
+                        $similarItems[] = [
+                            'description' => $existingItem->description,
+                            'status' => $existingItem->status,
+                            'uploader_email' => $existingItem->uploader_email,
+                            'tags' => $existingItem->tags,
+                            'similarity' => $overallSimilarity,
+                            'item_id' => $existingItem->id,
+                            'upload_id' => $existingItem->upload_id
+                        ];
+
+                        Log::info('Similar item found for user upload', [
+                            'existing_item' => $existingItem->original_name,
+                            'similarity' => $overallSimilarity
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Error calculating similarity for item: ' . $existingItem->original_name, [
+                        'error' => $e->getMessage()
+                    ]);
+                    continue;
+                }
+            }
+
+            // Send notification to the user
+            if (count($similarItems) > 0) {
+                $this->sendUserSimilarityNotification($userEmail, $newItem, $similarItems);
+                $notificationsSent[] = $userEmail;
+            } else {
+                $this->sendUserUploadConfirmation($userEmail, $newItem);
+                $notificationsSent[] = $userEmail;
+            }
+
+            return [
+                'similar_items_found' => count($similarItems),
+                'notifications_sent' => count($notificationsSent),
+                'emails_notified' => $notificationsSent,
+                'similar_items' => $similarItems
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error checking user item similarities: ' . $e->getMessage());
+            return [
+                'similar_items_found' => 0,
+                'notifications_sent' => 0,
+                'emails_notified' => [],
+                'similar_items' => [],
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Get the file path for an item
+     */
+    private function getItemFilePath(ImageMetadata $item): ?string
+    {
+        // Check if it's a user item or reference image
+        if (str_contains($item->file_path, 'user-items')) {
+            $filename = basename($item->file_path);
+            $path = storage_path('app/public/user-items/' . $filename);
+        } else {
+            $path = storage_path('app/public/reference-images/' . $item->filename);
+        }
+
+        return file_exists($path) ? $path : null;
+    }
+
+    /**
+     * Send similarity notification to user
+     */
+    private function sendUserSimilarityNotification(string $userEmail, ImageMetadata $newItem, array $similarItems): void
+    {
+        try {
+            $data = [
+                'notification_type' => 'similar_item_found',
+                'item_type' => $newItem->status,
+                'item_description' => $newItem->description,
+                'item_location' => $newItem->description, // You might want to add a location field
+                'item_tags' => $newItem->tags,
+                'contact_email' => $userEmail,
+                'user_email' => $userEmail, // The authenticated user's email
+                'similar_items' => $similarItems,
+                'upload_date' => $newItem->created_at->format('M d, Y'),
+                'upload_id' => $newItem->upload_id,
+                'item_id' => $newItem->id
+            ];
+
+            Mail::to($userEmail)->send(new UserItemNotification($data));
+
+            Log::info('User similarity notification sent', [
+                'email' => $userEmail,
+                'similar_items_count' => count($similarItems)
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send user similarity notification', [
+                'email' => $userEmail,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Send upload confirmation to user
+     */
+    private function sendUserUploadConfirmation(string $userEmail, ImageMetadata $newItem): void
+    {
+        try {
+            $data = [
+                'notification_type' => 'new_item_uploaded',
+                'item_type' => $newItem->status,
+                'item_description' => $newItem->description,
+                'item_location' => $newItem->description, // You might want to add a location field
+                'item_tags' => $newItem->tags,
+                'contact_email' => $userEmail,
+                'user_email' => $userEmail, // The authenticated user's email
+                'upload_date' => $newItem->created_at->format('M d, Y'),
+                'upload_id' => $newItem->upload_id,
+                'item_id' => $newItem->id
+            ];
+
+            Mail::to($userEmail)->send(new UserItemNotification($data));
+
+            Log::info('User upload confirmation sent', [
+                'email' => $userEmail,
+                'item_type' => $newItem->status
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send user upload confirmation', [
+                'email' => $userEmail,
                 'error' => $e->getMessage()
             ]);
         }
