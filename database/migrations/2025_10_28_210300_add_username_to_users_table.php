@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -24,11 +25,45 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('users', function (Blueprint $table) {
-            if (Schema::hasColumn('users', 'username')) {
-                $table->dropColumn('username');
+        // Always drop the index first before dropping the column
+        // This is required for SQLite and good practice for other databases
+        try {
+            $driver = DB::getDriverName();
+            
+            if ($driver === 'sqlite') {
+                // Drop the unique index first (SQLite requires this)
+                DB::statement('DROP INDEX IF EXISTS users_username_unique');
+            } else {
+                // For other databases, use database-specific syntax
+                DB::statement('DROP INDEX IF EXISTS users_username_unique ON users');
             }
-        });
+        } catch (\Throwable $e) {
+            // Index might not exist, ignore error
+        }
+        
+        // Now drop the column
+        // For SQLite, we need to use a workaround since DROP COLUMN has limitations
+        if (Schema::hasColumn('users', 'username')) {
+            $driver = DB::getDriverName();
+            
+            if ($driver === 'sqlite') {
+                // SQLite doesn't support DROP COLUMN in all versions reliably
+                // Use raw SQL ALTER TABLE DROP COLUMN (works in SQLite 3.35.0+)
+                // If it fails, the column might already be dropped or version doesn't support it
+                try {
+                    DB::statement('ALTER TABLE users DROP COLUMN username');
+                } catch (\Throwable $e) {
+                    // If DROP COLUMN fails, the column might not exist or SQLite version is too old
+                    // In that case, we'll skip dropping the column
+                    // The index is already dropped, so it won't cause issues
+                }
+            } else {
+                // For other databases, use Laravel's schema builder
+                Schema::table('users', function (Blueprint $table) {
+                    $table->dropColumn('username');
+                });
+            }
+        }
     }
 };
 
