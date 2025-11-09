@@ -353,14 +353,14 @@
                     </div>
                     <div class="p-6 space-y-4">
                         <div>
-                            <a href="{{ route('admin.settings.export-database') }}" 
-                               class="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
+                            <button type="button" id="exportDatabaseBtn" 
+                                    class="w-full flex items-center justify-between px-4 py-3 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors border border-blue-200">
                                 <div class="flex items-center">
                                     <i class="fas fa-database text-blue-600 mr-3"></i>
                                     <span class="text-sm font-medium text-blue-700">Export Database (SQL)</span>
                                 </div>
                                 <i class="fas fa-download text-blue-600"></i>
-                            </a>
+                            </button>
                             <p class="text-xs text-gray-500 mt-2 ml-4">Download a backup of your database as an SQL file</p>
                         </div>
                         
@@ -589,6 +589,126 @@ function resetToDefaults() {
         alert('Reset to defaults functionality will be implemented soon.');
     }
 }
+
+// Export Database functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const exportBtn = document.getElementById('exportDatabaseBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', function() {
+            exportDatabase();
+        });
+    }
+    
+    const modalClose = document.getElementById('exportDatabaseModalClose');
+    if (modalClose) {
+        modalClose.addEventListener('click', function() {
+            document.getElementById('exportDatabaseModal').classList.add('hidden');
+            if (exportBtn) exportBtn.disabled = false;
+        });
+    }
+});
+
+function exportDatabase() {
+    // Show modal
+    const modal = document.getElementById('exportDatabaseModal');
+    const modalMessage = document.getElementById('exportDatabaseModalMessage');
+    const modalClose = document.getElementById('exportDatabaseModalClose');
+    
+    if (!modal || !modalMessage || !modalClose) {
+        console.error('Export modal elements not found');
+        return;
+    }
+    
+    modal.classList.remove('hidden');
+    modalMessage.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Exporting database... Please wait.';
+    modalMessage.className = 'text-gray-700';
+    modalClose.disabled = true;
+    
+    // Disable export button
+    const exportBtn = document.getElementById('exportDatabaseBtn');
+    if (exportBtn) exportBtn.disabled = true;
+    
+    // Fetch database export
+    fetch('{{ route("admin.settings.export-database") }}?json=1', {
+        method: 'GET',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            // Decode base64 content
+            const sqlContent = atob(data.content);
+            
+            // Create blob and download
+            const blob = new Blob([sqlContent], { type: 'application/sql' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = data.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            // Update modal message
+            modalMessage.innerHTML = '<i class="fas fa-check-circle text-green-500 mr-2"></i>Database exported successfully! Download started.';
+            modalMessage.className = 'text-green-700';
+            modalClose.disabled = false;
+            
+            // Close modal after 2 seconds
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                if (exportBtn) exportBtn.disabled = false;
+            }, 2000);
+        } else {
+            // Show error
+            modalMessage.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-2"></i>' + (data.message || 'Failed to export database');
+            modalMessage.className = 'text-red-700';
+            modalClose.disabled = false;
+            if (exportBtn) exportBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('Export error:', error);
+        modalMessage.innerHTML = '<i class="fas fa-exclamation-circle text-red-500 mr-2"></i>Failed to export database: ' + (error.message || 'Unknown error');
+        modalMessage.className = 'text-red-700';
+        modalClose.disabled = false;
+        if (exportBtn) exportBtn.disabled = false;
+    });
+}
 </script>
+
+<!-- Export Database Modal -->
+<div id="exportDatabaseModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50" style="z-index: 9999;">
+    <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+        <div class="mt-3 text-center">
+            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100">
+                <i class="fas fa-database text-blue-600 text-xl"></i>
+            </div>
+            <h3 class="text-lg font-medium text-gray-900 mt-5">Exporting Database</h3>
+            <div class="mt-2 px-7 py-3">
+                <p id="exportDatabaseModalContent" class="text-sm text-gray-500">
+                    <span id="exportDatabaseModalMessage">Preparing database export...</span>
+                </p>
+            </div>
+            <div class="items-center px-4 py-3">
+                <button id="exportDatabaseModalClose" 
+                        class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-300 disabled:opacity-50 disabled:cursor-not-allowed">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
