@@ -225,6 +225,26 @@
                             <span>Image Comparison</span>
                         </a>
                     </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isAdminNotifications = ($currentRoute === 'admin.notifications.create' || str_starts_with($currentPath, 'admin/notifications'))
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claimed')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.notifications.create') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isAdminNotifications ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-bullhorn w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
+                            <span>Send Notifications</span>
+                        </a>
+                    </li>
                 </ul>
             </nav>
 
