@@ -26,7 +26,6 @@
     </script>
 </head>
 <body class="antialiased bg-gray-100">
-@php($authUser = Auth::user())
     <div class="flex h-screen overflow-hidden bg-gray-100">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="sidebarOpen" 
@@ -71,7 +70,7 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isDashboard ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                        <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                             <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Dashboard</span>
                         </a>
@@ -273,15 +272,15 @@
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="flex items-center space-x-2 sm:space-x-3 bg-purple-50 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full hover:bg-purple-100 transition-colors">
                                 <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-purple-primary flex items-center justify-center">
-                                    @if($authUser && $authUser->profile_picture)
-                                        <img src="{{ $authUser->profile_picture }}" alt="{{ $authUser->name }}" class="w-full h-full object-cover">
+                                    @if(auth()->check() && auth()->user()->profile_picture)
+                                        <img src="{{ auth()->user()->profile_picture }}" alt="{{ auth()->user()->name }}" class="w-full h-full object-cover">
                                     @else
                                         <i class="fas fa-user text-white text-xs sm:text-sm"></i>
                                     @endif
                                 </div>
                                 <div class="hidden sm:block">
-                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ $authUser->name }}</p>
-                                    <p class="text-xs text-gray-500">Admin</p>
+                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ auth()->check() ? auth()->user()->name : 'Admin' }}</p>
+                                    <p class="text-xs text-gray-500">{{ auth()->check() ? 'Admin' : '' }}</p>
                                 </div>
                                 <i class="fas fa-chevron-down text-gray-400 text-xs hidden sm:block"></i>
                             </button>
