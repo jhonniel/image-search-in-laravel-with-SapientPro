@@ -31,9 +31,14 @@ Route::middleware(['auth'])->group(function () {
         return view('user.reported-items');
     })->name('user.reported-items');
 
-    Route::get('/user/claim-verify', function () {
-        return view('user.claim-verify');
-    });
+    Route::get('/user/claim', function () {
+        return view('user.claim');
+    })->name('user.claim');
+
+    // Pending Claims Management
+    Route::get('/user/pending-claims', [\App\Http\Controllers\UserController::class, 'pendingClaims'])->name('user.pending-claims');
+    Route::post('/user/claims/{uploadId}/verify', [\App\Http\Controllers\UserController::class, 'verifyClaim'])->name('user.claims.verify');
+    Route::post('/user/claims/{uploadId}/reject', [\App\Http\Controllers\UserController::class, 'rejectClaim'])->name('user.claims.reject');
 
         // Image Comparison (admin only - testing feature)
         Route::middleware(['admin'])->group(function () {
@@ -45,7 +50,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/admin/reported-items/{uploadId}', [\App\Http\Controllers\AdminController::class, 'deleteItem'])->name('admin.delete-item');
     Route::post('/admin/reported-items/{uploadId}/restore', [\App\Http\Controllers\AdminController::class, 'restoreItem'])->name('admin.restore-item');
     Route::delete('/admin/reported-items/{uploadId}/force', [\App\Http\Controllers\AdminController::class, 'forceDeleteItem'])->name('admin.force-delete-item');
-    Route::get('/admin/claim-verify', [\App\Http\Controllers\AdminController::class, 'claimVerify'])->name('admin.claim-verify');
+    Route::get('/admin/claimed', [\App\Http\Controllers\AdminController::class, 'claimVerify'])->name('admin.claimed');
     Route::get('/admin/users', [\App\Http\Controllers\AdminController::class, 'users'])->name('admin.users');
     Route::get('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'showUser'])->name('admin.users.show');
     Route::get('/admin/users/{user}/edit', [\App\Http\Controllers\AdminController::class, 'editUser'])->name('admin.users.edit');

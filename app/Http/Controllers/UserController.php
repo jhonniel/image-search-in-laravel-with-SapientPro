@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use App\Models\ImageMetadata;
 use App\Models\User;
 
@@ -63,5 +64,194 @@ class UserController extends Controller
             'successRate',
             'recentActivity'
         ));
+    }
+
+    /**
+     * Display pending claims for user's items
+     */
+    public function pendingClaims()
+    {
+        $user = Auth::user();
+        
+        // Get items that belong to the user and have pending claims
+        $pendingClaims = ImageMetadata::where('uploader_email', $user->email)
+            ->where('is_claimed', true)
+            ->where('claim_verification_status', 'pending')
+            ->get()
+            ->groupBy('upload_id')
+            ->map(function ($group) {
+                $firstItem = $group->first();
+                $claimer = User::where('email', $firstItem->claimed_by_email)->first();
+                
+                return [
+                    'upload_id' => $firstItem->upload_id,
+                    'description' => $firstItem->description,
+                    'location' => $firstItem->location,
+                    'status' => $firstItem->status,
+                    'tags' => $firstItem->tags,
+                    'claimed_at' => $firstItem->claimed_at,
+                    'claimer' => $claimer ? [
+                        'id' => $claimer->id,
+                        'name' => $claimer->name,
+                        'email' => $claimer->email,
+                        'is_verified' => $claimer->is_verified ?? false,
+                    ] : null,
+                    'images' => $group->map(function ($item) {
+                        return [
+                            'path' => $item->file_path,
+                            'original_name' => $item->original_name,
+                        ];
+                    })->toArray(),
+                ];
+            })
+            ->values();
+
+        return view('user.pending-claims', compact('pendingClaims'));
+    }
+
+    /**
+     * Verify a claim (confirm the item belongs to the claimer)
+     */
+    public function verifyClaim(Request $request, $uploadId)
+    {
+        $user = Auth::user();
+
+        try {
+            // Verify the item belongs to the current user
+            $items = ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', $user->email)
+                ->where('claim_verification_status', 'pending')
+                ->get();
+
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Item not found or claim already processed'
+                ], 404);
+            }
+
+            $firstItem = $items->first();
+            $claimerEmail = $firstItem->claimed_by_email;
+
+            // Update all items in this upload to verified status
+            ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', $user->email)
+                ->update([
+                    'claim_verification_status' => 'verified',
+                    'claim_verified_at' => now()
+                ]);
+
+            // Check if user has reached 50 verified returns and auto-verify them
+            $verifiedReturns = ImageMetadata::where('uploader_email', $user->email)
+                ->where('claim_verification_status', 'verified')
+                ->select('upload_id')
+                ->distinct()
+                ->count();
+
+            $wasJustVerified = false;
+            if ($verifiedReturns >= 50 && !$user->is_verified) {
+                $user->is_verified = true;
+                $user->save();
+                $wasJustVerified = true;
+                
+                Log::info('User auto-verified based on verified returns', [
+                    'user_email' => $user->email,
+                    'user_id' => $user->id,
+                    'verified_returns' => $verifiedReturns
+                ]);
+            }
+
+            // Send confirmation message to claimer
+            $claimer = User::where('email', $claimerEmail)->first();
+            if ($claimer) {
+                try {
+                    \App\Models\Message::create([
+                        'sender_id' => $user->id,
+                        'receiver_id' => $claimer->id,
+                        'message' => "Thank you! I've verified that the item belongs to you. Let's arrange the return.",
+                        'item_upload_id' => $uploadId,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send verification confirmation message: ' . $e->getMessage());
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Claim verified successfully!' . ($wasJustVerified ? ' You have been automatically verified for having 50 successful item returns!' : ''),
+                'was_verified' => $wasJustVerified,
+                'verified_returns' => $verifiedReturns
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to verify claim: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to verify claim: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject a claim (item does not belong to the claimer)
+     */
+    public function rejectClaim(Request $request, $uploadId)
+    {
+        $user = Auth::user();
+
+        try {
+            // Verify the item belongs to the current user
+            $items = ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', $user->email)
+                ->where('claim_verification_status', 'pending')
+                ->get();
+
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Item not found or claim already processed'
+                ], 404);
+            }
+
+            $firstItem = $items->first();
+            $claimerEmail = $firstItem->claimed_by_email;
+
+            // Update all items in this upload to rejected status and unclaim them
+            ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', $user->email)
+                ->update([
+                    'is_claimed' => false,
+                    'claim_verification_status' => 'rejected',
+                    'claimed_by_email' => null,
+                    'claimed_at' => null,
+                ]);
+
+            // Send rejection message to claimer
+            $claimer = User::where('email', $claimerEmail)->first();
+            if ($claimer) {
+                try {
+                    \App\Models\Message::create([
+                        'sender_id' => $user->id,
+                        'receiver_id' => $claimer->id,
+                        'message' => "I'm sorry, but this item doesn't belong to you. Thank you for trying to help though!",
+                        'item_upload_id' => $uploadId,
+                    ]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to send rejection message: ' . $e->getMessage());
+                }
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Claim rejected. The item is now available for others to claim.'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to reject claim: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to reject claim: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -693,9 +693,15 @@ class UserItemController extends Controller
 
         try {
             // Get items from other users, grouped by upload_id
-            // Exclude claimed items - they are only visible to admins
+            // Exclude verified claims - only show unclaimed or rejected claims
             $items = ImageMetadata::where('uploader_email', '!=', $user->email)
-                ->where('is_claimed', false)
+                ->where(function($query) {
+                    $query->where('is_claimed', false)
+                          ->orWhere(function($q) {
+                              $q->where('is_claimed', true)
+                                ->where('claim_verification_status', 'rejected');
+                          });
+                })
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id')
@@ -759,10 +765,16 @@ class UserItemController extends Controller
                 ], 401);
             }
 
-            // Find the item (must not be owned by the current user)
+            // Find the item (must not be owned by the current user and not already claimed/verified)
             $items = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
-                ->where('is_claimed', false)
+                ->where(function($query) {
+                    $query->where('is_claimed', false)
+                          ->orWhere(function($q) {
+                              $q->where('is_claimed', true)
+                                ->where('claim_verification_status', 'rejected');
+                          });
+                })
                 ->get();
 
             if ($items->isEmpty()) {
@@ -772,39 +784,61 @@ class UserItemController extends Controller
                 ], 404);
             }
 
-            // Mark all items in this upload as claimed
+            // Get the original owner of the item (the person who posted it)
+            $firstItem = $items->first();
+            $itemOwnerEmail = $firstItem->uploader_email;
+            $itemOwner = \App\Models\User::where('email', $itemOwnerEmail)->first();
+
+            if (!$itemOwner) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Item owner not found'
+                ], 404);
+            }
+
+            // Mark all items in this upload as claimed with pending verification status
             ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
                 ->update([
                     'is_claimed' => true,
                     'claimed_by_email' => $user->email,
-                    'claimed_at' => now()
+                    'claimed_at' => now(),
+                    'claim_verification_status' => 'pending'
                 ]);
 
-            // Check if user has reached 50 successful returns and auto-verify
-            $successfulReturns = ImageMetadata::where('claimed_by_email', $user->email)
-                ->where('is_claimed', true)
-                ->select('upload_id')
-                ->distinct()
-                ->count();
+            // Send notification message to the item owner
+            try {
+                $itemContext = [
+                    'upload_id' => $uploadId,
+                    'description' => $firstItem->description,
+                    'location' => $firstItem->location,
+                    'status' => $firstItem->status,
+                    'tags' => $firstItem->tags,
+                ];
 
-            $wasJustVerified = false;
-            if ($successfulReturns >= 50 && !$user->is_verified) {
-                $user->is_verified = true;
-                $user->save();
-                $wasJustVerified = true;
-            }
+                $claimMessage = "Hello! I believe I found your {$firstItem->status} item. Please verify if this item belongs to me so I can return it to you.";
 
-            $message = 'Item claimed successfully!';
-            if ($wasJustVerified) {
-                $message .= ' Congratulations! You have been automatically verified for returning 50 successful items!';
+                \App\Models\Message::create([
+                    'sender_id' => $user->id,
+                    'receiver_id' => $itemOwner->id,
+                    'message' => $claimMessage,
+                    'item_upload_id' => $uploadId,
+                    'item_context' => json_encode($itemContext),
+                ]);
+
+                Log::info('Claim notification message sent', [
+                    'claimer_id' => $user->id,
+                    'owner_id' => $itemOwner->id,
+                    'upload_id' => $uploadId
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to send claim notification message: ' . $e->getMessage());
             }
 
             return response()->json([
                 'success' => true,
-                'message' => $message,
-                'was_verified' => $wasJustVerified,
-                'successful_returns' => $successfulReturns
+                'message' => 'Item claim request sent! The item owner has been notified and will verify your claim. You can message them to discuss the details.',
+                'owner_name' => $itemOwner->name
             ]);
 
         } catch (\Exception $e) {

@@ -62,7 +62,7 @@
                             $currentPath = request()->path();
                             $isDashboard = ($currentRoute === 'admin.dashboard' || $currentPath === 'admin/dashboard') 
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
@@ -81,7 +81,7 @@
                             $currentPath = request()->path();
                             $isReportedItems = (in_array($currentRoute, ['admin.reported-items', 'admin.delete-item']) || str_starts_with($currentPath, 'admin/reported-items')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
@@ -98,7 +98,7 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isClaimVerify = ($currentRoute === 'admin.claim-verify' || str_starts_with($currentPath, 'admin/claim-verify')) 
+                            $isClaimVerify = ($currentRoute === 'admin.claimed' || str_starts_with($currentPath, 'admin/claimed')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
                                 && !str_starts_with($currentPath, 'admin/users')
@@ -108,9 +108,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.claim-verify') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                        <a href="{{ route('admin.claimed') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                             <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Claim and Verify</span>
+                            <span>Claimed</span>
                         </a>
                     </li>
                     <li>
@@ -120,7 +120,7 @@
                             $isUsers = (str_starts_with($currentRoute, 'admin.users') || str_starts_with($currentPath, 'admin/users')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
@@ -139,7 +139,7 @@
                             $isInsights = ($currentRoute === 'admin.insights' || str_starts_with($currentPath, 'admin/insights')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
@@ -158,7 +158,7 @@
                             $isRewards = (str_starts_with($currentRoute, 'admin.rewards') || str_starts_with($currentPath, 'admin/rewards')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
@@ -177,7 +177,7 @@
                             $isSettings = (str_starts_with($currentRoute, 'admin.settings') || str_starts_with($currentPath, 'admin/settings')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
@@ -196,7 +196,7 @@
                             $isSponsors = (str_starts_with($currentRoute, 'admin.sponsors') || str_starts_with($currentPath, 'admin/sponsors')) 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
@@ -214,7 +214,7 @@
                             $isImageComparison = str_starts_with($currentPath, 'image-comparison') 
                                 && !str_starts_with($currentPath, 'admin/dashboard')
                                 && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/claimed')
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')

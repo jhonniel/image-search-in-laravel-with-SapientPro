@@ -32,6 +32,8 @@ class ImageMetadata extends Model
         'is_claimed',
         'claimed_by_email',
         'claimed_at',
+        'claim_verification_status',
+        'claim_verified_at',
     ];
 
     /**
@@ -43,6 +45,7 @@ class ImageMetadata extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
         'claimed_at' => 'datetime',
+        'claim_verified_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 

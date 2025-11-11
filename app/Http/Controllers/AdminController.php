@@ -19,20 +19,20 @@ class AdminController extends Controller
     {
         // Total Reports - count unique upload_ids
         $totalReports = ImageMetadata::select('upload_id')->distinct()->count('upload_id');
-        
+
         // Items in progress - unclaimed items (grouped by upload_id)
         $itemsInProgress = ImageMetadata::where('is_claimed', false)
             ->select('upload_id')
             ->distinct()
             ->count('upload_id');
-        
+
         // Contributors - unique users who have uploaded items
         $contributors = ImageMetadata::select('uploader_email')->distinct()->count('uploader_email');
-        
+
         // Calculate percentage changes (comparing last 30 days to previous 30 days)
         $last30Days = now()->subDays(30);
         $previous30Days = now()->subDays(60);
-        
+
         $reportsLast30Days = ImageMetadata::where('created_at', '>=', $last30Days)
             ->select('upload_id')
             ->distinct()
@@ -41,11 +41,11 @@ class AdminController extends Controller
             ->select('upload_id')
             ->distinct()
             ->count('upload_id');
-        
-        $reportsChange = $reportsPrevious30Days > 0 
+
+        $reportsChange = $reportsPrevious30Days > 0
             ? round((($reportsLast30Days - $reportsPrevious30Days) / $reportsPrevious30Days) * 100)
             : 0;
-        
+
         $itemsInProgressLast30Days = ImageMetadata::where('is_claimed', false)
             ->where('created_at', '>=', $last30Days)
             ->select('upload_id')
@@ -56,11 +56,11 @@ class AdminController extends Controller
             ->select('upload_id')
             ->distinct()
             ->count('upload_id');
-        
+
         $itemsInProgressChange = $itemsInProgressPrevious30Days > 0
             ? round((($itemsInProgressLast30Days - $itemsInProgressPrevious30Days) / $itemsInProgressPrevious30Days) * 100)
             : 0;
-        
+
         $contributorsLast30Days = ImageMetadata::where('created_at', '>=', $last30Days)
             ->select('uploader_email')
             ->distinct()
@@ -69,50 +69,50 @@ class AdminController extends Controller
             ->select('uploader_email')
             ->distinct()
             ->count('uploader_email');
-        
+
         $contributorsChange = $contributorsPrevious30Days > 0
             ? round((($contributorsLast30Days - $contributorsPrevious30Days) / $contributorsPrevious30Days) * 100)
             : 0;
-        
+
         // Lost vs Found items by month (last 9 months)
         $monthlyData = [];
         $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
-        
+
         for ($i = 8; $i >= 0; $i--) {
             $monthStart = now()->subMonths($i)->startOfMonth();
             $monthEnd = now()->subMonths($i)->endOfMonth();
-            
+
             $lostCount = ImageMetadata::where('status', 'lost')
                 ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->select('upload_id')
                 ->distinct()
                 ->count('upload_id');
-            
+
             $foundCount = ImageMetadata::where('status', 'found')
                 ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->select('upload_id')
                 ->distinct()
                 ->count('upload_id');
-            
+
             $monthlyData[] = [
                 'month' => $months[8 - $i],
                 'lost' => $lostCount,
                 'found' => $foundCount,
             ];
         }
-        
+
         // Calculate max value for chart scaling
         $lostMax = !empty($monthlyData) ? max(array_column($monthlyData, 'lost')) : 0;
         $foundMax = !empty($monthlyData) ? max(array_column($monthlyData, 'found')) : 0;
         $maxValue = max($lostMax, $foundMax);
         $maxValue = $maxValue > 0 ? $maxValue : 1; // Prevent division by zero
-        
+
         // Normalize heights for chart (max height 150px)
         foreach ($monthlyData as &$data) {
             $data['lost_height'] = $maxValue > 0 ? round(($data['lost'] / $maxValue) * 150) : 0;
             $data['found_height'] = $maxValue > 0 ? round(($data['found'] / $maxValue) * 150) : 0;
         }
-        
+
         // Recent Activity - last 5 items (grouped by upload_id)
         $recentItems = ImageMetadata::orderBy('created_at', 'desc')
             ->get()
@@ -132,7 +132,7 @@ class AdminController extends Controller
                 ];
             })
             ->values();
-        
+
         // Top Contributors - users with most reports
         $topContributors = ImageMetadata::select('uploader_email')
             ->selectRaw('COUNT(DISTINCT upload_id) as report_count')
@@ -155,7 +155,7 @@ class AdminController extends Controller
                     'last_active' => $item->last_active ? \Carbon\Carbon::parse($item->last_active) : null,
                 ];
             });
-        
+
         // Get claimed items for admin dashboard
         $claimedItems = ImageMetadata::where('is_claimed', true)
             ->orderBy('claimed_at', 'desc')
@@ -169,7 +169,7 @@ class AdminController extends Controller
                     $claimedByUser = User::where('email', $firstItem->claimed_by_email)->first();
                 }
                 $uploader = User::where('email', $firstItem->uploader_email)->first();
-                
+
                 return [
                     'upload_id' => $firstItem->upload_id,
                     'item_type' => $firstItem->status,
@@ -182,7 +182,7 @@ class AdminController extends Controller
                 ];
             })
             ->values();
-        
+
         return view('admin.dashboard', compact(
             'totalReports',
             'itemsInProgress',
@@ -292,7 +292,7 @@ class AdminController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Restore deleted item (admin only)
      */
@@ -328,7 +328,7 @@ class AdminController extends Controller
             ], 500);
         }
     }
-    
+
     /**
      * Force delete item (permanent delete with files) - admin only
      */
@@ -384,7 +384,7 @@ class AdminController extends Controller
 
         return view('admin.users', compact('users'));
     }
-    
+
     /**
      * Get trashed items (deleted items) for admin
      */
@@ -397,7 +397,7 @@ class AdminController extends Controller
 
         return view('admin.trashed-items', compact('trashedItems'));
     }
-    
+
     /**
      * Restore user (admin only)
      */
@@ -414,7 +414,7 @@ class AdminController extends Controller
                 ->with('error', 'Failed to restore user: ' . $e->getMessage());
         }
     }
-    
+
     /**
      * Force delete user (admin only)
      */
@@ -574,7 +574,7 @@ class AdminController extends Controller
             ];
         }
 
-        return view('admin.claim-verify', compact('formattedItems'));
+        return view('admin.claimed', compact('formattedItems'));
     }
 
     /**
@@ -589,13 +589,13 @@ class AdminController extends Controller
         $claimedItems = ImageMetadata::where('is_claimed', true)->select('upload_id')->distinct()->count('upload_id');
         $totalUsers = User::count();
         $activeUsers = ImageMetadata::select('uploader_email')->distinct()->count('uploader_email');
-        
+
         // Get items by status over time (last 12 months)
         $monthlyStats = [];
         for ($i = 11; $i >= 0; $i--) {
             $monthStart = now()->subMonths($i)->startOfMonth();
             $monthEnd = now()->subMonths($i)->endOfMonth();
-            
+
             $monthlyStats[] = [
                 'month' => now()->subMonths($i)->format('M Y'),
                 'lost' => ImageMetadata::where('status', 'lost')
@@ -609,7 +609,7 @@ class AdminController extends Controller
                     ->select('upload_id')->distinct()->count('upload_id'),
             ];
         }
-        
+
         // Top categories/tags
         $topTags = ImageMetadata::whereNotNull('tags')
             ->get()
@@ -621,7 +621,7 @@ class AdminController extends Controller
             ->countBy()
             ->sortDesc()
             ->take(10);
-        
+
         // Items by day of week (simplified - using day name from created_at)
         $dayOfWeekStats = [];
         $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -631,11 +631,11 @@ class AdminController extends Controller
             ->groupBy(function ($item) {
                 return $item->created_at->format('l'); // Day name
             });
-        
+
         foreach ($days as $day) {
             $dayOfWeekStats[$day] = $allItems->get($day, collect())->unique('upload_id')->count();
         }
-        
+
         // Peak hours analysis
         $hourlyStats = [];
         $itemsByHour = ImageMetadata::select('upload_id', 'created_at')
@@ -644,12 +644,12 @@ class AdminController extends Controller
             ->groupBy(function ($item) {
                 return $item->created_at->format('H'); // Hour (00-23)
             });
-        
+
         for ($hour = 0; $hour < 24; $hour++) {
             $hourKey = str_pad($hour, 2, '0', STR_PAD_LEFT);
             $hourlyStats[$hour] = $itemsByHour->get($hourKey, collect())->unique('upload_id')->count();
         }
-        
+
         return view('admin.insights', compact(
             'totalItems',
             'lostItems',
@@ -721,11 +721,11 @@ class AdminController extends Controller
 
         // Clear config cache to apply new settings
         \Artisan::call('config:clear');
-        
+
         return redirect()->route('admin.settings')
             ->with('success', 'Settings updated successfully!');
     }
-    
+
     /**
      * Test email notification
      */
@@ -734,54 +734,54 @@ class AdminController extends Controller
         $request->validate([
             'test_email' => 'required|email|max:255',
         ]);
-        
+
         try {
             // Apply mail configuration from database settings
             $this->applyMailConfiguration();
-            
+
             // Check if mail is configured
             $mailMailer = config('mail.default');
             $mailHost = config('mail.mailers.smtp.host');
             $mailUsername = config('mail.mailers.smtp.username');
-            
+
             if ($mailMailer === 'log') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Email is set to "log" mode. Change to SMTP in settings to send actual emails. Log mode only saves emails to logs.'
                 ], 400);
             }
-            
+
             if ($mailMailer === 'smtp' && (empty($mailHost) || empty($mailUsername))) {
                 return response()->json([
                     'success' => false,
                     'message' => 'SMTP configuration is incomplete. Please fill in all SMTP settings (Host, Username, Password, Port, Encryption).'
                 ], 400);
             }
-            
+
             // Get test email address
             $testEmail = $request->input('test_email');
-            
+
             // Send test email
             \Mail::to($testEmail)->send(new \App\Mail\TestEmailNotification());
-            
+
             return response()->json([
                 'success' => true,
                 'message' => "Test email sent successfully to {$testEmail}. Please check your inbox (and spam folder)."
             ]);
-            
+
         } catch (\Exception $e) {
             $errorMessage = $e->getMessage();
             $helpMessage = '';
-            
+
             // Check if it's a transport/authentication error
-            $isTransportError = str_contains($errorMessage, '535') || 
-                               str_contains($errorMessage, 'BadCredentials') || 
+            $isTransportError = str_contains($errorMessage, '535') ||
+                               str_contains($errorMessage, 'BadCredentials') ||
                                str_contains($errorMessage, 'Username and Password not accepted') ||
                                str_contains($errorMessage, 'Authentication') ||
                                str_contains($errorMessage, 'SMTP') ||
                                str_contains($errorMessage, 'Connection') ||
                                str_contains($errorMessage, 'timeout');
-            
+
             // Provide helpful error messages for common issues
             if (str_contains($errorMessage, '535') || str_contains($errorMessage, 'BadCredentials') || str_contains($errorMessage, 'Username and Password not accepted')) {
                 $helpMessage = "\n\n❌ Gmail Authentication Error:\n" .
@@ -821,7 +821,7 @@ class AdminController extends Controller
                     "3. Your email provider allows SMTP access\n" .
                     "4. For Gmail: Make sure you're using an App Password, not your regular password";
             }
-            
+
             \Log::error('Test email failed', [
                 'error' => $errorMessage,
                 'mail_config' => [
@@ -832,14 +832,14 @@ class AdminController extends Controller
                     'encryption' => config('mail.mailers.smtp.encryption'),
                 ]
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to send test email: ' . $errorMessage . $helpMessage
             ], 500);
         }
     }
-    
+
     /**
      * Apply mail configuration from database settings
      */
@@ -855,45 +855,45 @@ class AdminController extends Controller
             $mailEncryption = Setting::get('mail_encryption', config('mail.mailers.smtp.encryption'));
             $mailFromAddress = Setting::get('mail_from_address', config('mail.from.address'));
             $mailFromName = Setting::get('mail_from_name', config('mail.from.name'));
-            
+
             // Update config dynamically
             if ($mailMailer) {
                 \Config::set('mail.default', $mailMailer);
             }
-            
+
             if ($mailHost) {
                 \Config::set('mail.mailers.smtp.host', $mailHost);
             }
-            
+
             if ($mailPort) {
                 \Config::set('mail.mailers.smtp.port', $mailPort);
             }
-            
+
             if ($mailUsername) {
                 \Config::set('mail.mailers.smtp.username', $mailUsername);
             }
-            
+
             if ($mailPassword) {
                 \Config::set('mail.mailers.smtp.password', $mailPassword);
             }
-            
+
             if ($mailEncryption && $mailEncryption !== 'null') {
                 \Config::set('mail.mailers.smtp.encryption', $mailEncryption);
             } else {
                 \Config::set('mail.mailers.smtp.encryption', null);
             }
-            
+
             if ($mailFromAddress) {
                 \Config::set('mail.from.address', $mailFromAddress);
             }
-            
+
             if ($mailFromName) {
                 \Config::set('mail.from.name', $mailFromName);
             }
-            
+
             // Clear mail cache
             \Config::set('mail.mailers.smtp.auth', true);
-            
+
         } catch (\Exception $e) {
             \Log::error('Failed to apply mail configuration: ' . $e->getMessage());
         }
@@ -909,21 +909,21 @@ class AdminController extends Controller
             $driver = $connection->getDriverName();
             $filename = 'database_backup_' . date('Y-m-d_His') . '.sql';
             $returnJson = $request->has('json') || $request->wantsJson(); // Check if JSON response is requested
-            
+
             if ($driver === 'sqlite') {
                 // For SQLite, we need to read the database file
                 $databasePath = config('database.connections.sqlite.database');
-                
+
                 if (!file_exists($databasePath)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Database file not found'
                     ], 404);
                 }
-                
+
                 // Read SQLite database and convert to SQL
                 $sql = $this->sqliteToSql($databasePath);
-                
+
                 if ($returnJson) {
                     // Return as JSON for AJAX requests
                     return response()->json([
@@ -933,18 +933,18 @@ class AdminController extends Controller
                         'message' => 'Database exported successfully'
                     ]);
                 }
-                
+
                 return response($sql)
                     ->header('Content-Type', 'application/sql')
                     ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
-                    
+
             } elseif ($driver === 'mysql') {
                 // For MySQL, use mysqldump if available, otherwise generate SQL manually
                 $host = config('database.connections.mysql.host');
                 $database = config('database.connections.mysql.database');
                 $username = config('database.connections.mysql.username');
                 $password = config('database.connections.mysql.password');
-                
+
                 // Try to use mysqldump command if available
                 $mysqldumpPath = $this->findMysqldumpPath();
                 if ($mysqldumpPath) {
@@ -957,11 +957,11 @@ class AdminController extends Controller
                     }
                     $command .= ' ' . escapeshellarg($database);
                     $command .= ' 2>&1';
-                    
+
                     $output = [];
                     $returnVar = 0;
                     @exec($command, $output, $returnVar);
-                    
+
                     if ($returnVar === 0 && !empty($output)) {
                         $sql = implode("\n", $output);
                     } else {
@@ -972,7 +972,7 @@ class AdminController extends Controller
                     // Generate SQL manually from database
                     $sql = $this->generateMysqlDump($connection);
                 }
-                
+
                 if ($returnJson) {
                     // Return as JSON for AJAX requests
                     return response()->json([
@@ -982,7 +982,7 @@ class AdminController extends Controller
                         'message' => 'Database exported successfully'
                     ]);
                 }
-                
+
                 return response($sql)
                     ->header('Content-Type', 'application/sql')
                     ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
@@ -992,17 +992,17 @@ class AdminController extends Controller
                     'message' => 'Database driver not supported for export'
                 ], 400);
             }
-            
+
         } catch (\Exception $e) {
             \Log::error('Database export failed: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to export database: ' . $e->getMessage()
             ], 500);
         }
     }
-    
+
     /**
      * Import database from SQL file
      */
@@ -1011,7 +1011,7 @@ class AdminController extends Controller
         $request->validate([
             'sql_file' => 'required|file|max:10240', // Max 10MB - allow any file type for SQL
         ]);
-        
+
         // Validate file extension manually
         $file = $request->file('sql_file');
         $extension = strtolower($file->getClientOriginalExtension());
@@ -1021,28 +1021,28 @@ class AdminController extends Controller
                 'message' => 'Invalid file type. Please upload a .sql or .txt file.'
             ], 400);
         }
-        
+
         try {
             $connection = DB::connection();
             $driver = $connection->getDriverName();
-            
+
             $sqlContent = file_get_contents($file->getRealPath());
-            
+
             if (empty($sqlContent)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'SQL file is empty'
                 ], 400);
             }
-            
+
             // For SQLite, disable foreign key constraints during import
             if ($driver === 'sqlite') {
                 $connection->statement('PRAGMA foreign_keys = OFF');
             }
-            
+
             // Begin transaction
             DB::beginTransaction();
-            
+
             try {
                 if ($driver === 'sqlite') {
                     $this->importSqlite($sqlContent, $connection);
@@ -1051,22 +1051,22 @@ class AdminController extends Controller
                 } else {
                     throw new \Exception('Database driver not supported for import');
                 }
-                
+
                 DB::commit();
-                
+
                 // Re-enable foreign key constraints for SQLite
                 if ($driver === 'sqlite') {
                     $connection->statement('PRAGMA foreign_keys = ON');
                 }
-                
+
                 return response()->json([
                     'success' => true,
                     'message' => 'Database imported successfully. Please refresh the page to see changes.'
                 ]);
-                
+
             } catch (\Exception $e) {
                 DB::rollBack();
-                
+
                 // Re-enable foreign key constraints for SQLite even on error
                 if ($driver === 'sqlite') {
                     try {
@@ -1075,20 +1075,20 @@ class AdminController extends Controller
                         // Ignore if this fails
                     }
                 }
-                
+
                 throw $e;
             }
-            
+
         } catch (\Exception $e) {
             \Log::error('Database import failed: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to import database: ' . $e->getMessage()
             ], 500);
         }
     }
-    
+
     /**
      * Convert SQLite database to SQL
      */
@@ -1096,20 +1096,20 @@ class AdminController extends Controller
     {
         $pdo = new \PDO('sqlite:' . $databasePath);
         $pdo->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
-        
+
         $sql = "-- SQLite Database Export\n";
         $sql .= "-- Exported on: " . date('Y-m-d H:i:s') . "\n\n";
-        
+
         // Get all tables
         $tables = $pdo->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")->fetchAll(\PDO::FETCH_COLUMN);
-        
+
         foreach ($tables as $table) {
             // Get table structure
             $createTable = $pdo->query("SELECT sql FROM sqlite_master WHERE type='table' AND name='$table'")->fetchColumn();
             $sql .= "\n-- Table structure for `$table`\n";
             $sql .= "DROP TABLE IF EXISTS `$table`;\n";
             $sql .= $createTable . ";\n\n";
-            
+
             // Get table data
             $rows = $pdo->query("SELECT * FROM `$table`")->fetchAll(\PDO::FETCH_ASSOC);
             if (!empty($rows)) {
@@ -1119,16 +1119,16 @@ class AdminController extends Controller
                     $values = array_map(function($value) use ($pdo) {
                         return $value === null ? 'NULL' : $pdo->quote($value);
                     }, array_values($row));
-                    
+
                     $sql .= "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $values) . ");\n";
                 }
                 $sql .= "\n";
             }
         }
-        
+
         return $sql;
     }
-    
+
     /**
      * Generate MySQL dump manually
      */
@@ -1138,14 +1138,14 @@ class AdminController extends Controller
         $sql .= "-- Exported on: " . date('Y-m-d H:i:s') . "\n\n";
         $sql .= "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n";
         $sql .= "SET time_zone = \"+00:00\";\n\n";
-        
+
         // Get all tables
         $tables = $connection->select("SHOW TABLES");
         $tableKey = 'Tables_in_' . config('database.connections.mysql.database');
-        
+
         foreach ($tables as $tableObj) {
             $table = $tableObj->$tableKey;
-            
+
             // Get table structure
             $createTable = $connection->select("SHOW CREATE TABLE `$table`");
             if (!empty($createTable)) {
@@ -1154,7 +1154,7 @@ class AdminController extends Controller
                 $sql .= "DROP TABLE IF EXISTS `$table`;\n";
                 $sql .= $createTableSql . ";\n\n";
             }
-            
+
             // Get table data
             $rows = $connection->select("SELECT * FROM `$table`");
             if (!empty($rows)) {
@@ -1164,16 +1164,16 @@ class AdminController extends Controller
                     $values = array_map(function($value) use ($connection) {
                         return $value === null ? 'NULL' : $connection->getPdo()->quote($value);
                     }, array_values((array)$row));
-                    
+
                     $sql .= "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (" . implode(', ', $values) . ");\n";
                 }
                 $sql .= "\n";
             }
         }
-        
+
         return $sql;
     }
-    
+
     /**
      * Find mysqldump executable path
      */
@@ -1188,7 +1188,7 @@ class AdminController extends Controller
             'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe',
             'C:\\Program Files\\MySQL\\MySQL Server 5.7\\bin\\mysqldump.exe',
         ];
-        
+
         foreach ($paths as $path) {
             $output = [];
             $returnVar = 0;
@@ -1197,10 +1197,10 @@ class AdminController extends Controller
                 return $path;
             }
         }
-        
+
         return null;
     }
-    
+
     /**
      * Import SQL into SQLite
      */
@@ -1210,22 +1210,22 @@ class AdminController extends Controller
         $sqlContent = preg_replace('/SET\s+[^;]+;/i', '', $sqlContent);
         $sqlContent = preg_replace('/--.*$/m', '', $sqlContent);
         $sqlContent = preg_replace('/\/\*.*?\*\//s', '', $sqlContent);
-        
+
         // Split SQL into individual statements
         // Handle multi-line statements better
         $sqlContent = preg_replace('/\r\n|\r/', "\n", $sqlContent);
         $statements = [];
         $currentStatement = '';
-        
+
         $lines = explode("\n", $sqlContent);
         foreach ($lines as $line) {
             $line = trim($line);
             if (empty($line) || preg_match('/^--/', $line)) {
                 continue;
             }
-            
+
             $currentStatement .= $line . "\n";
-            
+
             // Check if statement ends with semicolon
             if (substr(rtrim($line), -1) === ';') {
                 $statement = trim($currentStatement);
@@ -1235,7 +1235,7 @@ class AdminController extends Controller
                 $currentStatement = '';
             }
         }
-        
+
         // Execute statements
         foreach ($statements as $statement) {
             try {
@@ -1250,7 +1250,7 @@ class AdminController extends Controller
             }
         }
     }
-    
+
     /**
      * Import SQL into MySQL
      */
@@ -1259,14 +1259,14 @@ class AdminController extends Controller
         // Remove comments and split into statements
         $sqlContent = preg_replace('/--.*$/m', '', $sqlContent);
         $sqlContent = preg_replace('/\/\*.*?\*\//s', '', $sqlContent);
-        
+
         $statements = array_filter(
             array_map('trim', explode(';', $sqlContent)),
             function($statement) {
                 return !empty($statement);
             }
         );
-        
+
         foreach ($statements as $statement) {
             if (!empty(trim($statement))) {
                 try {
@@ -1285,13 +1285,13 @@ class AdminController extends Controller
     private function updateEnvFile(Request $request)
     {
         $envPath = base_path('.env');
-        
+
         if (!file_exists($envPath)) {
             return;
         }
 
         $envContent = file_get_contents($envPath);
-        
+
         $updates = [
             'MAIL_MAILER' => $request->mail_mailer,
             'MAIL_HOST' => $request->mail_host,
@@ -1307,7 +1307,7 @@ class AdminController extends Controller
             if ($value !== null) {
                 $pattern = "/^{$key}=.*/m";
                 $replacement = "{$key}={$value}";
-                
+
                 if (preg_match($pattern, $envContent)) {
                     $envContent = preg_replace($pattern, $replacement, $envContent);
                 } else {

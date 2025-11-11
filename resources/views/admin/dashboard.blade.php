@@ -134,7 +134,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <div class="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
             <h3 class="text-lg font-semibold text-gray-900">Claimed Items</h3>
-            <a href="{{ route('admin.claim-verify') }}" class="text-sm text-pink-primary hover:text-pink-600 font-medium">
+            <a href="{{ route('admin.claimed') }}" class="text-sm text-pink-primary hover:text-pink-600 font-medium">
                 View All <i class="fas fa-arrow-right ml-1"></i>
             </a>
         </div>
@@ -186,7 +186,7 @@
                             {{ $item['claimed_at'] ? $item['claimed_at']->diffForHumans() : 'N/A' }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <a href="{{ route('admin.claim-verify') }}?upload_id={{ $item['upload_id'] }}" class="text-pink-primary hover:text-pink-600">
+                            <a href="{{ route('admin.claimed') }}?upload_id={{ $item['upload_id'] }}" class="text-pink-primary hover:text-pink-600">
                                 View Details
                             </a>
                         </td>

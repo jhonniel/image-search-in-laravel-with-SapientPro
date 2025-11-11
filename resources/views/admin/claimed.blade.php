@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Claim and Verify')
+@section('title', 'Claimed')
 
 @section('content')
 <div class="space-y-6">
@@ -8,7 +8,7 @@
     <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
         <div class="flex items-center justify-between">
             <div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Claim and Verify</h2>
+                <h2 class="text-2xl font-bold text-gray-900 mb-2">Claimed</h2>
                 <p class="text-gray-600">View all items that have been claimed by users</p>
             </div>
             <div class="flex items-center space-x-4">

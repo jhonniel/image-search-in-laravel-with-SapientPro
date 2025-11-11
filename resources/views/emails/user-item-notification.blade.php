@@ -254,7 +254,7 @@
                 <h3 style="color: #8B5CF6; margin-top: 0;">Quick Access Links:</h3>
                 <p style="margin: 5px 0;"><a href="{{ url('/user/reported-items') }}" style="color: #8B5CF6; text-decoration: none;">📋 My Reported Items</a></p>
                 <p style="margin: 5px 0;"><a href="{{ url('/user/dashboard') }}" style="color: #8B5CF6; text-decoration: none;">🏠 Dashboard</a></p>
-                <p style="margin: 5px 0;"><a href="{{ url('/user/claim-verify') }}" style="color: #8B5CF6; text-decoration: none;">✅ Claim & Verify</a></p>
+                <p style="margin: 5px 0;"><a href="{{ url('/user/claim') }}" style="color: #8B5CF6; text-decoration: none;">✅ Claim</a></p>
             </div>
         </div>
         <div class="footer">
