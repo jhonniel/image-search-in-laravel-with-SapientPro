@@ -28,15 +28,21 @@ class UserProfileController extends Controller
             ->get();
 
         // Get user's available rewards
-        $rewards = \App\Models\Reward::where('user_id', $user->id)
-            ->where('is_used', false)
-            ->where('status', 'active')
-            ->where(function($query) {
-                $query->whereNull('expires_at')
-                      ->orWhere('expires_at', '>=', now());
-            })
-            ->orderBy('created_at', 'desc')
-            ->get();
+        try {
+            $rewards = \App\Models\Reward::where('user_id', $user->id)
+                ->where('is_used', false)
+                ->where('status', 'active')
+                ->where(function($query) {
+                    $query->whereNull('expires_at')
+                          ->orWhere('expires_at', '>=', now());
+                })
+                ->orderBy('created_at', 'desc')
+                ->get();
+        } catch (\Exception $e) {
+            // If rewards table doesn't exist, return empty collection
+            \Log::error('Error fetching rewards: ' . $e->getMessage());
+            $rewards = collect([]);
+        }
 
         return view('user.profile', compact('user', 'reportsCount', 'recentReports', 'rewards'));
     }
