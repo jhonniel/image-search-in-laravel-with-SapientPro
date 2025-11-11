@@ -902,12 +902,13 @@ class AdminController extends Controller
     /**
      * Export database as SQL file
      */
-    public function exportDatabase()
+    public function exportDatabase(Request $request)
     {
         try {
             $connection = DB::connection();
             $driver = $connection->getDriverName();
             $filename = 'database_backup_' . date('Y-m-d_His') . '.sql';
+            $returnJson = $request->has('json') || $request->wantsJson(); // Check if JSON response is requested
             
             if ($driver === 'sqlite') {
                 // For SQLite, we need to read the database file
@@ -922,6 +923,16 @@ class AdminController extends Controller
                 
                 // Read SQLite database and convert to SQL
                 $sql = $this->sqliteToSql($databasePath);
+                
+                if ($returnJson) {
+                    // Return as JSON for AJAX requests
+                    return response()->json([
+                        'success' => true,
+                        'filename' => $filename,
+                        'content' => base64_encode($sql),
+                        'message' => 'Database exported successfully'
+                    ]);
+                }
                 
                 return response($sql)
                     ->header('Content-Type', 'application/sql')
@@ -960,6 +971,16 @@ class AdminController extends Controller
                 } else {
                     // Generate SQL manually from database
                     $sql = $this->generateMysqlDump($connection);
+                }
+                
+                if ($returnJson) {
+                    // Return as JSON for AJAX requests
+                    return response()->json([
+                        'success' => true,
+                        'filename' => $filename,
+                        'content' => base64_encode($sql),
+                        'message' => 'Database exported successfully'
+                    ]);
                 }
                 
                 return response($sql)
