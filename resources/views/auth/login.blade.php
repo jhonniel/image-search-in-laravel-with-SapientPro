@@ -67,18 +67,18 @@
 
                 <!-- Email Field -->
                 <div>
-                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                    <label for="login" class="block text-sm font-medium text-gray-700 mb-2">Email or Username</label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg"><i class="fas fa-user"></i></span>
-                        <input type="email"
-                               id="email"
-                               name="email"
-                               value="{{ old('email') }}"
+                        <input type="text"
+                               id="login"
+                               name="login"
+                               value="{{ old('login') }}"
                                class="w-full pl-10 pr-4 py-4 text-lg bg-white border border-gray-300 rounded-xl text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent"
-                               placeholder="Username"
+                               placeholder="Enter email or username"
                                required>
                     </div>
-                    @error('email')
+                    @error('login')
                         <p class="text-red-600 text-sm mt-1">{{ $message }}</p>
                     @enderror
                 </div>

@@ -175,44 +175,56 @@ class AuthController extends Controller
         }
         
         $request->validate([
-            'email' => 'required|email',
+            'login' => 'required|string',
             'password' => 'required|min:6',
         ]);
 
-        $credentials = $request->only('email', 'password');
+        $identifier = trim($request->input('login'));
+        $password = $request->input('password');
         $remember = $request->boolean('remember');
 
-        if (Auth::attempt($credentials, $remember)) {
-            $user = Auth::user();
-            
-            // Check if there's a pending guest item in session and link it to the logged-in user
-            // Do this BEFORE session regeneration to preserve the session data
-            $this->processGuestPendingItem($request, $user);
-            
-            $request->session()->regenerate();
-
-            // Check if user is admin based on email
-            $email = strtolower($user->email);
-
-            // Check if there's a redirect URL in session (from item page)
-            $redirectUrl = $request->session()->pull('redirect_after_login', null);
-            if ($redirectUrl) {
-                return redirect($redirectUrl);
+        // If identifier looks like an email
+        if (str_contains($identifier, '@')) {
+            if (Auth::attempt(['email' => $identifier, 'password' => $password], $remember)) {
+                return $this->afterSuccessfulLogin($request);
             }
+        } else {
+            // Try username, then code_name, then email equal to identifier
+            $user = User::where('username', $identifier)
+                ->orWhere('code_name', $identifier)
+                ->orWhere('email', $identifier)
+                ->first();
 
-            // Redirect admin users to admin dashboard
-            // Check for admin@finditfast.com or emails containing 'admin'
-            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
-                return redirect('/admin/dashboard');
+            if ($user && \Illuminate\Support\Facades\Hash::check($password, $user->password)) {
+                Auth::login($user, $remember);
+                return $this->afterSuccessfulLogin($request);
             }
-
-            // Redirect regular users to user dashboard
-            return redirect('/user/dashboard');
         }
 
         throw ValidationException::withMessages([
-            'email' => 'The provided credentials do not match our records.',
+            'login' => 'The provided credentials do not match our records.',
         ]);
+    }
+
+    private function afterSuccessfulLogin(Request $request)
+    {
+        $user = Auth::user();
+        // Link pending guest item before regenerating session
+        $this->processGuestPendingItem($request, $user);
+        $request->session()->regenerate();
+
+        $email = strtolower($user->email);
+
+        // Redirect to stored redirect first
+        $redirectUrl = $request->session()->pull('redirect_after_login', null);
+        if ($redirectUrl) {
+            return redirect($redirectUrl);
+        }
+
+        if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
+            return redirect('/admin/dashboard');
+        }
+        return redirect('/user/dashboard');
     }
 
     /**
