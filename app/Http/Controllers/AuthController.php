@@ -21,9 +21,29 @@ class AuthController extends Controller
      */
     public function showLoginForm(Request $request)
     {
+        // Check if user is already logged in
+        if (Auth::check()) {
+            $user = Auth::user();
+            $email = strtolower($user->email);
+            
+            // Check if there's a redirect URL in session (from item page)
+            $redirectUrl = $request->session()->pull('redirect_after_login', null);
+            if ($redirectUrl) {
+                return redirect($redirectUrl);
+            }
+            
+            // Redirect admin users to admin dashboard
+            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
+                return redirect('/admin/dashboard');
+            }
+            
+            // Redirect regular users to user dashboard
+            return redirect('/user/dashboard');
+        }
+        
         // Check if redirecting from item page
         $itemId = $request->get('item');
-        $redirectToItem = $itemId ? route('public.item.show', $itemId) : null;
+        $redirectToItem = (!empty($itemId)) ? route('public.item.show', $itemId) : null;
         
         // Store item ID in session for redirect after login
         if ($itemId) {
@@ -35,12 +55,32 @@ class AuthController extends Controller
 
     public function showRegistrationForm(Request $request)
     {
+        // Check if user is already logged in
+        if (Auth::check()) {
+            $user = Auth::user();
+            $email = strtolower($user->email);
+            
+            // Check if there's a redirect URL in session (from item page)
+            $redirectUrl = $request->session()->pull('redirect_after_register', null);
+            if ($redirectUrl) {
+                return redirect($redirectUrl);
+            }
+            
+            // Redirect admin users to admin dashboard
+            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
+                return redirect('/admin/dashboard');
+            }
+            
+            // Redirect regular users to user dashboard
+            return redirect('/user/dashboard');
+        }
+        
         // Check if there's a pending guest item
         $hasPendingItem = $request->session()->has('guest_pending_item');
         
         // Check if redirecting from item page
         $itemId = $request->get('item');
-        $redirectToItem = $itemId ? route('public.item.show', $itemId) : null;
+        $redirectToItem = (!empty($itemId)) ? route('public.item.show', $itemId) : null;
         
         if ($hasPendingItem) {
             Log::info('Registration form shown with pending guest item', [
@@ -114,6 +154,26 @@ class AuthController extends Controller
      */
     public function login(Request $request)
     {
+        // Check if user is already logged in
+        if (Auth::check()) {
+            $user = Auth::user();
+            $email = strtolower($user->email);
+            
+            // Check if there's a redirect URL in session (from item page)
+            $redirectUrl = $request->session()->pull('redirect_after_login', null);
+            if ($redirectUrl) {
+                return redirect($redirectUrl);
+            }
+            
+            // Redirect admin users to admin dashboard
+            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
+                return redirect('/admin/dashboard');
+            }
+            
+            // Redirect regular users to user dashboard
+            return redirect('/user/dashboard');
+        }
+        
         $request->validate([
             'email' => 'required|email',
             'password' => 'required|min:6',

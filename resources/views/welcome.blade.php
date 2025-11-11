@@ -346,9 +346,13 @@
                                 <span>{{ $report['time_ago'] }}</span>
                             </div>
                         </div>
-                    <a href="{{ route('public.item.show', $report['upload_id']) }}" class="text-purple-primary underline font-medium text-sm hover:text-purple-600">
-                        View Details
-                    </a>
+                    @if(isset($report['upload_id']) && !empty($report['upload_id']))
+                        <a href="{{ route('public.item.show', $report['upload_id']) }}" class="text-purple-primary underline font-medium text-sm hover:text-purple-600">
+                            View Details
+                        </a>
+                    @else
+                        <span class="text-gray-400 text-sm">Details unavailable</span>
+                    @endif
                     </div>
                 </div>
                 @empty

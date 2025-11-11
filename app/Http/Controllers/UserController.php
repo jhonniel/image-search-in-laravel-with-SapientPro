@@ -45,6 +45,7 @@ class UserController extends Controller
                 $uploader = User::where('email', $firstItem->uploader_email)->first();
                 
                 return [
+                    'name' => $uploader ? $uploader->name : 'Unknown',
                     'username' => $uploader ? ($uploader->username ?? substr($uploader->name, 0, 10)) : 'Unknown',
                     'item_name' => $firstItem->description ? \Illuminate\Support\Str::limit($firstItem->description, 30) : 'No description',
                     'item_type' => $firstItem->status,

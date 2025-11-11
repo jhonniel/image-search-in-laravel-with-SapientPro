@@ -156,6 +156,33 @@ class AdminController extends Controller
                 ];
             });
         
+        // Get claimed items for admin dashboard
+        $claimedItems = ImageMetadata::where('is_claimed', true)
+            ->orderBy('claimed_at', 'desc')
+            ->get()
+            ->groupBy('upload_id')
+            ->take(10)
+            ->map(function ($itemGroup) {
+                $firstItem = $itemGroup->first();
+                $claimedByUser = null;
+                if ($firstItem->claimed_by_email) {
+                    $claimedByUser = User::where('email', $firstItem->claimed_by_email)->first();
+                }
+                $uploader = User::where('email', $firstItem->uploader_email)->first();
+                
+                return [
+                    'upload_id' => $firstItem->upload_id,
+                    'item_type' => $firstItem->status,
+                    'description' => $firstItem->description ?? 'No description',
+                    'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
+                    'claimed_by_name' => $claimedByUser ? $claimedByUser->name : 'Unknown',
+                    'claimed_by_email' => $firstItem->claimed_by_email,
+                    'claimed_at' => $firstItem->claimed_at,
+                    'created_at' => $firstItem->created_at,
+                ];
+            })
+            ->values();
+        
         return view('admin.dashboard', compact(
             'totalReports',
             'itemsInProgress',
@@ -165,7 +192,8 @@ class AdminController extends Controller
             'contributorsChange',
             'monthlyData',
             'recentItems',
-            'topContributors'
+            'topContributors',
+            'claimedItems'
         ));
     }
 
@@ -474,6 +502,28 @@ class AdminController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update user: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Toggle user verification status
+     */
+    public function toggleVerification(\App\Models\User $user)
+    {
+        try {
+            $user->is_verified = !$user->is_verified;
+            $user->save();
+
+            return response()->json([
+                'success' => true,
+                'message' => $user->is_verified ? 'User verified successfully' : 'User verification removed',
+                'is_verified' => $user->is_verified
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to toggle verification: ' . $e->getMessage()
             ], 500);
         }
     }

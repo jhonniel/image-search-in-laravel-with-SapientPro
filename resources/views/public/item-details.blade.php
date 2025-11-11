@@ -73,7 +73,14 @@
                     </div>
                 </div>
                 <h1 class="text-3xl font-bold mb-2">Item Details</h1>
-                <p class="text-lg opacity-90">Posted by {{ $item['uploader_name'] }}</p>
+                <div class="flex items-center gap-2">
+                    <p class="text-lg opacity-90">Posted by {{ $item['uploader_name'] }}</p>
+                    @if($item['uploader_verified'] ?? false)
+                    <span class="inline-flex items-center justify-center w-5 h-5" title="Verified Profile">
+                        <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-5 h-5">
+                    </span>
+                    @endif
+                </div>
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
@@ -124,8 +131,21 @@
                         <!-- Uploader Info -->
                         <div>
                             <h3 class="text-sm font-medium text-gray-500 mb-2">Posted By</h3>
-                            <p class="text-gray-900">{{ $item['uploader_name'] }}</p>
+                            <div class="flex items-center gap-2 mb-1">
+                                <p class="text-gray-900">{{ $item['uploader_name'] }}</p>
+                                @if($item['uploader_verified'] ?? false)
+                                <span class="inline-flex items-center justify-center w-5 h-5" title="Verified Profile">
+                                    <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-5 h-5">
+                                </span>
+                                @endif
+                            </div>
                             <p class="text-sm text-gray-500">{{ $item['uploader_email'] }}</p>
+                            @if($item['uploader_verified'] ?? false)
+                            <p class="text-xs text-blue-600 mt-1 flex items-center">
+                                <i class="fas fa-shield-alt mr-1"></i>
+                                This profile has been verified by administrators
+                            </p>
+                            @endif
                         </div>
 
                         <!-- Posted Date -->

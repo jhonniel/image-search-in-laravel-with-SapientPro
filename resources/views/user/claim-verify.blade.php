@@ -172,10 +172,17 @@ function displayOtherUsersItems(items) {
                                             <span class="text-xs font-medium text-purple-600">${item.uploader_name.substring(0, 1).toUpperCase()}</span>
                                         </div>
                                     `}
-                                    <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                        <i class="fas fa-user mr-1"></i>
-                                        ${item.uploader_name}
-                                    </span>
+                                    <div class="flex items-center gap-1">
+                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                            <i class="fas fa-user mr-1"></i>
+                                            ${item.uploader_name}
+                                        </span>
+                                        ${item.uploader_verified ? `
+                                            <span class="inline-flex items-center justify-center w-4 h-4" title="Verified Profile">
+                                                <img src="/images/icons/verify.png" alt="Verified" class="w-4 h-4">
+                                            </span>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -412,7 +419,14 @@ function viewItemDetails(uploadId) {
             </div>
             <div>
                 <h4 class="font-semibold text-gray-900">Posted By</h4>
-                <p class="text-gray-600">${item.uploader_name}</p>
+                <div class="flex items-center gap-2">
+                    <p class="text-gray-600">${item.uploader_name}</p>
+                    ${item.uploader_verified ? `
+                        <span class="inline-flex items-center justify-center w-5 h-5" title="Verified Profile">
+                            <img src="/images/icons/verify.png" alt="Verified" class="w-5 h-5">
+                        </span>
+                    ` : ''}
+                </div>
             </div>
             <div>
                 <h4 class="font-semibold text-gray-900">Date Posted</h4>

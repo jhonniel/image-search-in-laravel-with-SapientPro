@@ -134,6 +134,7 @@ class ChatController extends Controller
                     'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
                     'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
                     'uploader_email' => $firstItem->uploader_email,
+                    'uploader_verified' => $uploader ? ($uploader->is_verified ?? false) : false,
                     'created_at' => $firstItem->created_at->toIso8601String(),
                     'images' => $images
                 ];

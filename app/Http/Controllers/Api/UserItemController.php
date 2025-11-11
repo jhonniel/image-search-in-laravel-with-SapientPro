@@ -693,7 +693,9 @@ class UserItemController extends Controller
 
         try {
             // Get items from other users, grouped by upload_id
+            // Exclude claimed items - they are only visible to admins
             $items = ImageMetadata::where('uploader_email', '!=', $user->email)
+                ->where('is_claimed', false)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id')
@@ -713,6 +715,7 @@ class UserItemController extends Controller
                         'uploader_email' => $firstItem->uploader_email,
                         'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
                         'uploader_profile_picture' => $uploader ? $uploader->profile_picture : null,
+                        'uploader_verified' => $uploader ? ($uploader->is_verified ?? false) : false,
                         'created_at' => $firstItem->created_at,
                         'images' => $group->map(function ($item) {
                             // Fix file path - remove /storage/ prefix if it exists
@@ -778,9 +781,30 @@ class UserItemController extends Controller
                     'claimed_at' => now()
                 ]);
 
+            // Check if user has reached 50 successful returns and auto-verify
+            $successfulReturns = ImageMetadata::where('claimed_by_email', $user->email)
+                ->where('is_claimed', true)
+                ->select('upload_id')
+                ->distinct()
+                ->count();
+
+            $wasJustVerified = false;
+            if ($successfulReturns >= 50 && !$user->is_verified) {
+                $user->is_verified = true;
+                $user->save();
+                $wasJustVerified = true;
+            }
+
+            $message = 'Item claimed successfully!';
+            if ($wasJustVerified) {
+                $message .= ' Congratulations! You have been automatically verified for returning 50 successful items!';
+            }
+
             return response()->json([
                 'success' => true,
-                'message' => 'Item claimed successfully!'
+                'message' => $message,
+                'was_verified' => $wasJustVerified,
+                'successful_returns' => $successfulReturns
             ]);
 
         } catch (\Exception $e) {

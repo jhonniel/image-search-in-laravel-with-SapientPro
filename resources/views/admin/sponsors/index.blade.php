@@ -55,10 +55,41 @@
                            placeholder="Enter sponsor name">
                 </div>
                 <div>
-                    <label for="image" class="block text-sm font-medium text-gray-700 mb-2">Sponsor Logo *</label>
-                    <input type="file" id="image" name="image" required accept="image/*"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary">
-                    <p class="text-xs text-gray-500 mt-1">Max 5MB, JPEG, PNG, GIF, WEBP</p>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Sponsor Logo <span class="text-red-500">*</span></label>
+                    
+                    <!-- Drag and Drop Zone -->
+                    <div id="sponsor-drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer">
+                        <input type="file" id="image" name="image" accept="image/*" class="hidden" required>
+                        
+                        <div id="sponsor-drop-zone-content" class="space-y-3">
+                            <div class="flex justify-center">
+                                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-cloud-upload-alt text-purple-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-700 mb-1">
+                                    <span class="text-purple-600">Click to upload</span> or drag and drop
+                                </p>
+                                <p class="text-xs text-gray-500">Max 5MB, JPEG, PNG, GIF, WEBP</p>
+                            </div>
+                            <button type="button" onclick="document.getElementById('image').click()" 
+                                    class="inline-flex items-center px-3 py-1.5 bg-purple-primary text-white rounded-lg hover:bg-purple-600 transition-colors text-xs font-medium">
+                                <i class="fas fa-folder-open mr-1"></i>
+                                Browse
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Image Preview -->
+                    <div id="sponsor-preview-container" class="mt-4 hidden">
+                        <div class="relative inline-block">
+                            <img id="sponsor-preview" src="" alt="Preview" class="max-w-xs h-32 object-contain rounded-lg border-2 border-gray-200">
+                            <button type="button" onclick="removeSponsorPreview()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <label for="order" class="block text-sm font-medium text-gray-700 mb-2">Display Order</label>
@@ -158,9 +189,41 @@
                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary">
                 </div>
                 <div class="mb-4">
-                    <label for="edit_image" class="block text-sm font-medium text-gray-700 mb-2">Sponsor Logo</label>
-                    <input type="file" id="edit_image" name="image" accept="image/*"
-                           class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary">
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Sponsor Logo</label>
+                    
+                    <!-- Drag and Drop Zone -->
+                    <div id="edit-sponsor-drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer">
+                        <input type="file" id="edit_image" name="image" accept="image/*" class="hidden">
+                        
+                        <div id="edit-sponsor-drop-zone-content" class="space-y-3">
+                            <div class="flex justify-center">
+                                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-cloud-upload-alt text-purple-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-700 mb-1">
+                                    <span class="text-purple-600">Click to upload</span> or drag and drop
+                                </p>
+                                <p class="text-xs text-gray-500">Max 5MB, JPEG, PNG, GIF, WEBP</p>
+                            </div>
+                            <button type="button" onclick="document.getElementById('edit_image').click()" 
+                                    class="inline-flex items-center px-3 py-1.5 bg-purple-primary text-white rounded-lg hover:bg-purple-600 transition-colors text-xs font-medium">
+                                <i class="fas fa-folder-open mr-1"></i>
+                                Browse
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Image Preview -->
+                    <div id="edit-sponsor-preview-container" class="mt-4 hidden">
+                        <div class="relative inline-block">
+                            <img id="edit-sponsor-preview" src="" alt="Preview" class="max-w-xs h-32 object-contain rounded-lg border-2 border-gray-200">
+                            <button type="button" onclick="removeEditSponsorPreview()" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                     <p class="text-xs text-gray-500 mt-1">Leave empty to keep current logo</p>
                 </div>
                 <div class="mb-4">
@@ -228,6 +291,115 @@ document.getElementById('toggleShowSponsors').addEventListener('change', functio
         alert('Failed to update setting');
     });
 });
+
+// Sponsor image upload handlers
+document.addEventListener('DOMContentLoaded', function() {
+    // Add sponsor form
+    const sponsorDropZone = document.getElementById('sponsor-drop-zone');
+    const sponsorImageInput = document.getElementById('image');
+    const sponsorPreviewContainer = document.getElementById('sponsor-preview-container');
+    const sponsorPreview = document.getElementById('sponsor-preview');
+
+    if (sponsorDropZone && sponsorImageInput) {
+        sponsorDropZone.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            sponsorImageInput.click();
+        });
+
+        sponsorImageInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        sponsorPreview.src = e.target.result;
+                        sponsorPreviewContainer.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+
+        // Drag and drop
+        sponsorDropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            sponsorDropZone.classList.add('border-purple-500', 'bg-purple-100');
+        });
+
+        sponsorDropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            sponsorDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+        });
+
+        sponsorDropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            sponsorDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                sponsorImageInput.files = files;
+                sponsorImageInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+    // Edit sponsor form
+    const editSponsorDropZone = document.getElementById('edit-sponsor-drop-zone');
+    const editSponsorImageInput = document.getElementById('edit_image');
+    const editSponsorPreviewContainer = document.getElementById('edit-sponsor-preview-container');
+    const editSponsorPreview = document.getElementById('edit-sponsor-preview');
+
+    if (editSponsorDropZone && editSponsorImageInput) {
+        editSponsorDropZone.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            editSponsorImageInput.click();
+        });
+
+        editSponsorImageInput.addEventListener('change', function(e) {
+            if (e.target.files && e.target.files[0]) {
+                const file = e.target.files[0];
+                if (file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        editSponsorPreview.src = e.target.result;
+                        editSponsorPreviewContainer.classList.remove('hidden');
+                    };
+                    reader.readAsDataURL(file);
+                }
+            }
+        });
+
+        // Drag and drop
+        editSponsorDropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            editSponsorDropZone.classList.add('border-purple-500', 'bg-purple-100');
+        });
+
+        editSponsorDropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            editSponsorDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+        });
+
+        editSponsorDropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            editSponsorDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                editSponsorImageInput.files = files;
+                editSponsorImageInput.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+});
+
+function removeSponsorPreview() {
+    document.getElementById('image').value = '';
+    document.getElementById('sponsor-preview-container').classList.add('hidden');
+}
+
+function removeEditSponsorPreview() {
+    document.getElementById('edit_image').value = '';
+    document.getElementById('edit-sponsor-preview-container').classList.add('hidden');
+}
 </script>
 @endsection
 

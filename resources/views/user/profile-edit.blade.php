@@ -44,13 +44,29 @@
                         </div>
                     </div>
 
-                    <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="uploadAvatar(this)">
-                    <button type="button" onclick="document.getElementById('avatar-input').click()"
-                            class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
-                        <i class="fas fa-upload mr-2"></i>
-                        Upload Photo
-                    </button>
-                    <p class="text-xs text-gray-500 mt-2">JPG, PNG, GIF up to 2MB</p>
+                    <!-- Avatar Upload Zone -->
+                    <div id="avatar-drop-zone" class="mt-4 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer">
+                        <input type="file" id="avatar-input" accept="image/*" class="hidden" onchange="uploadAvatar(this)">
+                        
+                        <div id="avatar-drop-zone-content" class="space-y-3">
+                            <div class="flex justify-center">
+                                <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                    <i class="fas fa-cloud-upload-alt text-purple-600 text-xl"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-700 mb-1">
+                                    <span class="text-purple-600">Click to upload</span> or drag and drop
+                                </p>
+                                <p class="text-xs text-gray-500">JPG, PNG, GIF up to 2MB</p>
+                            </div>
+                            <button type="button" onclick="document.getElementById('avatar-input').click()"
+                                    class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+                                <i class="fas fa-folder-open mr-2"></i>
+                                Browse Photo
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -77,6 +93,14 @@
                                 <input type="email" id="email" name="email" value="{{ $user->email }}"
                                        class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                        required>
+                            </div>
+                            <div>
+                                <label for="code_name" class="block text-sm font-medium text-gray-700 mb-2">Code Name <span class="text-gray-500 text-xs">(Unique)</span></label>
+                                <input type="text" id="code_name" name="code_name" value="{{ $user->code_name }}"
+                                       class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                       placeholder="Enter your unique code name">
+                                <p class="text-xs text-gray-500 mt-1">Your code name must be unique and cannot be duplicated by other users.</p>
+                                <div id="code_name_error" class="text-red-600 text-sm mt-1 hidden"></div>
                             </div>
                         </div>
                     </div>
@@ -127,6 +151,38 @@
 </div>
 
 <script>
+// Avatar drag and drop
+document.addEventListener('DOMContentLoaded', function() {
+    const avatarDropZone = document.getElementById('avatar-drop-zone');
+    const avatarInput = document.getElementById('avatar-input');
+
+    if (avatarDropZone && avatarInput) {
+        avatarDropZone.addEventListener('click', function(e) {
+            if (e.target.closest('button')) return;
+            avatarInput.click();
+        });
+
+        avatarDropZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            avatarDropZone.classList.add('border-purple-500', 'bg-purple-100');
+        });
+
+        avatarDropZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            avatarDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+        });
+
+        avatarDropZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            avatarDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+            const files = e.dataTransfer.files;
+            if (files && files[0]) {
+                avatarInput.files = files;
+                uploadAvatar(avatarInput);
+            }
+        });
+    }
+});
 // Profile form submission
 document.getElementById('profile-form').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -153,12 +209,27 @@ document.getElementById('profile-form').addEventListener('submit', async functio
 
         if (data.success) {
             showNotification('Profile updated successfully!', 'success');
+            
+            // Clear any code name errors
+            const codeNameError = document.getElementById('code_name_error');
+            if (codeNameError) {
+                codeNameError.classList.add('hidden');
+                codeNameError.textContent = '';
+            }
 
             // Update the page data if needed
             if (data.user) {
                 document.getElementById('avatar-initials').textContent = data.user.name.substring(0, 2).toUpperCase();
             }
         } else {
+            // Handle validation errors
+            if (data.errors && data.errors.code_name) {
+                const codeNameError = document.getElementById('code_name_error');
+                if (codeNameError) {
+                    codeNameError.textContent = data.errors.code_name[0];
+                    codeNameError.classList.remove('hidden');
+                }
+            }
             showNotification(data.message || 'Failed to update profile', 'error');
         }
     } catch (error) {

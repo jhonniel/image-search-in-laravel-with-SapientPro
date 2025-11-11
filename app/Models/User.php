@@ -21,9 +21,11 @@ class User extends Authenticatable
     protected $fillable = [
         'name',
         'username',
+        'code_name',
         'email',
         'password',
         'profile_picture',
+        'is_verified',
     ];
 
     /**
@@ -46,6 +48,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_verified' => 'boolean',
         ];
     }
 
@@ -71,5 +74,27 @@ class User extends Authenticatable
     public function unreadMessagesCount()
     {
         return $this->receivedMessages()->where('is_read', false)->count();
+    }
+
+    /**
+     * Get rewards for this user
+     */
+    public function rewards()
+    {
+        return $this->hasMany(Reward::class);
+    }
+
+    /**
+     * Get available (unused and not expired) rewards
+     */
+    public function availableRewards()
+    {
+        return $this->rewards()
+            ->where('is_used', false)
+            ->where('status', 'active')
+            ->where(function($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>=', now());
+            });
     }
 }

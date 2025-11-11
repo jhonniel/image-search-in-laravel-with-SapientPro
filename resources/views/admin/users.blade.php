@@ -77,7 +77,14 @@
                                     </div>
                                 </div>
                                 <div class="ml-4">
-                                    <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
+                                    <div class="flex items-center gap-1.5">
+                                        <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
+                                        @if($user->is_verified ?? false)
+                                        <span class="inline-flex items-center justify-center w-4 h-4 flex-shrink-0" title="Verified Profile">
+                                            <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-4 h-4">
+                                        </span>
+                                        @endif
+                                    </div>
                                     <div class="text-sm text-gray-500">ID: {{ $user->id }}</div>
                                 </div>
                             </div>
@@ -86,9 +93,22 @@
                             <div class="text-sm text-gray-900">{{ $user->email }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                                Active
-                            </span>
+                            <div class="flex flex-col gap-1">
+                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                    Active
+                                </span>
+                                @if($user->is_verified)
+                                <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Verified
+                                </span>
+                                @else
+                                <span class="inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-600">
+                                    <i class="fas fa-times-circle mr-1"></i>
+                                    Not Verified
+                                </span>
+                                @endif
+                            </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                             {{ $user->created_at->format('M d, Y') }}
@@ -99,13 +119,16 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div class="flex items-center space-x-2">
-                                <button onclick="viewUser({{ $user->id }})" class="text-purple-600 hover:text-purple-900 transition-colors">
+                                <button onclick="viewUser({{ $user->id }})" class="text-purple-600 hover:text-purple-900 transition-colors" title="View">
                                     <i class="fas fa-eye"></i>
                                 </button>
-                                <button onclick="editUser({{ $user->id }})" class="text-blue-600 hover:text-blue-900 transition-colors">
+                                <button onclick="editUser({{ $user->id }})" class="text-blue-600 hover:text-blue-900 transition-colors" title="Edit">
                                     <i class="fas fa-edit"></i>
                                 </button>
-                                <button onclick="deleteUser({{ $user->id }})" class="text-red-600 hover:text-red-900 transition-colors">
+                                <button onclick="toggleVerification({{ $user->id }})" class="{{ $user->is_verified ? 'text-green-600 hover:text-green-900' : 'text-gray-600 hover:text-gray-900' }} transition-colors" title="{{ $user->is_verified ? 'Unverify' : 'Verify' }}">
+                                    <i class="fas fa-{{ $user->is_verified ? 'check-circle' : 'circle' }}"></i>
+                                </button>
+                                <button onclick="deleteUser({{ $user->id }})" class="text-red-600 hover:text-red-900 transition-colors" title="Delete">
                                     <i class="fas fa-trash"></i>
                                 </button>
                             </div>
@@ -277,6 +300,36 @@ function viewUser(userId) {
             console.error('Error loading user details:', error);
             showNotification('Error loading user details', 'error');
         });
+}
+
+function toggleVerification(userId) {
+    if (!confirm('Are you sure you want to toggle verification status for this user?')) {
+        return;
+    }
+
+    fetch(`/admin/users/${userId}/toggle-verification`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            // Reload the page to update the UI
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else {
+            showNotification(data.message || 'Failed to toggle verification', 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Error toggling verification:', error);
+        showNotification('Error toggling verification', 'error');
+    });
 }
 
 function editUser(userId) {

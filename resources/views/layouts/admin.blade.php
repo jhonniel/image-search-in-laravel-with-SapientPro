@@ -67,6 +67,7 @@
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isDashboard ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -85,6 +86,7 @@
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -103,6 +105,7 @@
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.claim-verify') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -121,6 +124,7 @@
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.users') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isUsers ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -139,11 +143,31 @@
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.insights') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isInsights ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                             <i class="fas fa-chart-line w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Insights</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isRewards = (str_starts_with($currentRoute, 'admin.rewards') || str_starts_with($currentPath, 'admin/rewards')) 
+                                && !str_starts_with($currentPath, 'admin/dashboard')
+                                && !str_starts_with($currentPath, 'admin/reported-items')
+                                && !str_starts_with($currentPath, 'admin/claim-verify')
+                                && !str_starts_with($currentPath, 'admin/users')
+                                && !str_starts_with($currentPath, 'admin/insights')
+                                && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('admin.rewards.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isRewards ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-gift w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
+                            <span>Rewards</span>
                         </a>
                     </li>
                     <li>
@@ -157,6 +181,7 @@
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/sponsors')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.settings') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSettings ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -175,6 +200,7 @@
                                 && !str_starts_with($currentPath, 'admin/users')
                                 && !str_starts_with($currentPath, 'admin/insights')
                                 && !str_starts_with($currentPath, 'admin/settings')
+                                && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">

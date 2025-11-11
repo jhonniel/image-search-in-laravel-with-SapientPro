@@ -5,13 +5,13 @@
 @section('content')
 <div class="space-y-6">
     <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div class="flex items-center justify-between">
+    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-md p-6 border border-purple-100">
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Reported Items</h2>
-                <p class="text-gray-600">Upload and manage your lost or found items</p>
+                <h2 class="text-3xl font-bold text-gray-900 mb-2">Reported Items</h2>
+                <p class="text-gray-600 text-lg">Upload and manage your lost or found items</p>
             </div>
-            <button onclick="toggleUploadForm()" class="bg-purple-primary text-white px-6 py-3 rounded-lg hover:bg-purple-600 transition-colors flex items-center">
+            <button onclick="toggleUploadForm()" class="bg-gradient-to-r from-purple-primary to-pink-primary text-white px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center font-medium">
                 <i class="fas fa-plus mr-2"></i>
                 Report New Item
             </button>
@@ -19,10 +19,17 @@
     </div>
 
     <!-- Upload Form -->
-    <div id="upload-form" class="bg-white rounded-lg shadow-sm border border-gray-200 hidden">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Report New Item</h3>
-            <p class="text-sm text-gray-500 mt-1">Fill out the form below to report a lost or found item</p>
+    <div id="upload-form" class="bg-white rounded-xl shadow-lg border border-gray-200 hidden overflow-hidden">
+        <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b border-gray-200">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-900">Report New Item</h3>
+                    <p class="text-sm text-gray-600 mt-1">Fill out the form below to report a lost or found item</p>
+                </div>
+                <button onclick="toggleUploadForm()" class="text-gray-400 hover:text-gray-600 transition-colors">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
         </div>
 
         <form id="item-upload-form" class="p-6 space-y-6">
@@ -68,12 +75,49 @@
                 <p class="text-xs text-gray-500 mt-1">Tags help others find your item more easily</p>
             </div>
 
-            <!-- Images -->
+            <!-- Images Upload Section -->
             <div>
-                <label for="item-images" class="block text-sm font-medium text-gray-700 mb-2">Images</label>
-                <input type="file" id="item-images" name="images[]" multiple accept="image/*" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">Upload multiple images to help identify the item</p>
+                <label class="block text-sm font-medium text-gray-700 mb-3">Images <span class="text-red-500">*</span></label>
+                
+                <!-- Drag and Drop Zone -->
+                <div id="drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer">
+                    <input type="file" id="item-images" name="images[]" multiple accept="image/*" class="hidden" required>
+                    
+                    <div id="drop-zone-content" class="space-y-4">
+                        <div class="flex justify-center">
+                            <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-cloud-upload-alt text-purple-600 text-2xl"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-lg font-medium text-gray-700 mb-1">
+                                <span class="text-purple-600">Click to upload</span> or drag and drop
+                            </p>
+                            <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each (Max 5 images)</p>
+                        </div>
+                        <button type="button" onclick="document.getElementById('item-images').click()" 
+                                class="inline-flex items-center px-4 py-2 bg-purple-primary text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium">
+                            <i class="fas fa-folder-open mr-2"></i>
+                            Browse Files
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Image Previews -->
+                <div id="image-preview-container" class="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 hidden">
+                    <!-- Image previews will be inserted here -->
+                </div>
+
+                <!-- Upload Progress -->
+                <div id="upload-progress-container" class="mt-4 hidden">
+                    <div class="mb-2 flex items-center justify-between">
+                        <span class="text-sm font-medium text-gray-700">Uploading images...</span>
+                        <span id="upload-progress-text" class="text-sm text-gray-500">0%</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="upload-progress-bar" class="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                </div>
             </div>
 
             <!-- Submit Button -->
@@ -90,10 +134,10 @@
     </div>
 
     <!-- Your Reported Items -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Your Reported Items</h3>
-            <p class="text-sm text-gray-500 mt-1">Items you have reported</p>
+    <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div class="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b border-gray-200">
+            <h3 class="text-xl font-bold text-gray-900">Your Reported Items</h3>
+            <p class="text-sm text-gray-600 mt-1">Items you have reported</p>
         </div>
 
         <div id="user-items-list" class="p-6">
@@ -186,10 +230,36 @@
 
             <!-- New Images -->
             <div>
-                <label for="edit-new-images" class="block text-sm font-medium text-gray-700 mb-2">Add New Images (Optional)</label>
-                <input type="file" id="edit-new-images" name="images[]" multiple accept="image/*"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                <p class="text-xs text-gray-500 mt-1">You can add up to 5 new images. Maximum 5 images per item.</p>
+                <label class="block text-sm font-medium text-gray-700 mb-3">Add New Images (Optional)</label>
+                
+                <!-- Drag and Drop Zone -->
+                <div id="edit-drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-6 text-center transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer">
+                    <input type="file" id="edit-new-images" name="images[]" multiple accept="image/*" class="hidden">
+                    
+                    <div id="edit-drop-zone-content" class="space-y-3">
+                        <div class="flex justify-center">
+                            <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
+                                <i class="fas fa-cloud-upload-alt text-purple-600 text-xl"></i>
+                            </div>
+                        </div>
+                        <div>
+                            <p class="text-sm font-medium text-gray-700 mb-1">
+                                <span class="text-purple-600">Click to upload</span> or drag and drop
+                            </p>
+                            <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each (Max 5 images)</p>
+                        </div>
+                        <button type="button" onclick="document.getElementById('edit-new-images').click()" 
+                                class="inline-flex items-center px-3 py-1.5 bg-purple-primary text-white rounded-lg hover:bg-purple-600 transition-colors text-xs font-medium">
+                            <i class="fas fa-folder-open mr-1"></i>
+                            Browse Files
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Image Previews -->
+                <div id="edit-image-preview-container" class="mt-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 hidden">
+                    <!-- Image previews will be inserted here -->
+                </div>
             </div>
 
             <!-- Hidden input for removed images -->
@@ -210,10 +280,197 @@
 </div>
 
 <script>
+// Image upload state
+let selectedFiles = [];
+let uploadProgress = 0;
+
 // Toggle upload form
 function toggleUploadForm() {
     const form = document.getElementById('upload-form');
     form.classList.toggle('hidden');
+    
+    // Reset form when closing
+    if (form.classList.contains('hidden')) {
+        resetImageUpload();
+    }
+}
+
+// Reset image upload
+function resetImageUpload() {
+    selectedFiles = [];
+    document.getElementById('item-images').value = '';
+    document.getElementById('image-preview-container').innerHTML = '';
+    document.getElementById('image-preview-container').classList.add('hidden');
+    document.getElementById('upload-progress-container').classList.add('hidden');
+    document.getElementById('upload-progress-bar').style.width = '0%';
+    document.getElementById('upload-progress-text').textContent = '0%';
+}
+
+// Initialize drag and drop
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('item-images');
+    const previewContainer = document.getElementById('image-preview-container');
+
+    // Click to upload
+    dropZone.addEventListener('click', function(e) {
+        if (e.target.closest('button')) return;
+        fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', function(e) {
+        handleFiles(e.target.files);
+    });
+
+    // Drag and drop events
+    dropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        dropZone.classList.add('border-purple-500', 'bg-purple-100');
+    });
+
+    dropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-purple-500', 'bg-purple-100');
+    });
+
+    dropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        dropZone.classList.remove('border-purple-500', 'bg-purple-100');
+        
+        const files = e.dataTransfer.files;
+        handleFiles(files);
+    });
+
+    // Handle selected files
+    function handleFiles(files) {
+        const maxFiles = 5;
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        
+        // Filter valid image files
+        const validFiles = Array.from(files).filter(file => {
+            if (!file.type.startsWith('image/')) {
+                showToast('Only image files are allowed', 'error');
+                return false;
+            }
+            if (file.size > maxSize) {
+                showToast(`File ${file.name} is too large. Maximum size is 10MB`, 'error');
+                return false;
+            }
+            return true;
+        });
+
+        // Check total file count
+        const totalFiles = selectedFiles.length + validFiles.length;
+        if (totalFiles > maxFiles) {
+            showToast(`Maximum ${maxFiles} images allowed. You selected ${totalFiles} files.`, 'error');
+            validFiles.splice(maxFiles - selectedFiles.length);
+        }
+
+        // Add to selected files
+        validFiles.forEach(file => {
+            if (!selectedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                selectedFiles.push(file);
+            }
+        });
+
+        // Update file input
+        const dataTransfer = new DataTransfer();
+        selectedFiles.forEach(file => dataTransfer.items.add(file));
+        fileInput.files = dataTransfer.files;
+
+        // Show previews
+        displayImagePreviews();
+    }
+
+    // Display image previews
+    function displayImagePreviews() {
+        if (selectedFiles.length === 0) {
+            previewContainer.classList.add('hidden');
+            return;
+        }
+
+        previewContainer.classList.remove('hidden');
+        previewContainer.innerHTML = '';
+
+        selectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'relative group';
+                previewDiv.innerHTML = `
+                    <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors">
+                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                            <button onclick="removeImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600">
+                                <i class="fas fa-trash mr-1"></i>Remove
+                            </button>
+                        </div>
+                        <div class="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-600 truncate" title="${file.name}">${file.name}</p>
+                    <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                `;
+                previewContainer.appendChild(previewDiv);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Make removeImage function global
+    window.removeImage = function(index) {
+        selectedFiles.splice(index, 1);
+        
+        // Update file input
+        const dataTransfer = new DataTransfer();
+        selectedFiles.forEach(file => dataTransfer.items.add(file));
+        fileInput.files = dataTransfer.files;
+
+        displayImagePreviews();
+    };
+
+    // Format file size
+    window.formatFileSize = function(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    };
+});
+
+// Upload progress functions
+function showUploadProgress() {
+    const progressContainer = document.getElementById('upload-progress-container');
+    progressContainer.classList.remove('hidden');
+    updateUploadProgress(0);
+}
+
+function hideUploadProgress() {
+    const progressContainer = document.getElementById('upload-progress-container');
+    progressContainer.classList.add('hidden');
+    updateUploadProgress(0);
+}
+
+function updateUploadProgress(percentage) {
+    const progressBar = document.getElementById('upload-progress-bar');
+    const progressText = document.getElementById('upload-progress-text');
+    progressBar.style.width = percentage + '%';
+    progressText.textContent = Math.round(percentage) + '%';
+}
+
+function simulateUploadProgress() {
+    let progress = 0;
+    const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress >= 90) {
+            progress = 90;
+            clearInterval(interval);
+        }
+        updateUploadProgress(progress);
+    }, 200);
 }
 
 // Form submission
@@ -226,8 +483,6 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     }
     this.dataset.submitting = 'true';
 
-    showLoadingAnimation();
-
     // Get form elements
     const files = document.getElementById('item-images').files;
     const itemType = document.querySelector('input[name="item_type"]:checked');
@@ -237,32 +492,31 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
 
     // Client-side validation
     if (!itemType) {
-        hideLoadingAnimation();
         showToast('Please select an item type', 'error');
         this.dataset.submitting = 'false';
         return;
     }
 
     if (!location) {
-        hideLoadingAnimation();
         showToast('Please enter a location', 'error');
         this.dataset.submitting = 'false';
         return;
     }
 
     if (!description) {
-        hideLoadingAnimation();
         showToast('Please enter a description', 'error');
         this.dataset.submitting = 'false';
         return;
     }
 
     if (files.length === 0) {
-        hideLoadingAnimation();
         showToast('Please select at least one image', 'error');
         this.dataset.submitting = 'false';
         return;
     }
+
+    // Show upload progress
+    showUploadProgress();
 
     // Create FormData
     const formData = new FormData();
@@ -284,7 +538,16 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         formData.append('images[]', file);
     }
 
+    // Disable form during upload
+    const submitButton = this.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Uploading...';
+
     try {
+        // Simulate progress (since we can't track actual upload progress with fetch)
+        simulateUploadProgress();
+
         const response = await fetch('/api/user/items/upload', {
             method: 'POST',
             body: formData,
@@ -294,21 +557,30 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             }
         });
 
+        // Complete progress
+        updateUploadProgress(100);
+
         const data = await response.json();
 
         if (data.success) {
             showToast('Item reported successfully!', 'success');
-            toggleUploadForm();
-            this.reset();
-            loadItems(); // Reload the items list
+            setTimeout(() => {
+                toggleUploadForm();
+                this.reset();
+                resetImageUpload();
+                loadItems(); // Reload the items list
+            }, 500);
         } else {
+            hideUploadProgress();
             showToast(data.message || 'Error uploading item. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
+        hideUploadProgress();
         showToast('Error uploading item. Please try again.', 'error');
     } finally {
-        hideLoadingAnimation();
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
         this.dataset.submitting = 'false';
     }
 });
@@ -794,9 +1066,149 @@ function editItem(uploadId) {
     // Reset remove images input
     document.getElementById('edit-remove-images').value = '';
     document.getElementById('edit-new-images').value = '';
+    
+    // Reset edit form image previews
+    const editPreviewContainer = document.getElementById('edit-image-preview-container');
+    if (editPreviewContainer) {
+        editPreviewContainer.innerHTML = '';
+        editPreviewContainer.classList.add('hidden');
+    }
+
+    // Initialize edit form drag and drop
+    initEditFormDragDrop();
 
     // Show modal
     document.getElementById('edit-item-modal').classList.remove('hidden');
+}
+
+// Edit form drag and drop
+let editSelectedFiles = [];
+
+function initEditFormDragDrop() {
+    const editDropZone = document.getElementById('edit-drop-zone');
+    const editImageInput = document.getElementById('edit-new-images');
+    const editPreviewContainer = document.getElementById('edit-image-preview-container');
+
+    if (!editDropZone || !editImageInput) return;
+
+    // Reset selected files
+    editSelectedFiles = [];
+
+    // Click to upload
+    editDropZone.addEventListener('click', function(e) {
+        if (e.target.closest('button')) return;
+        editImageInput.click();
+    });
+
+    // File input change
+    editImageInput.addEventListener('change', function(e) {
+        handleEditFiles(e.target.files);
+    });
+
+    // Drag and drop events
+    editDropZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        editDropZone.classList.add('border-purple-500', 'bg-purple-100');
+    });
+
+    editDropZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        editDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+    });
+
+    editDropZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        editDropZone.classList.remove('border-purple-500', 'bg-purple-100');
+        
+        const files = e.dataTransfer.files;
+        handleEditFiles(files);
+    });
+
+    function handleEditFiles(files) {
+        const maxFiles = 5;
+        const maxSize = 10 * 1024 * 1024; // 10MB
+        
+        // Filter valid image files
+        const validFiles = Array.from(files).filter(file => {
+            if (!file.type.startsWith('image/')) {
+                showToast('Only image files are allowed', 'error');
+                return false;
+            }
+            if (file.size > maxSize) {
+                showToast(`File ${file.name} is too large. Maximum size is 10MB`, 'error');
+                return false;
+            }
+            return true;
+        });
+
+        // Check total file count
+        const totalFiles = editSelectedFiles.length + validFiles.length;
+        if (totalFiles > maxFiles) {
+            showToast(`Maximum ${maxFiles} images allowed. You selected ${totalFiles} files.`, 'error');
+            validFiles.splice(maxFiles - editSelectedFiles.length);
+        }
+
+        // Add to selected files
+        validFiles.forEach(file => {
+            if (!editSelectedFiles.find(f => f.name === file.name && f.size === file.size)) {
+                editSelectedFiles.push(file);
+            }
+        });
+
+        // Update file input
+        const dataTransfer = new DataTransfer();
+        editSelectedFiles.forEach(file => dataTransfer.items.add(file));
+        editImageInput.files = dataTransfer.files;
+
+        // Show previews
+        displayEditImagePreviews();
+    }
+
+    function displayEditImagePreviews() {
+        if (editSelectedFiles.length === 0) {
+            editPreviewContainer.classList.add('hidden');
+            return;
+        }
+
+        editPreviewContainer.classList.remove('hidden');
+        editPreviewContainer.innerHTML = '';
+
+        editSelectedFiles.forEach((file, index) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const previewDiv = document.createElement('div');
+                previewDiv.className = 'relative group';
+                previewDiv.innerHTML = `
+                    <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors">
+                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                            <button onclick="removeEditImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600">
+                                <i class="fas fa-trash mr-1"></i>Remove
+                            </button>
+                        </div>
+                        <div class="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md">
+                            <i class="fas fa-check-circle text-green-500"></i>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-xs text-gray-600 truncate" title="${file.name}">${file.name}</p>
+                    <p class="text-xs text-gray-500">${formatFileSize(file.size)}</p>
+                `;
+                editPreviewContainer.appendChild(previewDiv);
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    window.removeEditImage = function(index) {
+        editSelectedFiles.splice(index, 1);
+        
+        // Update file input
+        const dataTransfer = new DataTransfer();
+        editSelectedFiles.forEach(file => dataTransfer.items.add(file));
+        editImageInput.files = dataTransfer.files;
+
+        displayEditImagePreviews();
+    };
 }
 
 // Toggle remove image
@@ -839,6 +1251,16 @@ function closeEditModal() {
     document.getElementById('edit-item-form').reset();
     document.getElementById('edit-existing-images').innerHTML = '';
     document.getElementById('edit-remove-images').value = '';
+    
+    // Reset edit form image previews
+    const editPreviewContainer = document.getElementById('edit-image-preview-container');
+    if (editPreviewContainer) {
+        editPreviewContainer.innerHTML = '';
+        editPreviewContainer.classList.add('hidden');
+    }
+    
+    // Reset selected files
+    editSelectedFiles = [];
 }
 
 // Handle edit form submission

@@ -101,21 +101,6 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isProfile = (str_starts_with($currentRoute, 'user.profile') || str_starts_with($currentPath, 'user/profile')) 
-                                && !str_starts_with($currentPath, 'user/dashboard')
-                                && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim-verify')
-                                && !str_starts_with($currentPath, 'user/chat');
-                        @endphp
-                        <a href="{{ route('user.profile') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isProfile ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-user w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Profile</span>
-                        </a>
-                    </li>
-                    <li>
-                        @php
-                            $currentRoute = request()->route()->getName() ?? '';
-                            $currentPath = request()->path();
                             $isChat = (str_starts_with($currentRoute, 'user.chat') || str_starts_with($currentPath, 'user/chat')) 
                                 && !str_starts_with($currentPath, 'user/dashboard')
                                 && !str_starts_with($currentPath, 'user/reported-items')
@@ -125,6 +110,21 @@
                         <a href="{{ route('user.chat') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isChat ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                             <i class="fas fa-comments w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Messages</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isProfile = (str_starts_with($currentRoute, 'user.profile') || str_starts_with($currentPath, 'user/profile')) 
+                                && !str_starts_with($currentPath, 'user/dashboard')
+                                && !str_starts_with($currentPath, 'user/reported-items')
+                                && !str_starts_with($currentPath, 'user/claim-verify')
+                                && !str_starts_with($currentPath, 'user/chat');
+                        @endphp
+                        <a href="{{ route('user.profile') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isProfile ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                            <i class="fas fa-user w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
+                            <span>Profile</span>
                         </a>
                     </li>
                 </ul>

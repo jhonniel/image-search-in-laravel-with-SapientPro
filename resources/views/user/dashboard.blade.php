@@ -95,7 +95,7 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($recentActivity as $activity)
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">@{{ $activity['username'] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['name'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['item_name'] }}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $activity['item_type'] === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">

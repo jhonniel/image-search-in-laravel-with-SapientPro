@@ -25,7 +25,9 @@ class WelcomeController extends Controller
             $isSearch = true;
         } else {
             // Get fresh reports (latest 8 items, grouped by upload_id)
-            $freshReports = ImageMetadata::orderBy('created_at', 'desc')
+            // Exclude claimed items - they are only visible to admins
+            $freshReports = ImageMetadata::where('is_claimed', false)
+                ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id')
                 ->take(8)
@@ -95,7 +97,8 @@ class WelcomeController extends Controller
     private function performSearch($query, $statusFilter = '')
     {
         // Build query
-        $baseQuery = ImageMetadata::query();
+        // Exclude claimed items - they are only visible to admins
+        $baseQuery = ImageMetadata::where('is_claimed', false);
         
         // Apply status filter if provided
         if (!empty($statusFilter) && in_array($statusFilter, ['lost', 'found'])) {
@@ -228,8 +231,11 @@ class WelcomeController extends Controller
         // Format time ago
         $timeAgo = $firstItem->created_at->diffForHumans();
         
+        // Ensure upload_id exists, if not use item id as fallback
+        $uploadId = $firstItem->upload_id ?? 'item-' . $firstItem->id;
+        
         return [
-            'upload_id' => $firstItem->upload_id,
+            'upload_id' => $uploadId,
             'title' => $this->extractTitle($firstItem->description),
             'location' => $location,
             'type' => $firstItem->status,

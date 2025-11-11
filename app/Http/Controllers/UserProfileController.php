@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\ValidationException;
 use App\Models\User;
 
 class UserProfileController extends Controller
@@ -26,7 +27,18 @@ class UserProfileController extends Controller
             ->limit(5)
             ->get();
 
-        return view('user.profile', compact('user', 'reportsCount', 'recentReports'));
+        // Get user's available rewards
+        $rewards = \App\Models\Reward::where('user_id', $user->id)
+            ->where('is_used', false)
+            ->where('status', 'active')
+            ->where(function($query) {
+                $query->whereNull('expires_at')
+                      ->orWhere('expires_at', '>=', now());
+            })
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return view('user.profile', compact('user', 'reportsCount', 'recentReports', 'rewards'));
     }
 
     /**
@@ -45,17 +57,20 @@ class UserProfileController extends Controller
     {
         $user = Auth::user();
 
-        $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $user->id,
-            'current_password' => 'nullable|string',
-            'new_password' => 'nullable|string|min:8|confirmed',
-        ]);
-
         try {
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255|unique:users,email,' . $user->id,
+                'code_name' => 'nullable|string|max:255|unique:users,code_name,' . $user->id,
+                'current_password' => 'nullable|string',
+                'new_password' => 'nullable|string|min:8|confirmed',
+            ], [
+                'code_name.unique' => 'This code name is already taken. Please choose a different one.',
+            ]);
             $updateData = [
                 'name' => $request->name,
                 'email' => $request->email,
+                'code_name' => $request->code_name ?: null,
             ];
 
             // Handle password change if provided
@@ -77,6 +92,12 @@ class UserProfileController extends Controller
                 'user' => $user
             ]);
 
+        } catch (ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

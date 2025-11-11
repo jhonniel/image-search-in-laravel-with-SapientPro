@@ -66,7 +66,7 @@ class ImageComparisonController extends Controller
             $url1 = $request->input('url1');
             $url2 = $request->input('url2');
 
-            $similarity = $this->imageComparator->compare($url1, $url2);
+            $similarity = $this->imageComparator->compare($url1, $url2); 
 
             // The ImageComparator returns a percentage (0-100), so we just need to cap it
             $percentage = round(max(0, min(100, $similarity)), 2);

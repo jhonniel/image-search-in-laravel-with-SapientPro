@@ -53,42 +53,58 @@
                         <!-- Image 1 -->
                         <div class="space-y-4">
                             <label class="block text-sm font-medium text-gray-700">First Image</label>
-                            <div id="drop-zone-1" class="drop-zone rounded-lg p-6 text-center cursor-pointer">
-                                <div class="space-y-2">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                    <div class="text-sm text-gray-600">
-                                        <label for="image1" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                            <span>Upload a file</span>
-                                            <input id="image1" name="image1" type="file" class="sr-only" accept="image/*">
-                                        </label>
-                                        <p class="pl-1">or drag and drop</p>
+                            <div id="drop-zone-1" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer">
+                                <input id="image1" name="image1" type="file" class="hidden" accept="image/*">
+                                
+                                <div id="drop-zone-1-content" class="space-y-4">
+                                    <div class="flex justify-center">
+                                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-cloud-upload-alt text-blue-600 text-2xl"></i>
+                                        </div>
                                     </div>
-                                    <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                    <div>
+                                        <p class="text-lg font-medium text-gray-700 mb-1">
+                                            <span class="text-blue-600">Click to upload</span> or drag and drop
+                                        </p>
+                                        <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                    </div>
+                                    <button type="button" onclick="document.getElementById('image1').click()" 
+                                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                        <i class="fas fa-folder-open mr-2"></i>
+                                        Browse Files
+                                    </button>
                                 </div>
-                                <img id="preview-1" class="hidden max-w-full h-auto rounded mt-4" alt="Preview">
+                                
+                                <img id="preview-1" class="hidden max-w-full h-auto rounded mt-4 mx-auto" alt="Preview">
                             </div>
                         </div>
 
                         <!-- Image 2 -->
                         <div class="space-y-4">
                             <label class="block text-sm font-medium text-gray-700">Second Image</label>
-                            <div id="drop-zone-2" class="drop-zone rounded-lg p-6 text-center cursor-pointer">
-                                <div class="space-y-2">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                    <div class="text-sm text-gray-600">
-                                        <label for="image2" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                            <span>Upload a file</span>
-                                            <input id="image2" name="image2" type="file" class="sr-only" accept="image/*">
-                                        </label>
-                                        <p class="pl-1">or drag and drop</p>
+                            <div id="drop-zone-2" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer">
+                                <input id="image2" name="image2" type="file" class="hidden" accept="image/*">
+                                
+                                <div id="drop-zone-2-content" class="space-y-4">
+                                    <div class="flex justify-center">
+                                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-cloud-upload-alt text-blue-600 text-2xl"></i>
+                                        </div>
                                     </div>
-                                    <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                    <div>
+                                        <p class="text-lg font-medium text-gray-700 mb-1">
+                                            <span class="text-blue-600">Click to upload</span> or drag and drop
+                                        </p>
+                                        <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                    </div>
+                                    <button type="button" onclick="document.getElementById('image2').click()" 
+                                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                        <i class="fas fa-folder-open mr-2"></i>
+                                        Browse Files
+                                    </button>
                                 </div>
-                                <img id="preview-2" class="hidden max-w-full h-auto rounded mt-4" alt="Preview">
+                                
+                                <img id="preview-2" class="hidden max-w-full h-auto rounded mt-4 mx-auto" alt="Preview">
                             </div>
                         </div>
                     </div>
@@ -132,22 +148,30 @@
                 <form id="match-form" class="space-y-6">
                     <div class="max-w-md mx-auto">
                         <div class="space-y-4">
-                            <label class="block text-sm font-medium text-gray-700">Upload Images to Find Matches</label>
-                            <div id="match-drop-zone" class="drop-zone rounded-lg p-6 text-center cursor-pointer">
-                                <div class="space-y-2">
-                                    <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                    </svg>
-                                    <div class="text-sm text-gray-600">
-                                        <label for="match-images" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                            <span>Upload files</span>
-                                            <input id="match-images" name="images[]" type="file" class="sr-only" accept="image/*" multiple>
-                                        </label>
-                                        <p class="pl-1">or drag and drop</p>
+                            <label class="block text-sm font-medium text-gray-700 mb-3">Upload Images to Find Matches</label>
+                            <div id="match-drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer">
+                                <input id="match-images" name="images[]" type="file" class="hidden" accept="image/*" multiple>
+                                
+                                <div id="match-drop-zone-content" class="space-y-4">
+                                    <div class="flex justify-center">
+                                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-cloud-upload-alt text-blue-600 text-2xl"></i>
+                                        </div>
                                     </div>
-                                    <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each (max 5 images)</p>
+                                    <div>
+                                        <p class="text-lg font-medium text-gray-700 mb-1">
+                                            <span class="text-blue-600">Click to upload</span> or drag and drop
+                                        </p>
+                                        <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each (max 5 images)</p>
+                                    </div>
+                                    <button type="button" onclick="document.getElementById('match-images').click()" 
+                                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                        <i class="fas fa-folder-open mr-2"></i>
+                                        Browse Files
+                                    </button>
                                 </div>
-                                <div id="match-preview" class="hidden grid grid-cols-2 gap-2 mt-4"></div>
+                                
+                                <div id="match-preview" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4"></div>
                             </div>
                         </div>
 
@@ -243,22 +267,30 @@
                         <h3 class="text-lg font-semibold text-gray-800 mb-4">Upload Reference Images</h3>
                         <form id="reference-upload-form" class="space-y-4">
                             <div class="space-y-4">
-                                <label class="block text-sm font-medium text-gray-700">Select Reference Images</label>
-                                <div id="reference-drop-zone" class="drop-zone rounded-lg p-6 text-center cursor-pointer">
-                                    <div class="space-y-2">
-                                        <svg class="mx-auto h-12 w-12 text-gray-400" stroke="currentColor" fill="none" viewBox="0 0 48 48">
-                                            <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                        <div class="text-sm text-gray-600">
-                                            <label for="reference-images" class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                                                <span>Upload files</span>
-                                                <input id="reference-images" name="images[]" type="file" class="sr-only" accept="image/*" multiple>
-                                            </label>
-                                            <p class="pl-1">or drag and drop multiple images</p>
+                                <label class="block text-sm font-medium text-gray-700 mb-3">Select Reference Images</label>
+                                <div id="reference-drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer">
+                                    <input id="reference-images" name="images[]" type="file" class="hidden" accept="image/*" multiple>
+                                    
+                                    <div id="reference-drop-zone-content" class="space-y-4">
+                                        <div class="flex justify-center">
+                                            <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                                <i class="fas fa-cloud-upload-alt text-blue-600 text-2xl"></i>
+                                            </div>
                                         </div>
-                                        <p class="text-xs text-gray-500">PNG, JPG, GIF up to 10MB each (max 5 images)</p>
+                                        <div>
+                                            <p class="text-lg font-medium text-gray-700 mb-1">
+                                                <span class="text-blue-600">Click to upload</span> or drag and drop
+                                            </p>
+                                            <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each (max 5 images)</p>
+                                        </div>
+                                        <button type="button" onclick="document.getElementById('reference-images').click()" 
+                                                class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                            <i class="fas fa-folder-open mr-2"></i>
+                                            Browse Files
+                                        </button>
                                     </div>
-                                    <div id="reference-preview" class="hidden mt-4 grid grid-cols-2 md:grid-cols-4 gap-2"></div>
+                                    
+                                    <div id="reference-preview" class="hidden grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4"></div>
                                 </div>
 
                                 <!-- General Description and Tags -->

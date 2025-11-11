@@ -50,6 +50,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'showUser'])->name('admin.users.show');
     Route::get('/admin/users/{user}/edit', [\App\Http\Controllers\AdminController::class, 'editUser'])->name('admin.users.edit');
     Route::put('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'updateUser'])->name('admin.users.update');
+    Route::post('/admin/users/{user}/toggle-verification', [\App\Http\Controllers\AdminController::class, 'toggleVerification'])->name('admin.users.toggle-verification');
     Route::get('/admin/insights', [\App\Http\Controllers\AdminController::class, 'insights'])->name('admin.insights');
         Route::get('/admin/settings', [\App\Http\Controllers\AdminController::class, 'settings'])->name('admin.settings');
         Route::post('/admin/settings', [\App\Http\Controllers\AdminController::class, 'updateSettings'])->name('admin.settings.update');
@@ -63,6 +64,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/admin/sponsors/{id}/restore', [\App\Http\Controllers\Admin\SponsorController::class, 'restore'])->name('admin.sponsors.restore');
         Route::delete('/admin/sponsors/{id}/force', [\App\Http\Controllers\Admin\SponsorController::class, 'forceDelete'])->name('admin.sponsors.force-delete');
         Route::post('/admin/sponsors/toggle-show', [\App\Http\Controllers\Admin\SponsorController::class, 'toggleShow'])->name('admin.sponsors.toggle-show');
+        
+        // Rewards Management
+        Route::get('/admin/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'index'])->name('admin.rewards.index');
+        Route::get('/admin/rewards/create', [\App\Http\Controllers\Admin\RewardController::class, 'create'])->name('admin.rewards.create');
+        Route::post('/admin/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'store'])->name('admin.rewards.store');
+        Route::get('/admin/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'showSendForm'])->name('admin.rewards.send');
+        Route::post('/admin/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'send'])->name('admin.rewards.send.post');
+        Route::post('/admin/rewards/auto-assign', [\App\Http\Controllers\Admin\RewardController::class, 'checkAutoAssign'])->name('admin.rewards.auto-assign');
+        Route::delete('/admin/rewards/{id}', [\App\Http\Controllers\Admin\RewardController::class, 'destroy'])->name('admin.rewards.destroy');
         });
 
         // User Items API Routes (moved from API routes for better session handling)

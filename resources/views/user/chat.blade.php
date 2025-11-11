@@ -46,7 +46,14 @@
                             </div>
                             <div class="ml-3 flex-1 min-w-0">
                                 <div class="flex items-center justify-between">
-                                    <p class="text-sm font-medium text-gray-900 truncate">{{ $conversation['user']->name }}</p>
+                                    <div class="flex items-center gap-1.5">
+                                        <p class="text-sm font-medium text-gray-900 truncate">{{ $conversation['user']->name }}</p>
+                                        @if($conversation['user']->is_verified ?? false)
+                                        <span class="inline-flex items-center justify-center w-4 h-4 flex-shrink-0" title="Verified Profile">
+                                            <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-4 h-4">
+                                        </span>
+                                        @endif
+                                    </div>
                                     @if($conversation['unread_count'] > 0)
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                             {{ $conversation['unread_count'] }}
@@ -86,7 +93,14 @@
                                 @endif
                             </div>
                             <div class="ml-3 flex-1 min-w-0">
-                                <p class="text-sm font-medium text-gray-900 truncate">{{ $user->name }}</p>
+                                <div class="flex items-center gap-1.5">
+                                    <p class="text-sm font-medium text-gray-900 truncate">{{ $user->name }}</p>
+                                    @if($user->is_verified ?? false)
+                                    <span class="inline-flex items-center justify-center w-4 h-4 flex-shrink-0" title="Verified Profile">
+                                        <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-4 h-4">
+                                    </span>
+                                    @endif
+                                </div>
                                 <p class="text-sm text-gray-500 truncate">{{ $user->email }}</p>
                             </div>
                         </div>
@@ -108,7 +122,12 @@
                             </div>
                         </div>
                         <div class="ml-3">
-                            <h3 id="chat-user-name" class="text-lg font-medium text-gray-900"></h3>
+                            <div class="flex items-center gap-2">
+                                <h3 id="chat-user-name" class="text-lg font-medium text-gray-900"></h3>
+                                <span id="chat-user-verified-badge" class="hidden inline-flex items-center justify-center w-5 h-5" title="Verified Profile">
+                                    <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-5 h-5">
+                                </span>
+                            </div>
                             <p id="chat-user-status" class="text-sm text-gray-500">Online</p>
                         </div>
                     </div>
@@ -273,6 +292,15 @@ async function loadMessages(userId) {
 function updateChatHeader(user) {
     document.getElementById('chat-user-name').textContent = user.name;
     document.getElementById('chat-user-initials').textContent = user.name.substring(0, 2).toUpperCase();
+
+    // Show/hide verification badge
+    const verifiedBadge = document.getElementById('chat-user-verified-badge');
+    if (user.is_verified) {
+        verifiedBadge.classList.remove('hidden');
+        verifiedBadge.innerHTML = '<img src="/images/icons/verify.png" alt="Verified" class="w-5 h-5">';
+    } else {
+        verifiedBadge.classList.add('hidden');
+    }
 
     if (user.profile_picture) {
         document.getElementById('chat-user-avatar').innerHTML =

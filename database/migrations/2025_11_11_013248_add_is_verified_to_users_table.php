@@ -11,10 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('image_metadata', function (Blueprint $table) {
-            if (!Schema::hasColumn('image_metadata', 'file_path')) {
-                $table->string('file_path')->nullable()->after('filename');
-            }
+        Schema::table('users', function (Blueprint $table) {
+            $table->boolean('is_verified')->default(false)->after('profile_picture');
         });
     }
 
@@ -23,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('image_metadata', function (Blueprint $table) {
-            $table->dropColumn('file_path');
+        Schema::table('users', function (Blueprint $table) {
+            $table->dropColumn('is_verified');
         });
     }
 };
