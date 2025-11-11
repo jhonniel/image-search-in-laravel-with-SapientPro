@@ -693,9 +693,9 @@ class UserItemController extends Controller
 
         try {
             // Get items from other users, grouped by upload_id
-            // Exclude verified claims and pending claims - only show unclaimed or rejected claims
+            // Include items that are unclaimed, rejected, OR have a pending claim by the current user
             $items = ImageMetadata::where('uploader_email', '!=', $user->email)
-                ->where(function($query) {
+                ->where(function($query) use ($user) {
                     $query->where(function($q) {
                         // Not claimed and no pending claim
                         $q->where('is_claimed', false)
@@ -708,17 +708,27 @@ class UserItemController extends Controller
                         // Claimed but rejected (can be claimed again)
                         $q->where('is_claimed', true)
                           ->where('claim_verification_status', 'rejected');
+                    })
+                    ->orWhere(function($q) use ($user) {
+                        // Pending claim by current user (show so they can cancel)
+                        $q->where('is_claimed', false)
+                          ->where('claim_verification_status', 'pending')
+                          ->where('claimed_by_email', $user->email);
                     });
                 })
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id')
-                ->map(function ($group) {
+                ->map(function ($group) use ($user) {
                     $firstItem = $group->first();
                     $tags = $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [];
 
                     // Get the user who uploaded this item
                     $uploader = \App\Models\User::where('email', $firstItem->uploader_email)->first();
+
+                    // Check if current user has claimed this item
+                    $userHasClaimed = $firstItem->claim_verification_status === 'pending' 
+                        && $firstItem->claimed_by_email === $user->email;
 
                     return [
                         'upload_id' => $firstItem->upload_id,
@@ -731,6 +741,8 @@ class UserItemController extends Controller
                         'uploader_profile_picture' => $uploader ? $uploader->profile_picture : null,
                         'uploader_verified' => $uploader ? ($uploader->is_verified ?? false) : false,
                         'created_at' => $firstItem->created_at,
+                        'user_has_claimed' => $userHasClaimed,
+                        'claim_status' => $firstItem->claim_verification_status,
                         'images' => $group->map(function ($item) {
                             // Fix file path - remove /storage/ prefix if it exists
                             $filePath = $item->file_path;
@@ -773,6 +785,49 @@ class UserItemController extends Controller
                 ], 401);
             }
 
+            // First check if item exists
+            $itemExists = ImageMetadata::where('upload_id', $uploadId)->exists();
+            if (!$itemExists) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Item not found'
+                ], 404);
+            }
+
+            // Check if user is trying to claim their own item
+            $ownItem = ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', $user->email)
+                ->exists();
+            if ($ownItem) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'You cannot claim your own item'
+                ], 400);
+            }
+
+            // Check if item already has a pending claim
+            $pendingClaim = ImageMetadata::where('upload_id', $uploadId)
+                ->where('claim_verification_status', 'pending')
+                ->exists();
+            if ($pendingClaim) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'This item already has a pending claim. Please wait for the owner to verify it.'
+                ], 400);
+            }
+
+            // Check if item is already verified/claimed
+            $verifiedClaim = ImageMetadata::where('upload_id', $uploadId)
+                ->where('is_claimed', true)
+                ->where('claim_verification_status', 'verified')
+                ->exists();
+            if ($verifiedClaim) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'This item has already been claimed and verified.'
+                ], 400);
+            }
+
             // Find the item (must not be owned by the current user and not already claimed/verified/pending)
             $items = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
@@ -797,8 +852,8 @@ class UserItemController extends Controller
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item not found, already has a pending claim, or you cannot claim your own item'
-                ], 404);
+                    'error' => 'Item cannot be claimed at this time. It may already have a pending claim or be verified.'
+                ], 400);
             }
 
             // Get the original owner of the item (the person who posted it)
@@ -905,6 +960,58 @@ class UserItemController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to claim item: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Cancel a claim on an item
+     */
+    public function cancelClaim($uploadId)
+    {
+        try {
+            $user = Auth::user();
+
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'User not authenticated'
+                ], 401);
+            }
+
+            // Find items with pending claim by current user
+            $items = ImageMetadata::where('upload_id', $uploadId)
+                ->where('claim_verification_status', 'pending')
+                ->where('claimed_by_email', $user->email)
+                ->get();
+
+            if ($items->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'No pending claim found for this item'
+                ], 404);
+            }
+
+            // Clear the claim
+            ImageMetadata::where('upload_id', $uploadId)
+                ->where('claim_verification_status', 'pending')
+                ->where('claimed_by_email', $user->email)
+                ->update([
+                    'claimed_by_email' => null,
+                    'claimed_at' => null,
+                    'claim_verification_status' => null
+                ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Claim cancelled successfully. The item is now available for others to claim.'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to cancel claim: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to cancel claim: ' . $e->getMessage()
             ], 500);
         }
     }

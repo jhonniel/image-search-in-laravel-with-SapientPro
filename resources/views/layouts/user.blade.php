@@ -25,8 +25,8 @@
         }
     </script>
 </head>
-<body class="bg-gray-50">
-    <div class="flex h-screen overflow-hidden" x-data="{ sidebarOpen: false }">
+<body class="antialiased bg-gray-100">
+    <div class="flex h-screen overflow-hidden bg-gray-100">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="sidebarOpen" 
              @click="sidebarOpen = false"
@@ -67,7 +67,7 @@
                                 && !str_starts_with($currentPath, 'user/profile')
                                 && !str_starts_with($currentPath, 'user/chat');
                         @endphp
-                        <a href="{{ route('user.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isDashboard ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                        <a href="{{ route('user.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                             <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Dashboard</span>
                         </a>
@@ -182,12 +182,16 @@
                         <!-- User Profile Dropdown -->
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="flex items-center space-x-2 sm:space-x-3 hover:bg-gray-50 px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg transition-colors">
-                                <div class="w-7 h-7 sm:w-8 sm:h-8 bg-purple-primary rounded-full flex items-center justify-center">
-                                    <i class="fas fa-user text-white text-xs sm:text-sm"></i>
+                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-purple-primary flex items-center justify-center">
+                                    @if(auth()->check() && auth()->user()->profile_picture)
+                                        <img src="{{ auth()->user()->profile_picture }}" alt="{{ auth()->user()->name }}" class="w-full h-full object-cover">
+                                    @else
+                                        <i class="fas fa-user text-white text-xs sm:text-sm"></i>
+                                    @endif
                                 </div>
                                 <div class="hidden sm:block">
-                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ Auth::user()->name }}</p>
-                                    <p class="text-xs text-gray-500">{{ Str::limit(Auth::user()->email, 20) }}</p>
+                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ auth()->check() ? auth()->user()->name : 'Guest' }}</p>
+                                    <p class="text-xs text-gray-500">{{ auth()->check() ? Str::limit(auth()->user()->email, 20) : '' }}</p>
                                 </div>
                                 <i class="fas fa-chevron-down text-gray-400 text-xs hidden sm:block"></i>
                             </button>

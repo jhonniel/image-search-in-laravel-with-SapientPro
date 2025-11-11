@@ -95,6 +95,7 @@ class UserController extends Controller
                         'name' => $claimer->name,
                         'email' => $claimer->email,
                         'is_verified' => $claimer->is_verified ?? false,
+                        'profile_picture' => $claimer->profile_picture ?? null,
                     ] : null,
                     'images' => $group->map(function ($item) {
                         return [
@@ -129,6 +130,7 @@ class UserController extends Controller
                         'name' => $claimer->name,
                         'email' => $claimer->email,
                         'is_verified' => $claimer->is_verified ?? false,
+                        'profile_picture' => $claimer->profile_picture ?? null,
                     ] : null,
                     'images' => $group->map(function ($item) {
                         return [

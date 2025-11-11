@@ -82,14 +82,18 @@
                         <div class="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200">
                             <h4 class="text-xs font-medium text-gray-500 mb-2">Claimed By:</h4>
                             <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <span class="text-purple-600 font-semibold text-xs">{{ substr($claim['claimer']['name'], 0, 2) }}</span>
-                                </div>
+                                @if(!empty($claim['claimer']['profile_picture']))
+                                    <img src="{{ $claim['claimer']['profile_picture'] }}" alt="{{ $claim['claimer']['name'] }}" class="w-8 h-8 rounded-full object-cover border border-purple-100 shrink-0">
+                                @else
+                                    <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                                        <span class="text-purple-600 font-semibold text-xs">{{ strtoupper(substr($claim['claimer']['name'], 0, 2)) }}</span>
+                                    </div>
+                                @endif
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center gap-1">
                                         <p class="font-medium text-gray-900 text-sm truncate">{{ $claim['claimer']['name'] }}</p>
                                         @if($claim['claimer']['is_verified'])
-                                        <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-3 h-3 flex-shrink-0">
+                                        <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-3 h-3 shrink-0">
                                         @endif
                                     </div>
                                 </div>
@@ -206,9 +210,13 @@
                             <div class="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-200">
                                 <h4 class="text-xs font-medium text-gray-500 mb-2">Claimed By:</h4>
                                 <div class="flex items-center gap-2">
-                                    <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
-                                        <span class="text-purple-600 font-semibold text-xs">{{ substr($claim['claimer']['name'], 0, 2) }}</span>
-                                    </div>
+                                    @if(!empty($claim['claimer']['profile_picture']))
+                                        <img src="{{ $claim['claimer']['profile_picture'] }}" alt="{{ $claim['claimer']['name'] }}" class="w-8 h-8 rounded-full object-cover border border-purple-100 shrink-0">
+                                    @else
+                                        <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center shrink-0">
+                                            <span class="text-purple-600 font-semibold text-xs">{{ strtoupper(substr($claim['claimer']['name'], 0, 2)) }}</span>
+                                        </div>
+                                    @endif
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-1">
                                             <p class="font-medium text-gray-900 text-sm truncate">{{ $claim['claimer']['name'] }}</p>

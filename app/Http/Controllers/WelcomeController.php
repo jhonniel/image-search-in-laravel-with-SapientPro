@@ -76,6 +76,7 @@ class WelcomeController extends Controller
                     'initial' => $user ? strtoupper(substr($user->name, 0, 2)) : 'UN',
                     'city' => $user ? ($user->location ?? $this->extractCityFromEmail($item->claimed_by_email)) : 'Unknown',
                     'returned_count' => $item->returned_count,
+                    'profile_picture' => $user && $user->profile_picture ? $user->profile_picture : null,
                 ];
             });
         

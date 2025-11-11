@@ -165,23 +165,22 @@ function displayOtherUsersItems(items) {
                                     ${item.item_type === 'lost' ? 'Lost' : 'Found'}
                                 </span>
                                 <div class="flex items-center space-x-2">
-                                    ${item.uploader_profile_picture ? `
-                                        <img src="${item.uploader_profile_picture}" alt="${item.uploader_name}" class="w-4 h-4 rounded-full object-cover">
-                                    ` : `
-                                        <div class="w-4 h-4 rounded-full bg-purple-100 flex items-center justify-center">
-                                            <span class="text-xs font-medium text-purple-600">${item.uploader_name.substring(0, 1).toUpperCase()}</span>
+                                    <div class="flex items-center gap-2">
+                                        ${item.uploader_profile_picture ? `
+                                            <img src="${item.uploader_profile_picture}" alt="${item.uploader_name}" class="w-6 h-6 rounded-full object-cover border border-purple-100">
+                                        ` : `
+                                            <div class="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-xs font-semibold text-purple-600">
+                                                ${item.uploader_name.substring(0, 2).toUpperCase()}
+                                            </div>
+                                        `}
+                                        <div class="flex items-center gap-1">
+                                            <span class="text-sm font-medium text-gray-700">${item.uploader_name}</span>
+                                            ${item.uploader_verified ? `
+                                                <span class="inline-flex items-center justify-center w-4 h-4" title="Verified Profile">
+                                                    <img src="/images/icons/verify.png" alt="Verified" class="w-4 h-4">
+                                                </span>
+                                            ` : ''}
                                         </div>
-                                    `}
-                                    <div class="flex items-center gap-1">
-                                        <span class="px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                                            <i class="fas fa-user mr-1"></i>
-                                            ${item.uploader_name}
-                                        </span>
-                                        ${item.uploader_verified ? `
-                                            <span class="inline-flex items-center justify-center w-4 h-4" title="Verified Profile">
-                                                <img src="/images/icons/verify.png" alt="Verified" class="w-4 h-4">
-                                            </span>
-                                        ` : ''}
                                     </div>
                                 </div>
                             </div>
@@ -263,10 +262,17 @@ function displayOtherUsersItems(items) {
                                     <i class="fas fa-comments mr-1"></i>
                                     Message Owner
                                 </button>
-                                <button onclick="claimItem('${item.upload_id}')" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium">
-                                    <i class="fas fa-hand-holding mr-1"></i>
-                                    Claim Item
-                                </button>
+                                ${item.user_has_claimed ? `
+                                    <button onclick="cancelClaim('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
+                                        <i class="fas fa-times-circle mr-1"></i>
+                                        Cancel Claim
+                                    </button>
+                                ` : `
+                                    <button onclick="claimItem('${item.upload_id}')" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium">
+                                        <i class="fas fa-hand-holding mr-1"></i>
+                                        Claim Item
+                                    </button>
+                                `}
                             </div>
                         </div>
                     </div>
@@ -534,17 +540,45 @@ async function claimItem(uploadId) {
 
         if (data.success) {
             showToast('Item claimed successfully!', 'success');
-            // Remove the claimed item from the display
-            allItems = allItems.filter(item => item.upload_id !== uploadId);
-            filteredItems = allItems;
-            displayOtherUsersItems();
-            updateStats();
+            // Reload items to update the button to "Cancel Claim"
+            loadOtherUsersItems();
         } else {
             showToast(data.error || 'Error claiming item. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
         showToast('Error claiming item. Please try again.', 'error');
+    }
+}
+
+// Cancel claim function
+async function cancelClaim(uploadId) {
+    if (!confirm('Are you sure you want to cancel your claim on this item?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/user/items/${uploadId}/cancel-claim`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Claim cancelled successfully!', 'success');
+            // Reload items to update the button back to "Claim Item"
+            loadOtherUsersItems();
+        } else {
+            showToast(data.error || 'Error cancelling claim. Please try again.', 'error');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        showToast('Error cancelling claim. Please try again.', 'error');
     }
 }
 

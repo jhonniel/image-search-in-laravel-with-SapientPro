@@ -36,14 +36,14 @@
         .border-pink-primary {
             border-color: var(--pink-primary);
         }
-        
+
         .line-clamp-1 {
             display: -webkit-box;
             -webkit-line-clamp: 1;
             -webkit-box-orient: vertical;
             overflow: hidden;
         }
-        
+
         .line-clamp-2 {
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -112,19 +112,19 @@
                     Search
                 </button>
             </form>
-            
+
             <!-- Search Filters (shown when searching) -->
             @if(isset($isSearch) && $isSearch)
             <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6 px-4">
-                <a href="{{ route('search', ['q' => $searchQuery, 'status' => '']) }}" 
+                <a href="{{ route('search', ['q' => $searchQuery, 'status' => '']) }}"
                    class="px-3 sm:px-4 py-2 text-sm sm:text-base {{ empty($statusFilter) ? 'bg-purple-primary text-white' : 'bg-gray-100 text-gray-700' }} rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
                     All
                 </a>
-                <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'lost']) }}" 
+                <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'lost']) }}"
                    class="px-3 sm:px-4 py-2 text-sm sm:text-base {{ $statusFilter === 'lost' ? 'bg-purple-primary text-white' : 'bg-gray-100 text-gray-700' }} rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
                     Lost
                 </a>
-                <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'found']) }}" 
+                <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'found']) }}"
                    class="px-3 sm:px-4 py-2 text-sm sm:text-base {{ $statusFilter === 'found' ? 'bg-purple-primary text-white' : 'bg-gray-100 text-gray-700' }} rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
                     Found
                 </a>
@@ -200,7 +200,7 @@
                 <div class="space-y-8">
                     <!-- Step 1: Post IT -->
                     <div class="flex items-start space-x-6">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold shrink-0">
                             1
                         </div>
                         <div>
@@ -211,7 +211,7 @@
 
                     <!-- Step 2: Track IT -->
                     <div class="flex items-start space-x-6">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold shrink-0">
                             2
                         </div>
                         <div>
@@ -222,7 +222,7 @@
 
                     <!-- Step 3: Return IT -->
                     <div class="flex items-start space-x-6">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold flex-shrink-0">
+                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold shrink-0">
                             3
                         </div>
                         <div>
@@ -275,24 +275,24 @@
                             We couldn't find any items matching "{{ $searchQuery }}".
                         </p>
                         <p class="text-gray-500 mb-8">
-                            Don't worry! Upload your item and our smart system will automatically search for matches. 
+                            Don't worry! Upload your item and our smart system will automatically search for matches.
                             When someone posts a matching item, we'll notify you immediately so you can get reunited with your item.
                         </p>
-                        
+
                         <!-- Call to Action Buttons -->
                         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-                            <a href="{{ route('guest.post.form', ['type' => 'lost', 'search' => $searchQuery ?? '']) }}" 
+                            <a href="{{ route('guest.post.form', ['type' => 'lost', 'search' => $searchQuery ?? '']) }}"
                                class="px-8 py-4 bg-pink-primary text-white rounded-lg font-medium hover:bg-pink-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center">
                                 <i class="fas fa-exclamation-circle mr-2"></i>
                                 I Lost Something
                             </a>
-                            <a href="{{ route('guest.post.form', ['type' => 'found', 'search' => $searchQuery ?? '']) }}" 
+                            <a href="{{ route('guest.post.form', ['type' => 'found', 'search' => $searchQuery ?? '']) }}"
                                class="px-8 py-4 bg-purple-primary text-white rounded-lg font-medium hover:bg-purple-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center">
                                 <i class="fas fa-hand-holding-heart mr-2"></i>
                                 I Found Something
                             </a>
                         </div>
-                        
+
                         <div class="mt-8 pt-8 border-t border-gray-200">
                             <p class="text-gray-500 text-sm mb-4">
                                 <i class="fas fa-info-circle text-purple-primary mr-2"></i>
@@ -312,14 +312,14 @@
                 <!-- Show fresh reports grid -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             @endif
-                
+
                 @forelse($freshReports as $report)
                 <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                     <!-- Image Section -->
                     <div class="relative h-48 bg-gray-100">
                         @if($report['image_path'])
-                            <img src="{{ $report['image_path'] }}" 
-                                 alt="{{ $report['title'] }}" 
+                            <img src="{{ $report['image_path'] }}"
+                                 alt="{{ $report['title'] }}"
                                  class="w-full h-full object-cover"
                                  onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'%3E%3Crect fill=\'%23e5e7eb\' width=\'400\' height=\'300\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'20\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3ENo Image%3C/text%3E%3C/svg%3E';">
                         @else
@@ -332,7 +332,7 @@
                             {{ ucfirst($report['type']) }}
                         </span>
                     </div>
-                    
+
                     <!-- Content Section -->
                     <div class="p-6">
                         <h3 class="text-lg font-bold text-gray-900 mb-4 line-clamp-2">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
@@ -380,7 +380,13 @@
                     <div class="grid grid-cols-12 items-center px-4 sm:px-6 py-3 sm:py-4 gap-3">
                         <div class="col-span-2 sm:col-span-1 text-xl sm:text-2xl font-extrabold {{ $index === 0 ? 'text-yellow-500' : 'text-gray-500' }}">#{{ $index + 1 }}</div>
                         <div class="col-span-6 sm:col-span-7 flex items-center space-x-2 sm:space-x-3">
-                            <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full {{ $index === 0 ? 'bg-purple-100 text-purple-primary' : ($index === 1 ? 'bg-pink-100 text-pink-primary' : 'bg-blue-100 text-blue-600') }} flex items-center justify-center font-bold text-sm sm:text-base">{{ $helper['initial'] }}</div>
+                            @if(!empty($helper['profile_picture']))
+                                <img src="{{ $helper['profile_picture'] }}" alt="{{ $helper['name'] }} profile photo" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-purple-100">
+                            @else
+                                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full {{ $index === 0 ? 'bg-purple-100 text-purple-primary' : ($index === 1 ? 'bg-pink-100 text-pink-primary' : 'bg-blue-100 text-blue-600') }} flex items-center justify-center font-bold text-sm sm:text-base">
+                                    {{ $helper['initial'] }}
+                                </div>
+                            @endif
                             <div>
                                 <div class="font-semibold text-gray-900 text-sm sm:text-base">{{ $helper['name'] }}</div>
                                 <div class="text-xs text-gray-500">{{ $helper['city'] }}</div>
@@ -439,16 +445,16 @@
         <div class="container mx-auto px-4 sm:px-6">
             <div class="max-w-6xl mx-auto">
                 <h2 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-6 sm:mb-8 text-center">Our Sponsors</h2>
-                
+
                 <div class="relative">
                     <!-- Carousel Container -->
                     <div id="sponsorsCarousel" class="overflow-hidden px-12">
                         <div class="flex transition-transform duration-500 ease-in-out" id="sponsorsTrack" style="transform: translateX(0%);">
                             @foreach($sponsors as $sponsor)
-                            <div class="flex-shrink-0" style="width: 25%; padding: 0 1rem;">
+                            <div class="shrink-0" style="width: 25%; padding: 0 1rem;">
                                 <div class="bg-white rounded-lg shadow-md p-6 h-32 flex items-center justify-center hover:shadow-lg transition-shadow">
-                                    <img src="{{ $sponsor->image_path }}" 
-                                         alt="{{ $sponsor->name }}" 
+                                    <img src="{{ $sponsor->image_path }}"
+                                         alt="{{ $sponsor->name }}"
                                          class="max-h-20 max-w-full object-contain"
                                          onerror="this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='block';">
                                     <span class="hidden text-gray-600 font-medium">{{ $sponsor->name }}</span>
@@ -457,7 +463,7 @@
                             @endforeach
                         </div>
                     </div>
-                    
+
                     <!-- Navigation Arrows -->
                     @if($sponsors->count() > 4)
                     <button id="prevSponsor" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow-md hover:bg-gray-100 transition-colors z-10">
@@ -597,7 +603,7 @@
         })();
     </script>
     @endif
-    
+
     <script>
         // Live Search Functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -606,35 +612,35 @@
             const searchIcon = document.getElementById('searchIcon');
             const searchLoading = document.getElementById('searchLoading');
             const resultsContainer = document.getElementById('resultsContainer');
-            
+
             let searchTimeout;
             let isSearching = false;
-            
+
             // Original fresh reports HTML (to restore when search is cleared)
             const originalContent = resultsContainer ? resultsContainer.innerHTML : '';
-            
+
             // Debounced live search
             if (searchInput) {
                 searchInput.addEventListener('input', function(e) {
                     const query = e.target.value.trim();
-                    
+
                     // Clear previous timeout
                     clearTimeout(searchTimeout);
-                    
+
                     // Hide loading if query is empty
                     if (query.length === 0) {
                         hideLoading();
                         restoreOriginalContent();
                         return;
                     }
-                    
+
                     // Show loading after a short delay
                     searchTimeout = setTimeout(() => {
                         showLoading();
                         performLiveSearch(query);
                     }, 500); // Wait 500ms after user stops typing
                 });
-                
+
                 // Allow Enter key to submit form (traditional search)
                 searchInput.addEventListener('keypress', function(e) {
                     if (e.key === 'Enter') {
@@ -645,28 +651,28 @@
                     }
                 });
             }
-            
+
             function showLoading() {
                 if (searchIcon) searchIcon.classList.add('hidden');
                 if (searchLoading) searchLoading.classList.remove('hidden');
             }
-            
+
             function hideLoading() {
                 if (searchIcon) searchIcon.classList.remove('hidden');
                 if (searchLoading) searchLoading.classList.add('hidden');
             }
-            
+
             function performLiveSearch(query) {
                 if (isSearching) return;
-                
+
                 isSearching = true;
-                
+
                 fetch(`{{ route('api.search') }}?q=${encodeURIComponent(query)}`)
                     .then(response => response.json())
                     .then(data => {
                         isSearching = false;
                         hideLoading();
-                        
+
                         if (data.success) {
                             updateResults(data);
                         } else {
@@ -680,13 +686,13 @@
                         // On error, allow form submission
                     });
             }
-            
+
             function updateResults(data) {
                 if (data.count === 0) {
                     showNoResults(data.query);
                     return;
                 }
-                
+
                 // Build results HTML
                 let html = `
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
@@ -706,16 +712,16 @@
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 `;
-                
+
                 data.results.forEach(report => {
                     const typeClass = report.type === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800';
                     const imagePath = report.image_path || '';
                     const imageError = "this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3ENo Image%3C/text%3E%3C/svg%3E';";
-                    
+
                     html += `
                         <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
                             <div class="relative h-48 bg-gray-100">
-                                ${imagePath ? 
+                                ${imagePath ?
                                     `<img src="${imagePath}" alt="${escapeHtml(report.title)}" class="w-full h-full object-cover" onerror="${imageError}">` :
                                     `<div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fas fa-image text-gray-400 text-4xl"></i></div>`
                                 }
@@ -742,13 +748,13 @@
                         </div>
                     `;
                 });
-                
+
                 html += '</div>';
                 if (resultsContainer) {
                     resultsContainer.innerHTML = html;
                 }
             }
-            
+
             function showNoResults(query) {
                 const html = `
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
@@ -771,16 +777,16 @@
                             We couldn't find any items matching "${escapeHtml(query)}".
                         </p>
                         <p class="text-sm sm:text-base text-gray-500 mb-6 sm:mb-8">
-                            Don't worry! Upload your item and our smart system will automatically search for matches. 
+                            Don't worry! Upload your item and our smart system will automatically search for matches.
                             When someone posts a matching item, we'll notify you immediately so you can get reunited with your item.
                         </p>
                         <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 mb-6">
-                            <a href="/post?type=lost&search=${encodeURIComponent(query)}" 
+                            <a href="/post?type=lost&search=${encodeURIComponent(query)}"
                                class="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base bg-pink-primary text-white rounded-lg font-medium hover:bg-pink-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center">
                                 <i class="fas fa-exclamation-circle mr-2"></i>
                                 I Lost Something
                             </a>
-                            <a href="/post?type=found&search=${encodeURIComponent(query)}" 
+                            <a href="/post?type=found&search=${encodeURIComponent(query)}"
                                class="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base bg-purple-primary text-white rounded-lg font-medium hover:bg-purple-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center">
                                 <i class="fas fa-hand-holding-heart mr-2"></i>
                                 I Found Something
@@ -801,7 +807,7 @@
                     resultsContainer.innerHTML = html;
                 }
             }
-            
+
             function restoreOriginalContent() {
                 if (resultsContainer && originalContent) {
                     resultsContainer.innerHTML = originalContent;
@@ -810,13 +816,13 @@
                     }
                 }
             }
-            
+
             function escapeHtml(text) {
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
             }
-            
+
             // Make restoreOriginalContent available globally
             window.restoreOriginalContent = restoreOriginalContent;
         });

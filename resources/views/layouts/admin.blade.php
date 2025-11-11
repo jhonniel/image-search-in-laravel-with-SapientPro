@@ -25,8 +25,9 @@
         }
     </script>
 </head>
-<body class="bg-gray-50">
-    <div class="flex h-screen overflow-hidden" x-data="{ sidebarOpen: false }">
+<body class="antialiased bg-gray-100">
+@php($authUser = Auth::user())
+    <div class="flex h-screen overflow-hidden bg-gray-100">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="sidebarOpen" 
              @click="sidebarOpen = false"
@@ -271,11 +272,15 @@
                         <!-- User Profile Dropdown -->
                         <div class="relative" x-data="{ open: false }">
                             <button @click="open = !open" class="flex items-center space-x-2 sm:space-x-3 bg-purple-50 px-2 sm:px-4 py-1.5 sm:py-2 rounded-full hover:bg-purple-100 transition-colors">
-                                <div class="w-7 h-7 sm:w-8 sm:h-8 bg-purple-primary rounded-full flex items-center justify-center">
-                                    <i class="fas fa-user text-white text-xs sm:text-sm"></i>
+                                <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full overflow-hidden bg-purple-primary flex items-center justify-center">
+                                    @if($authUser && $authUser->profile_picture)
+                                        <img src="{{ $authUser->profile_picture }}" alt="{{ $authUser->name }}" class="w-full h-full object-cover">
+                                    @else
+                                        <i class="fas fa-user text-white text-xs sm:text-sm"></i>
+                                    @endif
                                 </div>
                                 <div class="hidden sm:block">
-                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ Auth::user()->name }}</p>
+                                    <p class="text-xs sm:text-sm font-medium text-gray-900">{{ $authUser->name }}</p>
                                     <p class="text-xs text-gray-500">Admin</p>
                                 </div>
                                 <i class="fas fa-chevron-down text-gray-400 text-xs hidden sm:block"></i>

@@ -91,6 +91,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/user/items/trashed', [\App\Http\Controllers\Api\UserItemController::class, 'getTrashedItems']);
     Route::get('/api/user/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
     Route::post('/api/user/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
+    Route::post('/api/user/items/{uploadId}/cancel-claim', [\App\Http\Controllers\Api\UserItemController::class, 'cancelClaim']);
 
     // User Profile Routes
     Route::get('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('user.profile');

@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('image_metadata', function (Blueprint $table) {
-            $table->enum('claim_verification_status', ['pending', 'verified', 'rejected'])->nullable()->after('claimed_at');
+            // Use string instead of enum for SQLite compatibility
+            $table->string('claim_verification_status')->nullable()->after('claimed_at');
             $table->timestamp('claim_verified_at')->nullable()->after('claim_verification_status');
         });
     }

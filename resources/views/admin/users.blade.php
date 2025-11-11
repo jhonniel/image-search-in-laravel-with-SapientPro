@@ -69,12 +69,16 @@
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="flex items-center">
                                 <input type="checkbox" class="user-checkbox mr-3 rounded border-gray-300 text-purple-600 focus:ring-purple-500" value="{{ $user->id }}">
-                                <div class="flex-shrink-0 h-10 w-10">
-                                    <div class="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
-                                        <span class="text-sm font-medium text-purple-600">
-                                            {{ strtoupper(substr($user->name, 0, 2)) }}
-                                        </span>
-                                    </div>
+                                <div class="shrink-0 h-10 w-10">
+                                    @if($user->profile_picture)
+                                        <img src="{{ $user->profile_picture }}" alt="{{ $user->name }}" class="h-10 w-10 rounded-full object-cover border border-purple-100">
+                                    @else
+                                        <div class="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+                                            <span class="text-sm font-medium text-purple-600">
+                                                {{ strtoupper(substr($user->name, 0, 2)) }}
+                                            </span>
+                                        </div>
+                                    @endif
                                 </div>
                                 <div class="ml-4">
                                     <div class="flex items-center gap-1.5">
