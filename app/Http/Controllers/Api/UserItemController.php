@@ -712,14 +712,13 @@ class UserItemController extends Controller
                         $q->where('is_claimed', true)
                           ->where('claim_verification_status', 'rejected');
                     })
-                    ->orWhere(function($q) use ($user) {
-                        // Pending claim by current user (show so they can cancel)
+                    ->orWhere(function($q) {
+                        // Pending claim by anyone (visible, but not claimable unless it's yours)
                         $q->where(function($r){
                             $r->where('is_claimed', false)
                               ->orWhereNull('is_claimed');
                         })
-                          ->where('claim_verification_status', 'pending')
-                          ->where('claimed_by_email', $user->email);
+                          ->where('claim_verification_status', 'pending');
                     });
                 })
                 ->orderBy('created_at', 'desc')

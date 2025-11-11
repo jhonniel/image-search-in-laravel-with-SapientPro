@@ -90,7 +90,7 @@
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
                         <a href="{{ route('admin.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-lock w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
+                            <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
                             <span>Reported Items</span>
                         </a>
                     </li>
