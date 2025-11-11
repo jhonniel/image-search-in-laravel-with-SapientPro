@@ -239,6 +239,58 @@
                     </p>
                 </div>
 
+            @elseif ($data['notification_type'] === 'item_claimed')
+                <h2>🎯 Someone Wants to Claim Your Item!</h2>
+                <p>Hello {{ $data['owner_name'] ?? explode('@', $data['user_email'] ?? 'User')[0] }},</p>
+                <p>Great news! Someone has claimed your {{ $data['item_type'] }} item and wants to verify if it belongs to them.</p>
+
+                <div class="highlight" style="background-color: #fff3cd; border-left-color: #ffc107;">
+                    <p><strong>⚠️ Action Required:</strong></p>
+                    <p>Please review the claim and verify if the item belongs to the claimer. You can do this from your pending claims page.</p>
+                </div>
+
+                <div class="item-details">
+                    <h3>Your {{ ucfirst($data['item_type']) }} Item Details:</h3>
+                    <p><strong>Description:</strong> {{ $data['item_description'] ?? 'N/A' }}</p>
+                    <p><strong>Location:</strong> {{ $data['item_location'] ?? 'N/A' }}</p>
+                    <p><strong>Tags:</strong>
+                        @if(isset($data['item_tags']) && is_array($data['item_tags']))
+                            @foreach($data['item_tags'] as $tag)
+                                <span class="tag">{{ $tag }}</span>
+                            @endforeach
+                        @else
+                            N/A
+                        @endif
+                    </p>
+                </div>
+
+                @if(isset($data['claimer_name']))
+                <div class="item-details" style="background-color: #e6f2ff;">
+                    <h3>Claimer Information:</h3>
+                    <p><strong>Name:</strong> {{ $data['claimer_name'] }}</p>
+                    @if(isset($data['claimer_email']))
+                    <p><strong>Email:</strong> {{ $data['claimer_email'] }}</p>
+                    @endif
+                </div>
+                @endif
+
+                <div class="highlight">
+                    <p><strong>Next Steps:</strong></p>
+                    <p>1. Review the claim request in your pending claims</p>
+                    <p>2. Verify if the item belongs to the claimer</p>
+                    <p>3. Message the claimer to discuss the details</p>
+                    <p>4. Approve or reject the claim based on verification</p>
+                </div>
+
+                <div class="button-container">
+                    <a href="{{ url('/user/pending-claims') }}" class="button">Review Pending Claims</a>
+                    <a href="{{ url('/user/chat') }}?user={{ $data['claimer_id'] ?? '' }}&item={{ $data['upload_id'] ?? '' }}" 
+                       class="button" 
+                       style="margin-left: 10px; background-color: #EC4899;">
+                        Message Claimer
+                    </a>
+                </div>
+
             @else
                 <h2>FindITFast Notification</h2>
                 <p>Hello {{ explode('@', $data['user_email'] ?? 'User')[0] }},</p>

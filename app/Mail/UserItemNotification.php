@@ -32,6 +32,8 @@ class UserItemNotification extends Mailable
             $subject .= 'Similar Item Found - We found a match for your ' . $this->data['item_type'] . ' item!';
         } elseif ($this->data['notification_type'] === 'new_item_uploaded') {
             $subject .= 'Item Uploaded Successfully - Your ' . $this->data['item_type'] . ' item has been added!';
+        } elseif ($this->data['notification_type'] === 'item_claimed') {
+            $subject .= 'Item Claimed - Someone wants to claim your ' . $this->data['item_type'] . ' item!';
         } else {
             $subject .= 'Item Notification';
         }

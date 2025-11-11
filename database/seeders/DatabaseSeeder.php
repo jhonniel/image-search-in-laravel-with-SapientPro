@@ -13,6 +13,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // No default seeding - add your own seeders here if needed
+        $this->call([
+            UserSeeder::class,
+        ]);
     }
 }

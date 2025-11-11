@@ -40,13 +40,14 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/user/claims/{uploadId}/verify', [\App\Http\Controllers\UserController::class, 'verifyClaim'])->name('user.claims.verify');
     Route::post('/user/claims/{uploadId}/reject', [\App\Http\Controllers\UserController::class, 'rejectClaim'])->name('user.claims.reject');
 
+    // Admin routes (admin only)
+    Route::middleware(['admin'])->group(function () {
         // Image Comparison (admin only - testing feature)
-        Route::middleware(['admin'])->group(function () {
-            Route::get('/image-comparison', function () {
-                return view('image-comparison');
-            });
+        Route::get('/image-comparison', function () {
+            return view('image-comparison');
+        });
 
-    Route::get('/admin/reported-items', [\App\Http\Controllers\AdminController::class, 'reportedItems'])->name('admin.reported-items');
+        Route::get('/admin/reported-items', [\App\Http\Controllers\AdminController::class, 'reportedItems'])->name('admin.reported-items');
     Route::delete('/admin/reported-items/{uploadId}', [\App\Http\Controllers\AdminController::class, 'deleteItem'])->name('admin.delete-item');
     Route::post('/admin/reported-items/{uploadId}/restore', [\App\Http\Controllers\AdminController::class, 'restoreItem'])->name('admin.restore-item');
     Route::delete('/admin/reported-items/{uploadId}/force', [\App\Http\Controllers\AdminController::class, 'forceDeleteItem'])->name('admin.force-delete-item');
@@ -78,33 +79,33 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/admin/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'send'])->name('admin.rewards.send.post');
         Route::post('/admin/rewards/auto-assign', [\App\Http\Controllers\Admin\RewardController::class, 'checkAutoAssign'])->name('admin.rewards.auto-assign');
         Route::delete('/admin/rewards/{id}', [\App\Http\Controllers\Admin\RewardController::class, 'destroy'])->name('admin.rewards.destroy');
-        });
-
-        // User Items API Routes (moved from API routes for better session handling)
-        Route::post('/api/user/items/upload', [\App\Http\Controllers\Api\UserItemController::class, 'uploadItems']);
-        Route::get('/api/user/items', [\App\Http\Controllers\Api\UserItemController::class, 'getUserItems']);
-        Route::match(['PUT', 'POST'], '/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'updateItem']);
-        Route::delete('/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'deleteItem']);
-        Route::post('/api/user/items/{uploadId}/restore', [\App\Http\Controllers\Api\UserItemController::class, 'restoreItem']);
-        Route::delete('/api/user/items/{uploadId}/force', [\App\Http\Controllers\Api\UserItemController::class, 'forceDeleteItem']);
-        Route::get('/api/user/items/trashed', [\App\Http\Controllers\Api\UserItemController::class, 'getTrashedItems']);
-        Route::get('/api/user/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
-        Route::post('/api/user/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
-
-        // User Profile Routes
-        Route::get('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('user.profile');
-        Route::get('/user/profile/edit', [\App\Http\Controllers\UserProfileController::class, 'edit'])->name('user.profile.edit');
-        Route::put('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'update'])->name('user.profile.update');
-        Route::post('/user/profile/avatar', [\App\Http\Controllers\UserProfileController::class, 'uploadAvatar'])->name('user.profile.avatar');
-
-        // Chat Routes
-        Route::get('/user/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('user.chat');
-        Route::get('/user/chat/messages/{userId}', [\App\Http\Controllers\ChatController::class, 'getMessages'])->name('user.chat.messages');
-        Route::post('/user/chat/send', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('user.chat.send');
-        Route::get('/user/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('user.chat.unread-count');
-        Route::post('/user/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('user.chat.mark-read');
-        Route::post('/user/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('user.chat.get-user-by-email');
     });
+
+    // User Items API Routes (moved from API routes for better session handling)
+    Route::post('/api/user/items/upload', [\App\Http\Controllers\Api\UserItemController::class, 'uploadItems']);
+    Route::get('/api/user/items', [\App\Http\Controllers\Api\UserItemController::class, 'getUserItems']);
+    Route::match(['PUT', 'POST'], '/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'updateItem']);
+    Route::delete('/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'deleteItem']);
+    Route::post('/api/user/items/{uploadId}/restore', [\App\Http\Controllers\Api\UserItemController::class, 'restoreItem']);
+    Route::delete('/api/user/items/{uploadId}/force', [\App\Http\Controllers\Api\UserItemController::class, 'forceDeleteItem']);
+    Route::get('/api/user/items/trashed', [\App\Http\Controllers\Api\UserItemController::class, 'getTrashedItems']);
+    Route::get('/api/user/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
+    Route::post('/api/user/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
+
+    // User Profile Routes
+    Route::get('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('user.profile');
+    Route::get('/user/profile/edit', [\App\Http\Controllers\UserProfileController::class, 'edit'])->name('user.profile.edit');
+    Route::put('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'update'])->name('user.profile.update');
+    Route::post('/user/profile/avatar', [\App\Http\Controllers\UserProfileController::class, 'uploadAvatar'])->name('user.profile.avatar');
+
+    // Chat Routes
+    Route::get('/user/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('user.chat');
+    Route::get('/user/chat/messages/{userId}', [\App\Http\Controllers\ChatController::class, 'getMessages'])->name('user.chat.messages');
+    Route::post('/user/chat/send', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('user.chat.send');
+    Route::get('/user/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('user.chat.unread-count');
+    Route::post('/user/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('user.chat.mark-read');
+    Route::post('/user/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('user.chat.get-user-by-email');
+});
 
 // Guest posting routes
 Route::get('/post', [\App\Http\Controllers\GuestItemController::class, 'showForm'])->name('guest.post.form');

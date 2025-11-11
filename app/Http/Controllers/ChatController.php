@@ -16,12 +16,7 @@ class ChatController extends Controller
     {
         $user = Auth::user();
 
-        // Get all users except current user
-        $users = User::where('id', '!=', $user->id)
-            ->orderBy('name')
-            ->get();
-
-        // Get recent conversations
+        // Get recent conversations (only users with initiated conversations)
         $conversations = $this->getRecentConversations($user);
 
         // Check if we have URL parameters for pre-selecting a user
@@ -63,7 +58,7 @@ class ChatController extends Controller
             }
         }
 
-        return view('user.chat', compact('user', 'users', 'conversations', 'selectedUserId', 'itemId', 'itemContextData'));
+        return view('user.chat', compact('user', 'conversations', 'selectedUserId', 'itemId', 'itemContextData'));
     }
 
     /**

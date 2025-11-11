@@ -853,6 +853,48 @@ class UserItemController extends Controller
                 Log::error('Failed to send claim notification message: ' . $e->getMessage());
             }
 
+            // Send email notification to the item owner
+            try {
+                // Check if email notifications are enabled
+                $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
+                
+                if ($emailNotificationsEnabled) {
+                    // Apply mail configuration from settings
+                    $this->applyMailConfigurationFromSettings();
+
+                    $emailData = [
+                        'notification_type' => 'item_claimed',
+                        'item_type' => $firstItem->status,
+                        'item_description' => $firstItem->description,
+                        'item_location' => $firstItem->location ?? 'Location not specified',
+                        'item_tags' => $firstItem->tags ? (is_array($firstItem->tags) ? $firstItem->tags : json_decode($firstItem->tags, true)) : [],
+                        'user_email' => $itemOwnerEmail,
+                        'owner_name' => $itemOwner->name,
+                        'claimer_name' => $user->name,
+                        'claimer_email' => $user->email,
+                        'claimer_id' => $user->id,
+                        'upload_id' => $uploadId,
+                        'upload_date' => $firstItem->created_at->format('M d, Y'),
+                        'claimed_at' => now()->format('M d, Y h:i A'),
+                    ];
+
+                    Mail::to($itemOwnerEmail)->send(new \App\Mail\UserItemNotification($emailData));
+
+                    Log::info('Claim notification email sent', [
+                        'claimer_id' => $user->id,
+                        'owner_email' => $itemOwnerEmail,
+                        'upload_id' => $uploadId
+                    ]);
+                } else {
+                    Log::info('Email notifications disabled - skipping claim notification email', [
+                        'owner_email' => $itemOwnerEmail
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to send claim notification email: ' . $e->getMessage());
+                // Don't fail the claim if email fails
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Item claim request sent! The item owner has been notified and will verify your claim. You can message them to discuss the details.',
@@ -864,6 +906,45 @@ class UserItemController extends Controller
                 'success' => false,
                 'error' => 'Failed to claim item: ' . $e->getMessage()
             ], 500);
+        }
+    }
+
+    /**
+     * Apply mail configuration from database settings
+     */
+    private function applyMailConfigurationFromSettings(): void
+    {
+        try {
+            // Get mail settings from database
+            $mailMailer = \App\Models\Setting::get('mail_mailer', env('MAIL_MAILER', 'log'));
+            $mailHost = \App\Models\Setting::get('mail_host', env('MAIL_HOST'));
+            $mailPort = \App\Models\Setting::get('mail_port', env('MAIL_PORT', 587));
+            $mailUsername = \App\Models\Setting::get('mail_username', env('MAIL_USERNAME'));
+            $mailPassword = \App\Models\Setting::get('mail_password', env('MAIL_PASSWORD'));
+            $mailEncryption = \App\Models\Setting::get('mail_encryption', env('MAIL_ENCRYPTION', 'tls'));
+            $mailFromAddress = \App\Models\Setting::get('mail_from_address', env('MAIL_FROM_ADDRESS'));
+            $mailFromName = \App\Models\Setting::get('mail_from_name', env('MAIL_FROM_NAME'));
+            
+            // Update config dynamically
+            if ($mailMailer && $mailMailer !== 'log') {
+                config([
+                    'mail.default' => $mailMailer,
+                    'mail.mailers.smtp.host' => $mailHost ?? config('mail.mailers.smtp.host'),
+                    'mail.mailers.smtp.port' => $mailPort ?? config('mail.mailers.smtp.port'),
+                    'mail.mailers.smtp.username' => $mailUsername ?? config('mail.mailers.smtp.username'),
+                    'mail.mailers.smtp.password' => $mailPassword ?? config('mail.mailers.smtp.password'),
+                    'mail.mailers.smtp.encryption' => $mailEncryption ?? config('mail.mailers.smtp.encryption'),
+                    'mail.from.address' => $mailFromAddress ?? config('mail.from.address'),
+                    'mail.from.name' => $mailFromName ?? config('mail.from.name'),
+                ]);
+                
+                // Reconfigure mailer if SMTP settings are available
+                if ($mailMailer === 'smtp' && $mailHost && $mailUsername && $mailPassword) {
+                    \Illuminate\Support\Facades\Config::set('mail.default', 'smtp');
+                }
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
         }
     }
 }

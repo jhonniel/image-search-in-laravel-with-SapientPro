@@ -24,10 +24,10 @@
 
             <!-- Users List -->
             <div class="flex-1 overflow-y-auto" id="users-list">
-                <!-- Recent Conversations -->
+                <!-- Conversations -->
                 @if($conversations->count() > 0)
-                <div class="p-4 border-b border-gray-200">
-                    <h3 class="text-sm font-medium text-gray-500 mb-3">Recent Conversations</h3>
+                <div class="p-4">
+                    <h3 class="text-sm font-medium text-gray-500 mb-3">Conversations</h3>
                     <div class="space-y-2">
                         @foreach($conversations as $conversation)
                         <div class="user-item flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
@@ -71,42 +71,16 @@
                         @endforeach
                     </div>
                 </div>
-                @endif
-
-                <!-- All Users -->
-                <div class="p-4">
-                    <h3 class="text-sm font-medium text-gray-500 mb-3">All Users</h3>
-                    <div class="space-y-2">
-                        @foreach($users as $user)
-                        <div class="user-item flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
-                             data-user-id="{{ $user->id }}">
-                            <div class="flex-shrink-0">
-                                @if($user->profile_picture)
-                                    <img src="{{ $user->profile_picture }}" alt="{{ $user->name }}"
-                                         class="w-10 h-10 rounded-full object-cover">
-                                @else
-                                    <div class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                                        <span class="text-sm font-medium text-purple-600">
-                                            {{ strtoupper(substr($user->name, 0, 2)) }}
-                                        </span>
-                                    </div>
-                                @endif
-                            </div>
-                            <div class="ml-3 flex-1 min-w-0">
-                                <div class="flex items-center gap-1.5">
-                                    <p class="text-sm font-medium text-gray-900 truncate">{{ $user->name }}</p>
-                                    @if($user->is_verified ?? false)
-                                    <span class="inline-flex items-center justify-center w-4 h-4 flex-shrink-0" title="Verified Profile">
-                                        <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-4 h-4">
-                                    </span>
-                                    @endif
-                                </div>
-                                <p class="text-sm text-gray-500 truncate">{{ $user->email }}</p>
-                            </div>
-                        </div>
-                        @endforeach
+                @else
+                <!-- Empty State -->
+                <div class="p-4 text-center">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-comments text-gray-400 text-2xl"></i>
                     </div>
+                    <h3 class="text-sm font-medium text-gray-900 mb-2">No Conversations</h3>
+                    <p class="text-xs text-gray-500">You don't have any conversations yet. Start chatting by claiming an item or messaging someone about an item.</p>
                 </div>
+                @endif
             </div>
         </div>
 
@@ -202,11 +176,12 @@ document.getElementById('user-search').addEventListener('input', function(e) {
     const userItems = document.querySelectorAll('.user-item');
 
     userItems.forEach(item => {
-        const userName = item.querySelector('p').textContent.toLowerCase();
-        const userEmail = item.querySelector('p:last-child').textContent.toLowerCase();
+        const userName = item.querySelector('p.font-medium').textContent.toLowerCase();
+        const lastMessage = item.querySelector('p.text-gray-500:not(.text-xs)');
+        const lastMessageText = lastMessage ? lastMessage.textContent.toLowerCase() : '';
 
-        if (userName.includes(searchTerm) || userEmail.includes(searchTerm)) {
-            item.style.display = 'block';
+        if (userName.includes(searchTerm) || lastMessageText.includes(searchTerm)) {
+            item.style.display = 'flex';
         } else {
             item.style.display = 'none';
         }
