@@ -115,3 +115,13 @@ Route::post('/post', [\App\Http\Controllers\GuestItemController::class, 'submit'
 // Image comparison routes
 Route::post('/api/compare-images', [ImageComparisonController::class, 'compare']);
 Route::post('/api/compare-urls', [ImageComparisonController::class, 'compareUrls']);
+
+// Notifications (user)
+Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+Route::post('/api/notifications/mark-read', [\App\Http\Controllers\NotificationController::class, 'markRead']);
+
+// Admin routes (admin only)
+Route::middleware(['auth','admin'])->group(function () {
+    Route::get('/admin/notifications/create', [\App\Http\Controllers\Admin\NotificationController::class, 'create'])->name('admin.notifications.create');
+    Route::post('/admin/notifications/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('admin.notifications.send');
+});

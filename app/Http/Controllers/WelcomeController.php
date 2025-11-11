@@ -27,7 +27,10 @@ class WelcomeController extends Controller
             // Get fresh reports (latest 8 items, grouped by upload_id)
             // Exclude claimed items and pending claims - they are only visible to admins/owners
             $freshReports = ImageMetadata::where(function($query) {
-                    $query->where('is_claimed', false)
+                    $query->where(function($q){
+                        $q->where('is_claimed', false)
+                          ->orWhereNull('is_claimed');
+                    })
                           ->where(function($q) {
                               $q->whereNull('claim_verification_status')
                                 ->orWhere('claim_verification_status', '!=', 'pending');
@@ -106,7 +109,10 @@ class WelcomeController extends Controller
         // Build query
         // Exclude claimed items and pending claims - they are only visible to admins/owners
         $baseQuery = ImageMetadata::where(function($query) {
-            $query->where('is_claimed', false)
+            $query->where(function($q){
+                $q->where('is_claimed', false)
+                  ->orWhereNull('is_claimed');
+            })
                   ->where(function($q) {
                       $q->whereNull('claim_verification_status')
                         ->orWhere('claim_verification_status', '!=', 'pending');

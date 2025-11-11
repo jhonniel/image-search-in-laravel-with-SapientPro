@@ -697,8 +697,11 @@ class UserItemController extends Controller
             $items = ImageMetadata::where('uploader_email', '!=', $user->email)
                 ->where(function($query) use ($user) {
                     $query->where(function($q) {
-                        // Not claimed and no pending claim
-                        $q->where('is_claimed', false)
+                        // Not claimed (including NULL) and no pending claim
+                        $q->where(function($r){
+                            $r->where('is_claimed', false)
+                              ->orWhereNull('is_claimed');
+                        })
                           ->where(function($subQ) {
                               $subQ->whereNull('claim_verification_status')
                                    ->orWhere('claim_verification_status', '!=', 'pending');
@@ -711,7 +714,10 @@ class UserItemController extends Controller
                     })
                     ->orWhere(function($q) use ($user) {
                         // Pending claim by current user (show so they can cancel)
-                        $q->where('is_claimed', false)
+                        $q->where(function($r){
+                            $r->where('is_claimed', false)
+                              ->orWhereNull('is_claimed');
+                        })
                           ->where('claim_verification_status', 'pending')
                           ->where('claimed_by_email', $user->email);
                     });
@@ -833,10 +839,13 @@ class UserItemController extends Controller
                 ->where('uploader_email', '!=', $user->email)
                 ->where(function($query) {
                     // Only allow claiming if:
-                    // 1. Not claimed at all, OR
+                    // 1. Not claimed at all (including NULL), OR
                     // 2. Claimed but rejected (can be claimed again)
                     $query->where(function($q) {
-                        $q->where('is_claimed', false)
+                        $q->where(function($r){
+                            $r->where('is_claimed', false)
+                              ->orWhereNull('is_claimed');
+                        })
                           ->where(function($subQ) {
                               $subQ->whereNull('claim_verification_status')
                                    ->orWhere('claim_verification_status', '!=', 'pending');
@@ -906,6 +915,23 @@ class UserItemController extends Controller
                 ]);
             } catch (\Exception $e) {
                 Log::error('Failed to send claim notification message: ' . $e->getMessage());
+            }
+
+            // In-app notification for the owner
+            try {
+                \App\Models\Notification::create([
+                    'user_id' => $itemOwner->id,
+                    'type' => 'item_claimed',
+                    'title' => 'Someone claimed your item',
+                    'message' => $user->name . ' requested to claim your ' . ($firstItem->status ?? 'item') . '.',
+                    'data' => [
+                        'upload_id' => $uploadId,
+                        'claimer_id' => $user->id,
+                        'claimer_name' => $user->name,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                Log::warning('Failed creating in-app notification: ' . $e->getMessage());
             }
 
             // Send email notification to the item owner
