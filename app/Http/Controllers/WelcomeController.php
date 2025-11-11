@@ -25,8 +25,14 @@ class WelcomeController extends Controller
             $isSearch = true;
         } else {
             // Get fresh reports (latest 8 items, grouped by upload_id)
-            // Exclude claimed items - they are only visible to admins
-            $freshReports = ImageMetadata::where('is_claimed', false)
+            // Exclude claimed items and pending claims - they are only visible to admins/owners
+            $freshReports = ImageMetadata::where(function($query) {
+                    $query->where('is_claimed', false)
+                          ->where(function($q) {
+                              $q->whereNull('claim_verification_status')
+                                ->orWhere('claim_verification_status', '!=', 'pending');
+                          });
+                })
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id')
@@ -97,8 +103,14 @@ class WelcomeController extends Controller
     private function performSearch($query, $statusFilter = '')
     {
         // Build query
-        // Exclude claimed items - they are only visible to admins
-        $baseQuery = ImageMetadata::where('is_claimed', false);
+        // Exclude claimed items and pending claims - they are only visible to admins/owners
+        $baseQuery = ImageMetadata::where(function($query) {
+            $query->where('is_claimed', false)
+                  ->where(function($q) {
+                      $q->whereNull('claim_verification_status')
+                        ->orWhere('claim_verification_status', '!=', 'pending');
+                  });
+        });
         
         // Apply status filter if provided
         if (!empty($statusFilter) && in_array($statusFilter, ['lost', 'found'])) {

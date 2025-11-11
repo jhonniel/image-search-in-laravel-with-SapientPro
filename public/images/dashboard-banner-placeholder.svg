@@ -1,0 +1,26 @@
+<svg width="600" height="300" viewBox="0 0 600 300" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="600" height="300" fill="#f3f4f6" rx="12"/>
+    
+    <!-- Placeholder text -->
+    <text x="300" y="150" text-anchor="middle" fill="#9ca3af" font-family="Arial, sans-serif" font-size="18" font-weight="500">
+        Dashboard Banner Illustration
+    </text>
+    <text x="300" y="175" text-anchor="middle" fill="#6b7280" font-family="Arial, sans-serif" font-size="14">
+        (Upload your image to replace this placeholder)
+    </text>
+    
+    <!-- Simple illustration placeholder -->
+    <circle cx="150" cy="100" r="30" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
+    <circle cx="150" cy="100" r="20" fill="#d1d5db"/>
+    <circle cx="145" cy="95" r="3" fill="#6b7280"/>
+    <circle cx="155" cy="95" r="3" fill="#6b7280"/>
+    <path d="M 140 110 Q 150 115 160 110" stroke="#6b7280" stroke-width="2" fill="none"/>
+    
+    <circle cx="450" cy="100" r="30" fill="#e5e7eb" stroke="#9ca3af" stroke-width="2"/>
+    <circle cx="450" cy="100" r="20" fill="#d1d5db"/>
+    <circle cx="445" cy="95" r="3" fill="#6b7280"/>
+    <circle cx="455" cy="95" r="3" fill="#6b7280"/>
+    <path d="M 445 110 Q 450 115 455 110" stroke="#6b7280" stroke-width="2" fill="none"/>
+</svg>
+

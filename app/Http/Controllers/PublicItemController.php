@@ -25,11 +25,19 @@ class PublicItemController extends Controller
 
         $firstItem = $items->first();
         
-        // Check if item is claimed - if so, only admins can view it
-        if ($firstItem->is_claimed) {
-            $user = auth()->user();
-            if (!$user || !$this->isAdmin($user)) {
-                abort(403, 'This item has been claimed and is only visible to administrators.');
+        // Check if item is claimed or has pending claim - if so, restrict access
+        $user = auth()->user();
+        $isOwner = $user && $user->email === $firstItem->uploader_email;
+        $isClaimer = $user && $firstItem->claimed_by_email === $user->email;
+        
+        if ($firstItem->is_claimed || $firstItem->claim_verification_status === 'pending') {
+            // Allow access if user is admin, owner, or the claimer
+            if (!$user || (!$this->isAdmin($user) && !$isOwner && !$isClaimer)) {
+                if ($firstItem->is_claimed) {
+                    abort(403, 'This item has been claimed and is only visible to administrators, the owner, or the claimer.');
+                } else {
+                    abort(403, 'This item has a pending claim and is only visible to the owner or the claimer.');
+                }
             }
         }
         
@@ -64,7 +72,9 @@ class PublicItemController extends Controller
         // Check if user is authenticated
         $user = auth()->user();
         $isOwner = $user && $user->email === $firstItem->uploader_email;
-        $canClaim = $user && !$isOwner && !$firstItem->is_claimed;
+        $isClaimer = $user && $firstItem->claimed_by_email === $user->email;
+        // Can claim if: user is logged in, not owner, not already claimed, and no pending claim
+        $canClaim = $user && !$isOwner && !$firstItem->is_claimed && $firstItem->claim_verification_status !== 'pending';
 
         return view('public.item-details', compact('item', 'user', 'isOwner', 'canClaim', 'uploader'));
     }

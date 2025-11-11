@@ -14,62 +14,118 @@
         </div>
     @endif
     <!-- Welcome Section -->
-    <div class="bg-purple-50 rounded-lg p-8 border border-purple-200">
-        <div class="flex items-center justify-between">
-            <div class="flex-1">
-                <h2 class="text-3xl font-bold text-purple-primary mb-2">Hi, {{ Auth::user()->name }}</h2>
-                <p class="text-gray-700 text-lg mb-4">Let's help find what's missing — or return what's found.</p>
-                <button class="bg-blue-primary text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 sm:p-8 md:p-10 border border-purple-100 shadow-sm mb-8">
+        <div class="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-8">
+            <div class="flex-1 text-center md:text-left">
+                <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
+                    <span class="text-purple-primary">Hi,</span>
+                    <span class="text-pink-primary">{{ Auth::user()->name }}</span>
+                </h2>
+                <p class="text-gray-700 text-base sm:text-lg mb-7">Let's help find what's missing — or return what's found.</p>
+                <button class="bg-blue-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium shadow-sm">
                     Learn more
                 </button>
             </div>
-            <div class="ml-8">
-                <!-- Illustration placeholder - you can add SVG here -->
-                <div class="w-32 h-32 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-users text-purple-primary text-4xl"></i>
+            <div class="shrink-0"></div>
+                <!-- Illustration placeholder - will be replaced with uploaded image -->
+                <div class="w-48 sm:w-56 md:w-64 lg:w-72">
+                    @if(file_exists(public_path('images/dashboard-banner.png')))
+                        <img src="{{ asset('images/dashboard-banner.png') }}"
+                             alt="Lost and Found Illustration"
+                             class="w-full h-auto object-contain">
+                    @else
+                        <img src="{{ asset('images/dashboard-banner-placeholder.svg') }}"
+                             alt="Lost and Found Illustration Placeholder"
+                             class="w-full h-auto object-contain">
+                    @endif
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Action Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <!-- Report Lost Item Card -->
-        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div class="text-center">
-                <div class="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-question-circle text-blue-primary text-2xl"></i>
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <div class="flex flex-col h-full">
+                <h3 class="text-lg font-semibold text-gray-900 mb-5">Report Lost Item</h3>
+                <div class="flex items-start gap-5 mb-6 flex-1">
+                    <div class="shrink-0 w-24 h-24">
+                        @if(file_exists(public_path('images/reported-item.png')))
+                            <img src="{{ asset('images/reported-item.png') }}"
+                                 alt="Report Lost Item Illustration"
+                                 class="w-full h-full object-contain">
+                        @else
+                            <img src="{{ asset('images/report-lost-item-placeholder.svg') }}"
+                                 alt="Report Lost Item Illustration"
+                                 class="w-full h-full object-contain">
+                        @endif
+                    </div>
+                    <div class="flex-1 flex flex-col">
+                        <p class="text-gray-700 text-sm leading-relaxed mb-5">Can't find something? Let the community help you.</p>
+                        <div class="mt-auto">
+                            <a href="/post?type=lost" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
+                                Report Lost Item
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <p class="text-gray-700 mb-4">Can't find something? Let the community help you.</p>
-                <a href="/post?type=lost" class="block w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors text-center">
-                    Report Lost Item
-                </a>
             </div>
         </div>
 
         <!-- Report Found Item Card -->
-        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div class="text-center">
-                <div class="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-binoculars text-blue-primary text-2xl"></i>
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <div class="flex flex-col h-full">
+                <h3 class="text-lg font-semibold text-gray-900 mb-5">Report Found Item</h3>
+                <div class="flex items-start gap-5 mb-6 flex-1">
+                    <div class="shrink-0 w-24 h-24">
+                        @if(file_exists(public_path('images/found-item.png')))
+                            <img src="{{ asset('images/found-item.png') }}"
+                                 alt="Report Found Item Illustration"
+                                 class="w-full h-full object-contain">
+                        @else
+                            <img src="{{ asset('images/report-found-item-placeholder.svg') }}"
+                                 alt="Report Found Item Illustration"
+                                 class="w-full h-full object-contain">
+                        @endif
+                    </div>
+                    <div class="flex-1 flex flex-col">
+                        <p class="text-gray-700 text-sm leading-relaxed mb-5">Found something lying around? Post it here.</p>
+                        <div class="mt-auto">
+                            <a href="/post?type=found" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
+                                Report Found Item
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <p class="text-gray-700 mb-4">Found something lying around? Post it here.</p>
-                <a href="/post?type=found" class="block w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors text-center">
-                    Report Found Item
-                </a>
             </div>
         </div>
 
         <!-- Track My Reports Card -->
-        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <div class="text-center">
-                <div class="w-16 h-16 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-search text-blue-primary text-2xl"></i>
+        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+            <div class="flex flex-col h-full">
+                <h3 class="text-lg font-semibold text-gray-900 mb-5">Track My Reports</h3>
+                <div class="flex items-start gap-5 mb-6 flex-1">
+                    <div class="shrink-0 w-24 h-24">
+                        @if(file_exists(public_path('images/track-reports.png')))
+                            <img src="{{ asset('images/track-reports.png') }}"
+                                 alt="Track Reports Illustration"
+                                 class="w-full h-full object-contain">
+                        @else
+                            <img src="{{ asset('images/track-reports-placeholder.svg') }}"
+                                 alt="Track Reports Illustration"
+                                 class="w-full h-full object-contain">
+                        @endif
+                    </div>
+                    <div class="flex-1 flex flex-col">
+                        <p class="text-gray-700 text-sm leading-relaxed mb-5">View the items you've reported both lost and found.</p>
+                        <div class="mt-auto">
+                            <a href="{{ route('user.reported-items') }}" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
+                                Track My Reports
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                <p class="text-gray-700 mb-4">View the items you've reported both lost and found.</p>
-                <a href="{{ route('user.reported-items') }}" class="block w-full bg-blue-primary text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition-colors text-center">
-                    Track My Reports
-                </a>
             </div>
         </div>
     </div>

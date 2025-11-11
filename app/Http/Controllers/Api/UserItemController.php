@@ -693,14 +693,22 @@ class UserItemController extends Controller
 
         try {
             // Get items from other users, grouped by upload_id
-            // Exclude verified claims - only show unclaimed or rejected claims
+            // Exclude verified claims and pending claims - only show unclaimed or rejected claims
             $items = ImageMetadata::where('uploader_email', '!=', $user->email)
                 ->where(function($query) {
-                    $query->where('is_claimed', false)
-                          ->orWhere(function($q) {
-                              $q->where('is_claimed', true)
-                                ->where('claim_verification_status', 'rejected');
+                    $query->where(function($q) {
+                        // Not claimed and no pending claim
+                        $q->where('is_claimed', false)
+                          ->where(function($subQ) {
+                              $subQ->whereNull('claim_verification_status')
+                                   ->orWhere('claim_verification_status', '!=', 'pending');
                           });
+                    })
+                    ->orWhere(function($q) {
+                        // Claimed but rejected (can be claimed again)
+                        $q->where('is_claimed', true)
+                          ->where('claim_verification_status', 'rejected');
+                    });
                 })
                 ->orderBy('created_at', 'desc')
                 ->get()
@@ -765,22 +773,31 @@ class UserItemController extends Controller
                 ], 401);
             }
 
-            // Find the item (must not be owned by the current user and not already claimed/verified)
+            // Find the item (must not be owned by the current user and not already claimed/verified/pending)
             $items = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
                 ->where(function($query) {
-                    $query->where('is_claimed', false)
-                          ->orWhere(function($q) {
-                              $q->where('is_claimed', true)
-                                ->where('claim_verification_status', 'rejected');
+                    // Only allow claiming if:
+                    // 1. Not claimed at all, OR
+                    // 2. Claimed but rejected (can be claimed again)
+                    $query->where(function($q) {
+                        $q->where('is_claimed', false)
+                          ->where(function($subQ) {
+                              $subQ->whereNull('claim_verification_status')
+                                   ->orWhere('claim_verification_status', '!=', 'pending');
                           });
+                    })
+                    ->orWhere(function($q) {
+                        $q->where('is_claimed', true)
+                          ->where('claim_verification_status', 'rejected');
+                    });
                 })
                 ->get();
 
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item not found, already claimed, or you cannot claim your own item'
+                    'error' => 'Item not found, already has a pending claim, or you cannot claim your own item'
                 ], 404);
             }
 
@@ -796,14 +813,15 @@ class UserItemController extends Controller
                 ], 404);
             }
 
-            // Mark all items in this upload as claimed with pending verification status
+            // Set pending claim status WITHOUT marking as claimed yet
+            // Item will only be marked as claimed when owner verifies
             ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
                 ->update([
-                    'is_claimed' => true,
                     'claimed_by_email' => $user->email,
                     'claimed_at' => now(),
                     'claim_verification_status' => 'pending'
+                    // Note: is_claimed remains false until owner verifies
                 ]);
 
             // Send notification message to the item owner

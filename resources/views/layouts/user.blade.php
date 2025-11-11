@@ -63,7 +63,7 @@
                             $isDashboard = ($currentRoute === 'user.dashboard' || $currentPath === 'user/dashboard') 
                                 && $currentPath !== 'user/reported-items' 
                                 && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim')
+                                && !str_starts_with($currentPath, 'user/claim-verify')
                                 && !str_starts_with($currentPath, 'user/profile')
                                 && !str_starts_with($currentPath, 'user/chat');
                         @endphp
@@ -78,7 +78,7 @@
                             $currentPath = request()->path();
                             $isReportedItems = ($currentRoute === 'user.reported-items' || str_starts_with($currentPath, 'user/reported-items')) 
                                 && !str_starts_with($currentPath, 'user/dashboard')
-                                && !str_starts_with($currentPath, 'user/claim')
+                                && !str_starts_with($currentPath, 'user/claim-verify')
                                 && !str_starts_with($currentPath, 'user/profile')
                                 && !str_starts_with($currentPath, 'user/chat');
                         @endphp
@@ -90,11 +90,11 @@
                     <li>
                         @php
                             $currentPath = request()->path();
-                            $isClaimVerify = str_starts_with($currentPath, 'user/claim');
+                            $isClaimVerify = str_starts_with($currentPath, 'user/claim-verify');
                         @endphp
-                        <a href="{{ route('user.claim') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
+                        <a href="/user/claim-verify" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
                             <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Claim</span>
+                            <span>Claim and Verify</span>
                         </a>
                     </li>
                     <li>
@@ -114,7 +114,7 @@
                             $isChat = (str_starts_with($currentRoute, 'user.chat') || str_starts_with($currentPath, 'user/chat')) 
                                 && !str_starts_with($currentPath, 'user/dashboard')
                                 && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim')
+                                && !str_starts_with($currentPath, 'user/claim-verify')
                                 && !str_starts_with($currentPath, 'user/profile');
                         @endphp
                         <a href="{{ route('user.chat') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isChat ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
@@ -129,7 +129,7 @@
                             $isProfile = (str_starts_with($currentRoute, 'user.profile') || str_starts_with($currentPath, 'user/profile')) 
                                 && !str_starts_with($currentPath, 'user/dashboard')
                                 && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim')
+                                && !str_starts_with($currentPath, 'user/claim-verify')
                                 && !str_starts_with($currentPath, 'user/chat');
                         @endphp
                         <a href="{{ route('user.profile') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isProfile ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">

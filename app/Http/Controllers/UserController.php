@@ -74,8 +74,8 @@ class UserController extends Controller
         $user = Auth::user();
         
         // Get items that belong to the user and have pending claims
+        // Note: is_claimed might be false for pending claims (before verification)
         $pendingClaims = ImageMetadata::where('uploader_email', $user->email)
-            ->where('is_claimed', true)
             ->where('claim_verification_status', 'pending')
             ->get()
             ->groupBy('upload_id')
@@ -106,7 +106,44 @@ class UserController extends Controller
             })
             ->values();
 
-        return view('user.pending-claims', compact('pendingClaims'));
+        // Get verified/claimed items (view-only, cannot be modified)
+        $verifiedClaims = ImageMetadata::where('uploader_email', $user->email)
+            ->where('is_claimed', true)
+            ->where('claim_verification_status', 'verified')
+            ->get()
+            ->groupBy('upload_id')
+            ->map(function ($group) {
+                $firstItem = $group->first();
+                $claimer = User::where('email', $firstItem->claimed_by_email)->first();
+                
+                return [
+                    'upload_id' => $firstItem->upload_id,
+                    'description' => $firstItem->description,
+                    'location' => $firstItem->location,
+                    'status' => $firstItem->status,
+                    'tags' => $firstItem->tags,
+                    'claimed_at' => $firstItem->claimed_at,
+                    'claim_verified_at' => $firstItem->claim_verified_at,
+                    'claimer' => $claimer ? [
+                        'id' => $claimer->id,
+                        'name' => $claimer->name,
+                        'email' => $claimer->email,
+                        'is_verified' => $claimer->is_verified ?? false,
+                    ] : null,
+                    'images' => $group->map(function ($item) {
+                        return [
+                            'path' => $item->file_path,
+                            'original_name' => $item->original_name,
+                        ];
+                    })->toArray(),
+                ];
+            })
+            ->sortByDesc(function ($claim) {
+                return $claim['claim_verified_at'] ?? $claim['claimed_at'];
+            })
+            ->values();
+
+        return view('user.pending-claims', compact('pendingClaims', 'verifiedClaims'));
     }
 
     /**
@@ -133,10 +170,11 @@ class UserController extends Controller
             $firstItem = $items->first();
             $claimerEmail = $firstItem->claimed_by_email;
 
-            // Update all items in this upload to verified status
+            // Now mark as claimed AND verified (this is when it becomes officially claimed)
             ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', $user->email)
                 ->update([
+                    'is_claimed' => true, // Mark as claimed when verified
                     'claim_verification_status' => 'verified',
                     'claim_verified_at' => now()
                 ]);
@@ -216,7 +254,8 @@ class UserController extends Controller
             $firstItem = $items->first();
             $claimerEmail = $firstItem->claimed_by_email;
 
-            // Update all items in this upload to rejected status and unclaim them
+            // Update all items in this upload to rejected status and clear claim info
+            // Note: is_claimed might already be false for pending claims
             ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', $user->email)
                 ->update([
