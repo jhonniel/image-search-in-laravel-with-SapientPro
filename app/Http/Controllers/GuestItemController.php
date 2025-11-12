@@ -18,18 +18,91 @@ class GuestItemController extends Controller
     {
         $itemType = $request->query('type', 'lost');
         $searchQuery = $request->query('search', '');
-        return view('guest.post', compact('itemType', 'searchQuery'));
+        
+        // Get enabled cities from settings
+        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+        sort($enabledCities);
+        
+        // Get enabled provinces from settings
+        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+        sort($enabledProvinces);
+        
+        // Get field visibility and requirement settings
+        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
+        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
+        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
+        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
+        
+        return view('guest.post', compact('itemType', 'searchQuery', 'enabledCities', 'enabledProvinces', 
+            'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'));
     }
 
     public function submit(Request $request)
     {
-        $validated = $request->validate([
+        // Get enabled cities for validation
+        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+        
+        // Get enabled provinces for validation
+        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+        
+        // Get field visibility and requirement settings
+        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
+        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
+        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
+        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
+        
+        $rules = [
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
             'tags' => 'nullable|string|max:255',
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
+        ];
+        
+        // Add province validation only if field is enabled
+        if ($enableProvinceField) {
+            if ($provinceFieldRequired) {
+                if (!empty($enabledProvinces)) {
+                    $rules['province'] = 'required|string|in:' . implode(',', $enabledProvinces);
+                } else {
+                    $rules['province'] = 'required|string';
+                }
+            } else {
+                if (!empty($enabledProvinces)) {
+                    $rules['province'] = 'nullable|string|in:' . implode(',', $enabledProvinces);
+                } else {
+                    $rules['province'] = 'nullable|string';
+                }
+            }
+        }
+        
+        // Add city validation only if field is enabled
+        if ($enableCityField) {
+            if ($cityFieldRequired) {
+                if (!empty($enabledCities)) {
+                    $rules['city'] = 'required|string|in:' . implode(',', $enabledCities);
+                } else {
+                    $rules['city'] = 'required|string';
+                }
+            } else {
+                if (!empty($enabledCities)) {
+                    $rules['city'] = 'nullable|string|in:' . implode(',', $enabledCities);
+                } else {
+                    $rules['city'] = 'nullable|string';
+                }
+            }
+        }
+        
+        $validated = $request->validate($rules, [
+            'province.required' => 'Please enter a province where the item was lost or found.',
+            'province.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your province added.',
+            'city.required' => 'Please enter a city where the item was lost or found.',
+            'city.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your city added.',
         ]);
 
         // Check if user is already logged in
@@ -49,6 +122,8 @@ class GuestItemController extends Controller
         $pending = [
             'item_type' => $validated['item_type'],
             'location' => $validated['location'],
+            'province' => $validated['province'] ?? null,
+            'city' => $validated['city'] ?? null,
             'description' => $validated['description'],
             'tags' => $validated['tags'] ?? null,
             'files' => $storedFiles,
@@ -102,6 +177,8 @@ class GuestItemController extends Controller
                     'uploader_email' => $user->email,
                     'description' => $validated['description'],
                     'location' => $validated['location'] ?? null,
+                    'province' => $validated['province'] ?? null,
+                    'city' => $validated['city'] ?? null,
                     'tags' => !empty($validated['tags']) ? array_map('trim', explode(',', $validated['tags'])) : [],
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),

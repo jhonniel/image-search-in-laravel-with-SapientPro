@@ -317,6 +317,8 @@ class AuthController extends Controller
                         'uploader_email' => $user->email, // Explicitly set to user's email
                         'description' => $pending['description'] ?? '',
                         'location' => $pending['location'] ?? null, // Save location field
+                        'province' => $pending['province'] ?? null,
+                        'city' => $pending['city'] ?? null,
                         'tags' => !empty($pending['tags']) ? array_map('trim', explode(',', $pending['tags'])) : [],
                         'file_size' => $fileSize ?? 0,
                         'mime_type' => $mimeType,

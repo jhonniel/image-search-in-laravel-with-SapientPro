@@ -50,12 +50,74 @@
                 </div>
             </div>
 
+            @if($enableProvinceField ?? true)
+            <!-- Province -->
+            <div>
+                <label for="province" class="block text-sm font-medium text-gray-700 mb-2">
+                    Province 
+                    @if($provinceFieldRequired ?? true)
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <div class="relative">
+                    <input type="text" 
+                           id="province" 
+                           name="province" 
+                           @if($provinceFieldRequired ?? true) required @endif
+                           autocomplete="off"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="Enter your province name">
+                    <!-- Autocomplete dropdown -->
+                    <div id="province-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <!-- Suggestions will be inserted here -->
+                    </div>
+                </div>
+                <div id="province-error-message" class="hidden mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" style="display: none;">
+                    <p class="text-sm text-yellow-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        We're trying to expand our services to cover more locations. Please contact us if you'd like to see your province added.
+                    </p>
+                </div>
+            </div>
+            @endif
+
+            @if($enableCityField ?? true)
+            <!-- City -->
+            <div>
+                <label for="city" class="block text-sm font-medium text-gray-700 mb-2">
+                    City 
+                    @if($cityFieldRequired ?? true)
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <div class="relative">
+                    <input type="text" 
+                           id="city" 
+                           name="city" 
+                           @if($cityFieldRequired ?? true) required @endif
+                           autocomplete="off"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="Enter your city name">
+                    <!-- Autocomplete dropdown -->
+                    <div id="city-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <!-- Suggestions will be inserted here -->
+                    </div>
+                </div>
+                <div id="city-error-message" class="hidden mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" style="display: none;">
+                    <p class="text-sm text-yellow-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        We're trying to expand our services to cover more locations. Please contact us if you'd like to see your city added.
+                    </p>
+                </div>
+            </div>
+            @endif
+
             <!-- Location -->
             <div>
                 <label for="location" class="block text-sm font-medium text-gray-700 mb-2">Location</label>
                 <input type="text" id="location" name="location" required
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Where was this item found/lost?">
+                       placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
             </div>
 
             <!-- Description -->
@@ -194,12 +256,36 @@
                 </div>
             </div>
 
+            <!-- City -->
+            <div>
+                <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-2">City <span class="text-red-500">*</span></label>
+                <div class="relative">
+                    <input type="text" 
+                           id="edit-city" 
+                           name="city" 
+                           required 
+                           autocomplete="off"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="Enter your city name">
+                    <!-- Autocomplete dropdown -->
+                    <div id="edit-city-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <!-- Suggestions will be inserted here -->
+                    </div>
+                </div>
+                <div id="edit-city-error-message" class="hidden mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" style="display: none;">
+                    <p class="text-sm text-yellow-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        We're trying to expand our services to cover more locations. Please contact us if you'd like to see your city added.
+                    </p>
+                </div>
+            </div>
+
             <!-- Location -->
             <div>
                 <label for="edit-location" class="block text-sm font-medium text-gray-700 mb-2">Location</label>
                 <input type="text" id="edit-location" name="location" required
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Where was this item found/lost?">
+                       placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
             </div>
 
             <!-- Description -->
@@ -288,6 +374,15 @@ let uploadProgress = 0;
 function toggleUploadForm() {
     const form = document.getElementById('upload-form');
     form.classList.toggle('hidden');
+    
+    // Initialize province and city autocomplete when form is shown
+    if (!form.classList.contains('hidden')) {
+        // Small delay to ensure form is fully visible
+        setTimeout(function() {
+            initProvinceAutocomplete();
+            initCityAutocomplete();
+        }, 100);
+    }
     
     // Reset form when closing
     if (form.classList.contains('hidden')) {
@@ -473,6 +568,327 @@ function simulateUploadProgress() {
     }, 200);
 }
 
+// City autocomplete functionality for create form
+// Province autocomplete functionality for create form
+function initProvinceAutocomplete() {
+    const enabledProvinces = @json($enabledProvinces ?? []);
+    const provinceInput = document.getElementById('province');
+    const provinceAutocomplete = document.getElementById('province-autocomplete');
+    const provinceErrorMessage = document.getElementById('province-error-message');
+
+    // Remove existing event listeners by cloning and replacing the element
+    if (provinceInput && provinceInput.hasAttribute('data-province-autocomplete-initialized')) {
+        return; // Already initialized
+    }
+
+    if (provinceInput && enabledProvinces.length > 0) {
+        provinceInput.setAttribute('data-province-autocomplete-initialized', 'true');
+        provinceInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim().toLowerCase();
+            
+            // Hide error message initially
+            if (provinceErrorMessage) {
+                provinceErrorMessage.classList.add('hidden');
+                provinceErrorMessage.style.display = 'none';
+            }
+
+            if (query.length === 0) {
+                if (provinceAutocomplete) {
+                    provinceAutocomplete.classList.add('hidden');
+                }
+                return;
+            }
+
+            // Filter provinces that match the query
+            const matches = enabledProvinces.filter(province => 
+                province.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (matches.length > 0) {
+                // Show dropdown with matches
+                if (provinceAutocomplete) {
+                    provinceAutocomplete.innerHTML = '';
+                    matches.forEach((province, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-3 hover:bg-purple-50 cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors province-suggestion';
+                        div.setAttribute('data-index', index);
+                        
+                        // Highlight matching text
+                        const provinceLower = province.toLowerCase();
+                        const queryIndex = provinceLower.indexOf(query);
+                        if (queryIndex !== -1) {
+                            const beforeMatch = province.substring(0, queryIndex);
+                            const match = province.substring(queryIndex, queryIndex + query.length);
+                            const afterMatch = province.substring(queryIndex + query.length);
+                            div.innerHTML = `${beforeMatch}<strong class="text-purple-600">${match}</strong>${afterMatch}`;
+                        } else {
+                            div.textContent = province;
+                        }
+                        
+                        div.addEventListener('click', function() {
+                            provinceInput.value = province;
+                            if (provinceAutocomplete) {
+                                provinceAutocomplete.classList.add('hidden');
+                            }
+                            if (provinceErrorMessage) {
+                                provinceErrorMessage.classList.add('hidden');
+                                provinceErrorMessage.style.display = 'none';
+                            }
+                        });
+                        
+                        div.addEventListener('mouseenter', function() {
+                            div.classList.add('bg-purple-50');
+                        });
+                        
+                        div.addEventListener('mouseleave', function() {
+                            div.classList.remove('bg-purple-50');
+                        });
+                        
+                        provinceAutocomplete.appendChild(div);
+                    });
+                    provinceAutocomplete.classList.remove('hidden');
+                }
+                // Hide error message when matches are found
+                if (provinceErrorMessage) {
+                    provinceErrorMessage.classList.add('hidden');
+                    provinceErrorMessage.style.display = 'none';
+                }
+            } else {
+                // No matches found - hide dropdown and show error message
+                if (provinceAutocomplete) {
+                    provinceAutocomplete.classList.add('hidden');
+                }
+                if (query.length >= 2 && provinceErrorMessage) {
+                    provinceErrorMessage.classList.remove('hidden');
+                    provinceErrorMessage.style.display = 'block';
+                } else if (provinceErrorMessage) {
+                    provinceErrorMessage.classList.add('hidden');
+                    provinceErrorMessage.style.display = 'none';
+                }
+            }
+        });
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (provinceInput && provinceAutocomplete && 
+                !provinceInput.contains(e.target) && !provinceAutocomplete.contains(e.target)) {
+                provinceAutocomplete.classList.add('hidden');
+            }
+        });
+    }
+}
+
+function initCityAutocomplete() {
+    const enabledCities = @json($enabledCities ?? []);
+    const cityInput = document.getElementById('city');
+    const cityAutocomplete = document.getElementById('city-autocomplete');
+    const cityErrorMessage = document.getElementById('city-error-message');
+
+    // Remove existing event listeners by cloning and replacing the element
+    if (cityInput && cityInput.hasAttribute('data-autocomplete-initialized')) {
+        return; // Already initialized
+    }
+
+    if (cityInput && enabledCities.length > 0) {
+        cityInput.setAttribute('data-autocomplete-initialized', 'true');
+        cityInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim().toLowerCase();
+            
+            // Hide error message initially
+            if (cityErrorMessage) {
+                cityErrorMessage.classList.add('hidden');
+            }
+
+            if (query.length === 0) {
+                if (cityAutocomplete) {
+                    cityAutocomplete.classList.add('hidden');
+                }
+                return;
+            }
+
+            // Filter cities that match the query
+            const matches = enabledCities.filter(city => 
+                city.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (matches.length > 0) {
+                // Show dropdown with matches
+                if (cityAutocomplete) {
+                    cityAutocomplete.innerHTML = '';
+                    matches.forEach((city, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-3 hover:bg-purple-50 cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors city-suggestion';
+                        div.setAttribute('data-index', index);
+                        
+                        // Highlight matching text
+                        const cityLower = city.toLowerCase();
+                        const queryIndex = cityLower.indexOf(query);
+                        if (queryIndex !== -1) {
+                            const beforeMatch = city.substring(0, queryIndex);
+                            const match = city.substring(queryIndex, queryIndex + query.length);
+                            const afterMatch = city.substring(queryIndex + query.length);
+                            div.innerHTML = `${beforeMatch}<strong class="text-purple-600">${match}</strong>${afterMatch}`;
+                        } else {
+                            div.textContent = city;
+                        }
+                        
+                        div.addEventListener('click', function() {
+                            cityInput.value = city;
+                            if (cityAutocomplete) {
+                                cityAutocomplete.classList.add('hidden');
+                            }
+                            if (cityErrorMessage) {
+                                cityErrorMessage.classList.add('hidden');
+                            }
+                        });
+                        
+                        div.addEventListener('mouseenter', function() {
+                            div.classList.add('bg-purple-50');
+                        });
+                        
+                        div.addEventListener('mouseleave', function() {
+                            div.classList.remove('bg-purple-50');
+                        });
+                        
+                        cityAutocomplete.appendChild(div);
+                    });
+                    cityAutocomplete.classList.remove('hidden');
+                }
+                // Hide error message when matches are found
+                if (cityErrorMessage) {
+                    cityErrorMessage.classList.add('hidden');
+                }
+            } else {
+                // No matches found - hide dropdown and show error message
+                if (cityAutocomplete) {
+                    cityAutocomplete.classList.add('hidden');
+                }
+                if (query.length >= 2 && cityErrorMessage) {
+                    cityErrorMessage.classList.remove('hidden');
+                    cityErrorMessage.style.display = 'block';
+                } else if (cityErrorMessage) {
+                    cityErrorMessage.classList.add('hidden');
+                    cityErrorMessage.style.display = 'none';
+                }
+            }
+        });
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (cityInput && cityAutocomplete && 
+                !cityInput.contains(e.target) && !cityAutocomplete.contains(e.target)) {
+                cityAutocomplete.classList.add('hidden');
+            }
+        });
+    }
+}
+
+// Initialize on page load if form is visible
+document.addEventListener('DOMContentLoaded', function() {
+    initProvinceAutocomplete();
+    initCityAutocomplete();
+});
+
+// City autocomplete functionality for edit form
+(function() {
+    const enabledCities = @json($enabledCities ?? []);
+    const editCityInput = document.getElementById('edit-city');
+    const editCityAutocomplete = document.getElementById('edit-city-autocomplete');
+    const editCityErrorMessage = document.getElementById('edit-city-error-message');
+
+    if (editCityInput && enabledCities.length > 0) {
+        editCityInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim().toLowerCase();
+            
+            // Hide error message initially
+            if (editCityErrorMessage) {
+                editCityErrorMessage.classList.add('hidden');
+            }
+
+            if (query.length === 0) {
+                if (editCityAutocomplete) {
+                    editCityAutocomplete.classList.add('hidden');
+                }
+                return;
+            }
+
+            // Filter cities that match the query
+            const matches = enabledCities.filter(city => 
+                city.toLowerCase().includes(query)
+            ).slice(0, 10);
+
+            if (matches.length > 0) {
+                // Show dropdown with matches
+                if (editCityAutocomplete) {
+                    editCityAutocomplete.innerHTML = '';
+                    matches.forEach((city, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-3 hover:bg-purple-50 cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors city-suggestion';
+                        div.setAttribute('data-index', index);
+                        
+                        // Highlight matching text
+                        const cityLower = city.toLowerCase();
+                        const queryIndex = cityLower.indexOf(query);
+                        if (queryIndex !== -1) {
+                            const beforeMatch = city.substring(0, queryIndex);
+                            const match = city.substring(queryIndex, queryIndex + query.length);
+                            const afterMatch = city.substring(queryIndex + query.length);
+                            div.innerHTML = `${beforeMatch}<strong class="text-purple-600">${match}</strong>${afterMatch}`;
+                        } else {
+                            div.textContent = city;
+                        }
+                        
+                        div.addEventListener('click', function() {
+                            editCityInput.value = city;
+                            if (editCityAutocomplete) {
+                                editCityAutocomplete.classList.add('hidden');
+                            }
+                            if (editCityErrorMessage) {
+                                editCityErrorMessage.classList.add('hidden');
+                            }
+                        });
+                        
+                        div.addEventListener('mouseenter', function() {
+                            div.classList.add('bg-purple-50');
+                        });
+                        
+                        div.addEventListener('mouseleave', function() {
+                            div.classList.remove('bg-purple-50');
+                        });
+                        
+                        editCityAutocomplete.appendChild(div);
+                    });
+                    editCityAutocomplete.classList.remove('hidden');
+                }
+                // Hide error message when matches are found
+                if (editCityErrorMessage) {
+                    editCityErrorMessage.classList.add('hidden');
+                }
+            } else {
+                // No matches found - hide dropdown and show error message
+                if (editCityAutocomplete) {
+                    editCityAutocomplete.classList.add('hidden');
+                }
+                if (query.length >= 2 && editCityErrorMessage) {
+                    editCityErrorMessage.classList.remove('hidden');
+                    editCityErrorMessage.style.display = 'block';
+                } else if (editCityErrorMessage) {
+                    editCityErrorMessage.classList.add('hidden');
+                    editCityErrorMessage.style.display = 'none';
+                }
+            }
+        });
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (editCityInput && editCityAutocomplete && 
+                !editCityInput.contains(e.target) && !editCityAutocomplete.contains(e.target)) {
+                editCityAutocomplete.classList.add('hidden');
+            }
+        });
+    }
+})();
+
 // Form submission
 document.getElementById('item-upload-form').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -486,6 +902,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     // Get form elements
     const files = document.getElementById('item-images').files;
     const itemType = document.querySelector('input[name="item_type"]:checked');
+    const city = document.getElementById('city').value.trim();
     const location = document.getElementById('location').value.trim();
     const description = document.getElementById('description').value.trim();
     const tags = document.getElementById('tags').value.trim();
@@ -493,6 +910,25 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     // Client-side validation
     if (!itemType) {
         showToast('Please select an item type', 'error');
+        this.dataset.submitting = 'false';
+        return;
+    }
+
+    if (!city) {
+        showToast('Please enter a city', 'error');
+        this.dataset.submitting = 'false';
+        return;
+    }
+
+    // Validate city is in enabled cities list
+    const enabledCities = @json($enabledCities ?? []);
+    const isValidCity = enabledCities.some(c => c.toLowerCase() === city.toLowerCase());
+    if (!isValidCity) {
+        const cityErrorMessage = document.getElementById('city-error-message');
+        if (cityErrorMessage) {
+            cityErrorMessage.classList.remove('hidden');
+        }
+        showToast('Please select a valid city from the suggestions', 'error');
         this.dataset.submitting = 'false';
         return;
     }
@@ -521,6 +957,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     // Create FormData
     const formData = new FormData();
     formData.append('item_type', itemType.value);
+    formData.append('city', city);
     formData.append('location', location);
     formData.append('description', description);
     formData.append('tags', tags);
@@ -1023,6 +1460,7 @@ function editItem(uploadId) {
 
     // Populate edit form
     document.getElementById('edit-upload-id').value = uploadId;
+    document.getElementById('edit-city').value = item.city || '';
     document.getElementById('edit-location').value = item.location || '';
     document.getElementById('edit-description').value = item.description || '';
     document.getElementById('edit-tags').value = item.tags ? (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) : '';
@@ -1281,15 +1719,42 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
 
     // Get form values and validate
     const itemType = document.querySelector('input[name="item_type"]:checked');
+    const cityInput = document.getElementById('edit-city');
     const locationInput = document.getElementById('edit-location');
     const descriptionInput = document.getElementById('edit-description');
     const tagsInput = document.getElementById('edit-tags');
     
+    const city = cityInput ? cityInput.value.trim() : '';
     const location = locationInput ? locationInput.value.trim() : '';
     const description = descriptionInput ? descriptionInput.value.trim() : '';
     const tags = tagsInput ? tagsInput.value.trim() : '';
 
     // Client-side validation
+    if (!city || city === '') {
+        showToast('Please enter a city', 'error');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        this.dataset.submitting = 'false';
+        if (cityInput) cityInput.focus();
+        return;
+    }
+
+    // Validate city is in enabled cities list
+    const enabledCities = @json($enabledCities ?? []);
+    const isValidCity = enabledCities.some(c => c.toLowerCase() === city.toLowerCase());
+    if (!isValidCity) {
+        const cityErrorMessage = document.getElementById('edit-city-error-message');
+        if (cityErrorMessage) {
+            cityErrorMessage.classList.remove('hidden');
+        }
+        showToast('Please select a valid city from the suggestions', 'error');
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+        this.dataset.submitting = 'false';
+        if (cityInput) cityInput.focus();
+        return;
+    }
+
     if (!location || location === '') {
         showToast('Location is required', 'error');
         submitButton.disabled = false;
@@ -1322,6 +1787,7 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
     }
 
     // Add required fields - they're already validated above
+    formData.append('city', city);
     formData.append('location', location);
     formData.append('description', description);
 

@@ -23,6 +23,8 @@ class ImageMetadata extends Model
         'original_name',
         'description',
         'location',
+        'province',
+        'city',
         'tags',
         'upload_id',
         'file_size',

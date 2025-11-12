@@ -14,31 +14,29 @@
         </div>
     @endif
     <!-- Welcome Section -->
-    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 sm:p-8 md:p-10 border border-purple-100 shadow-sm mb-8">
-        <div class="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-8">
+    <div class="bg-purple-50 rounded-xl p-8 md:p-10 border-2 border-blue-500 mb-8">
+        <div class="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-10">
             <div class="flex-1 text-center md:text-left">
-                <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
-                    <span class="text-purple-primary">Hi,</span>
-                    <span class="text-pink-primary">{{ Auth::user()->name }}</span>
+                <h2 class="text-5xl md:text-6xl font-bold mb-4 leading-tight">
+                    <span class="text-blue-600">Hi,</span>
+                    <span class="text-pink-500">{{ Auth::user()->name }}</span>
                 </h2>
-                <p class="text-gray-700 text-base sm:text-lg mb-7">Let's help find what's missing — or return what's found.</p>
-                <button class="bg-blue-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium shadow-sm">
+                <p class="text-gray-700 text-lg mb-6">Let's help find what's missing — or return what's found.</p>
+                <button class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium text-base">
                     Learn more
                 </button>
             </div>
-            <div class="shrink-0"></div>
-                <!-- Illustration placeholder - will be replaced with uploaded image -->
-                <div class="w-48 sm:w-56 md:w-64 lg:w-72">
-                    @if(file_exists(public_path('images/dashboard-banner.png')))
-                        <img src="{{ asset('images/dashboard-banner.png') }}"
-                             alt="Lost and Found Illustration"
-                             class="w-full h-auto object-contain">
-                    @else
-                        <img src="{{ asset('images/dashboard-banner-placeholder.svg') }}"
-                             alt="Lost and Found Illustration Placeholder"
-                             class="w-full h-auto object-contain">
-                    @endif
-                </div>
+            <div class="shrink-0 w-48 sm:w-56 md:w-64 lg:w-72 h-48 sm:h-56 md:h-64 lg:h-72 flex items-center justify-center overflow-hidden">
+                <!-- Illustration - using uploaded image -->
+                @if(file_exists(public_path('images/dashboard-banner.png')))
+                    <img src="{{ asset('images/dashboard-banner.png') }}"
+                         alt="Lost and Found Illustration"
+                         class="w-full h-full object-contain">
+                @else
+                    <img src="{{ asset('images/dashboard-banner-placeholder.svg') }}"
+                         alt="Lost and Found Illustration Placeholder"
+                         class="w-full h-full object-contain">
+                @endif
             </div>
         </div>
     </div>

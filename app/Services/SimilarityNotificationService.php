@@ -638,6 +638,8 @@ class SimilarityNotificationService
             // Send notification to the user
             if (count($similarItems) > 0) {
                 $this->sendUserSimilarityNotification($userEmail, $newItem, $similarItems);
+                // Create in-app notification for similar items found
+                $this->createSimilarItemsNotification($userEmail, $newItem, $similarItems);
                 $notificationsSent[] = $userEmail;
             } else {
                 $this->sendUserUploadConfirmation($userEmail, $newItem);
@@ -769,6 +771,39 @@ class SimilarityNotificationService
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
+        }
+    }
+
+    /**
+     * Create in-app notification for similar items found
+     */
+    private function createSimilarItemsNotification(string $userEmail, ImageMetadata $newItem, array $similarItems): void
+    {
+        try {
+            $user = \App\Models\User::where('email', $userEmail)->first();
+            if (!$user) {
+                return;
+            }
+
+            \App\Models\Notification::create([
+                'user_id' => $user->id,
+                'type' => 'item_match',
+                'title' => 'Similar items found!',
+                'message' => 'We found ' . count($similarItems) . ' similar item(s) that might match your ' . ($newItem->status === 'lost' ? 'lost' : 'found') . ' item.',
+                'data' => [
+                    'upload_id' => $newItem->upload_id,
+                    'item_type' => $newItem->status,
+                    'similar_items_count' => count($similarItems),
+                    'similar_items' => array_map(function($item) {
+                        return [
+                            'upload_id' => $item['upload_id'] ?? null,
+                            'description' => $item['description'] ?? '',
+                        ];
+                    }, $similarItems),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to create similar items notification: ' . $e->getMessage());
         }
     }
 }

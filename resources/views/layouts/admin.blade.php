@@ -25,7 +25,7 @@
         }
     </script>
 </head>
-<body class="antialiased bg-gray-100">
+<body class="antialiased bg-gray-100" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('adminSidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('adminSidebarCollapsed', value))">
     <div class="flex h-screen overflow-hidden bg-gray-100">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="sidebarOpen" 
@@ -40,17 +40,25 @@
              style="display: none;"></div>
 
         <!-- Sidebar -->
-        <div :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
-             class="fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:transition-none overflow-y-auto">
+        <div :class="[
+                sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+                sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'
+             ]"
+             class="fixed lg:static inset-y-0 left-0 z-50 bg-white shadow-lg transform transition-all duration-300 ease-in-out overflow-y-auto">
             <!-- Logo -->
             <div class="p-4 sm:p-6 border-b border-gray-200 flex items-center justify-between">
-                <h1 class="text-xl sm:text-2xl font-bold">
+                <h1 class="text-xl sm:text-2xl font-bold transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">
                     <span class="text-purple-primary">FindIT</span>
                     <span class="text-pink-primary">Fast</span>
                 </h1>
-                <button @click="sidebarOpen = false" class="lg:hidden text-gray-600 hover:text-gray-900">
-                    <i class="fas fa-times"></i>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button @click="sidebarCollapsed = !sidebarCollapsed" class="hidden lg:block text-gray-600 hover:text-gray-900 p-1 rounded hover:bg-gray-100">
+                        <i class="fas fa-chevron-left" :class="sidebarCollapsed ? 'rotate-180' : ''"></i>
+                    </button>
+                    <button @click="sidebarOpen = false" class="lg:hidden text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
             </div>
 
             <!-- Navigation -->
@@ -70,9 +78,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Dashboard</span>
+                        <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
+                            <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Dashboard</span>
                         </a>
                     </li>
                     <li>
@@ -89,9 +97,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Reported Items</span>
+                        <a href="{{ route('admin.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
+                            <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
                         </a>
                     </li>
                     <li>
@@ -108,9 +116,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.claimed') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Claimed</span>
+                        <a href="{{ route('admin.claimed') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Claimed' : ''">
+                            <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Claimed</span>
                         </a>
                     </li>
                     <li>
@@ -127,9 +135,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.users') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isUsers ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-users w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Users</span>
+                        <a href="{{ route('admin.users') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isUsers ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Users' : ''">
+                            <i class="fas fa-users w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Users</span>
                         </a>
                     </li>
                     <li>
@@ -146,9 +154,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.insights') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isInsights ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-chart-line w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Insights</span>
+                        <a href="{{ route('admin.insights') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isInsights ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Insights' : ''">
+                            <i class="fas fa-chart-line w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Insights</span>
                         </a>
                     </li>
                     <li>
@@ -165,9 +173,9 @@
                                 && !str_starts_with($currentPath, 'admin/sponsors')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.rewards.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isRewards ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-gift w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Rewards</span>
+                        <a href="{{ route('admin.rewards.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isRewards ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Rewards' : ''">
+                            <i class="fas fa-gift w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Rewards</span>
                         </a>
                     </li>
                     <li>
@@ -184,9 +192,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.settings') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSettings ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-cog w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Settings</span>
+                        <a href="{{ route('admin.settings') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSettings ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Settings' : ''">
+                            <i class="fas fa-cog w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Settings</span>
                         </a>
                     </li>
                     <li>
@@ -203,9 +211,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-handshake w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Sponsors</span>
+                        <a href="{{ route('admin.sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Sponsors' : ''">
+                            <i class="fas fa-handshake w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Sponsors</span>
                         </a>
                     </li>
                     <li>
@@ -220,9 +228,9 @@
                                 && !str_starts_with($currentPath, 'admin/settings')
                                 && !str_starts_with($currentPath, 'admin/sponsors');
                         @endphp
-                        <a href="/image-comparison" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isImageComparison ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-search w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Image Comparison</span>
+                        <a href="/image-comparison" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isImageComparison ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Image Comparison' : ''">
+                            <i class="fas fa-search w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Image Comparison</span>
                         </a>
                     </li>
                     <li>
@@ -240,9 +248,9 @@
                                 && !str_starts_with($currentPath, 'admin/rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.notifications.create') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isAdminNotifications ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}">
-                            <i class="fas fa-bullhorn w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                            <span>Send Notifications</span>
+                        <a href="{{ route('admin.notifications.create') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isAdminNotifications ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Send Notifications' : ''">
+                            <i class="fas fa-bullhorn w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Send Notifications</span>
                         </a>
                     </li>
                 </ul>
@@ -252,9 +260,9 @@
             <div class="mt-auto p-3 sm:p-4">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
-                    <button type="submit" class="flex items-center w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base text-red-600 hover:bg-red-50 transition-colors">
-                        <i class="fas fa-sign-out-alt w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3"></i>
-                        <span>Logout</span>
+                    <button type="submit" class="flex items-center w-full px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base text-red-600 hover:bg-red-50 transition-colors" :title="sidebarCollapsed ? 'Logout' : ''">
+                        <i class="fas fa-sign-out-alt w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                        <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Logout</span>
                     </button>
                 </form>
             </div>
@@ -265,8 +273,11 @@
             <!-- Header -->
             <header class="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4">
                 <div class="flex items-center justify-between gap-3">
-                    <!-- Mobile Menu Button -->
+                    <!-- Menu Toggle Button -->
                     <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                    <button @click="sidebarCollapsed = !sidebarCollapsed" class="hidden lg:block p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
 

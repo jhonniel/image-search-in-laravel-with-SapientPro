@@ -684,7 +684,65 @@ class AdminController extends Controller
             'notification_email' => Setting::get('notification_email', config('mail.from.address')),
         ];
 
-        return view('admin.settings', compact('emailSettings'));
+        // Get enabled cities
+        $enabledCitiesJson = Setting::get('enabled_cities', '[]');
+        $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+
+        // Get custom cities (manually added)
+        $customCitiesJson = Setting::get('custom_cities', '[]');
+        $customCities = json_decode($customCitiesJson, true) ?? [];
+
+        // Get all Philippine cities
+        $philippineCities = $this->getPhilippineCities();
+
+        // Merge custom cities with predefined cities
+        foreach ($customCities as $region => $cities) {
+            if (isset($philippineCities[$region])) {
+                // Merge with existing region
+                $philippineCities[$region] = array_merge($philippineCities[$region], $cities);
+                // Remove duplicates
+                $philippineCities[$region] = array_unique($philippineCities[$region]);
+                sort($philippineCities[$region]);
+            } else {
+                // Add new region
+                $philippineCities[$region] = $cities;
+            }
+        }
+
+        // Get all available regions for dropdown
+        $allRegions = array_keys($philippineCities);
+        sort($allRegions);
+
+        // Get enabled provinces
+        $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
+        $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+
+        // Get custom provinces (manually added)
+        $customProvincesJson = Setting::get('custom_provinces', '[]');
+        $customProvinces = json_decode($customProvincesJson, true) ?? [];
+
+        // Get all Philippine provinces
+        $philippineProvinces = $this->getPhilippineProvinces();
+
+        // Merge custom provinces with predefined provinces
+        foreach ($customProvinces as $region => $provinces) {
+            if (isset($philippineProvinces[$region])) {
+                // Merge with existing region
+                $philippineProvinces[$region] = array_merge($philippineProvinces[$region], $provinces);
+                // Remove duplicates
+                $philippineProvinces[$region] = array_unique($philippineProvinces[$region]);
+                sort($philippineProvinces[$region]);
+            } else {
+                // Add new region
+                $philippineProvinces[$region] = $provinces;
+            }
+        }
+
+        // Get all available regions for provinces dropdown
+        $allProvinceRegions = array_keys($philippineProvinces);
+        sort($allProvinceRegions);
+
+        return view('admin.settings', compact('emailSettings', 'enabledCities', 'philippineCities', 'customCities', 'allRegions', 'enabledProvinces', 'philippineProvinces', 'customProvinces', 'allProvinceRegions'));
     }
 
     /**
@@ -719,11 +777,471 @@ class AdminController extends Controller
         Setting::set('similarity_alerts', $request->has('similarity_alerts'), 'boolean', 'Enable similarity alerts');
         Setting::set('notification_email', $request->notification_email, 'string', 'Notification recipient email');
 
+        // Save enabled cities
+        if ($request->has('enabled_cities')) {
+            $enabledCities = is_array($request->enabled_cities) ? $request->enabled_cities : [];
+            Setting::set('enabled_cities', json_encode($enabledCities), 'string', 'List of enabled cities in the Philippines');
+        }
+
+        // Handle adding new custom city
+        if ($request->has('new_city_name') && $request->has('new_city_region')) {
+            $newCityName = trim($request->new_city_name);
+            $newCityRegion = trim($request->new_city_region);
+
+            if (!empty($newCityName) && !empty($newCityRegion)) {
+                // Get existing custom cities
+                $customCitiesJson = Setting::get('custom_cities', '[]');
+                $customCities = json_decode($customCitiesJson, true) ?? [];
+
+                // Initialize region if it doesn't exist
+                if (!isset($customCities[$newCityRegion])) {
+                    $customCities[$newCityRegion] = [];
+                }
+
+                // Add city if it doesn't already exist
+                if (!in_array($newCityName, $customCities[$newCityRegion])) {
+                    $customCities[$newCityRegion][] = $newCityName;
+                    sort($customCities[$newCityRegion]);
+                    Setting::set('custom_cities', json_encode($customCities), 'string', 'Custom cities manually added by admin');
+                }
+            }
+        }
+
+        // Handle editing city
+        if ($request->has('edit_city_original_name') && $request->has('edit_city_new_name') &&
+            $request->has('edit_city_original_region') && $request->has('edit_city_new_region')) {
+
+            $originalName = trim($request->edit_city_original_name);
+            $newName = trim($request->edit_city_new_name);
+            $originalRegion = trim($request->edit_city_original_region);
+            $newRegion = trim($request->edit_city_new_region);
+            $isCustom = $request->has('edit_city_is_custom') && $request->edit_city_is_custom === '1';
+
+            if (!empty($originalName) && !empty($newName) && !empty($originalRegion) && !empty($newRegion)) {
+                // Get existing custom cities
+                $customCitiesJson = Setting::get('custom_cities', '[]');
+                $customCities = json_decode($customCitiesJson, true) ?? [];
+
+                // Get enabled cities
+                $enabledCitiesJson = Setting::get('enabled_cities', '[]');
+                $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+
+                // If it's a custom city, update it in custom cities
+                if ($isCustom && isset($customCities[$originalRegion])) {
+                    // Remove old city from original region
+                    $customCities[$originalRegion] = array_filter(
+                        $customCities[$originalRegion],
+                        fn($city) => $city !== $originalName
+                    );
+                    $customCities[$originalRegion] = array_values($customCities[$originalRegion]);
+
+                    // Remove region if empty
+                    if (empty($customCities[$originalRegion])) {
+                        unset($customCities[$originalRegion]);
+                    }
+
+                    // Add new city to new region
+                    if (!isset($customCities[$newRegion])) {
+                        $customCities[$newRegion] = [];
+                    }
+                    if (!in_array($newName, $customCities[$newRegion])) {
+                        $customCities[$newRegion][] = $newName;
+                        sort($customCities[$newRegion]);
+                    }
+
+                    Setting::set('custom_cities', json_encode($customCities), 'string', 'Custom cities manually added by admin');
+                } else {
+                    // If it's a predefined city, convert it to custom city
+                    if (!isset($customCities[$newRegion])) {
+                        $customCities[$newRegion] = [];
+                    }
+                    if (!in_array($newName, $customCities[$newRegion])) {
+                        $customCities[$newRegion][] = $newName;
+                        sort($customCities[$newRegion]);
+                    }
+                    Setting::set('custom_cities', json_encode($customCities), 'string', 'Custom cities manually added by admin');
+                }
+
+                // Update enabled cities list if the old city was enabled
+                if (in_array($originalName, $enabledCities)) {
+                    $enabledCities = array_filter($enabledCities, fn($city) => $city !== $originalName);
+                    if (!in_array($newName, $enabledCities)) {
+                        $enabledCities[] = $newName;
+                    }
+                    Setting::set('enabled_cities', json_encode(array_values($enabledCities)), 'string', 'List of enabled cities in the Philippines');
+                }
+            }
+        }
+
+        // Handle deleting city
+        if ($request->has('delete_city') && $request->has('delete_city_region')) {
+            $deleteCityName = trim($request->delete_city);
+            $deleteCityRegion = trim($request->delete_city_region);
+            $isCustom = $request->has('delete_city_is_custom') && $request->delete_city_is_custom === '1';
+
+            if (!empty($deleteCityName) && !empty($deleteCityRegion)) {
+                // Get existing custom cities
+                $customCitiesJson = Setting::get('custom_cities', '[]');
+                $customCities = json_decode($customCitiesJson, true) ?? [];
+
+                // Get enabled cities
+                $enabledCitiesJson = Setting::get('enabled_cities', '[]');
+                $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+
+                // Remove from enabled cities if it was enabled
+                if (in_array($deleteCityName, $enabledCities)) {
+                    $enabledCities = array_filter($enabledCities, fn($city) => $city !== $deleteCityName);
+                    Setting::set('enabled_cities', json_encode(array_values($enabledCities)), 'string', 'List of enabled cities in the Philippines');
+                }
+
+                // If it's a custom city, remove it from custom cities
+                if ($isCustom && isset($customCities[$deleteCityRegion])) {
+                    $customCities[$deleteCityRegion] = array_filter(
+                        $customCities[$deleteCityRegion],
+                        fn($city) => $city !== $deleteCityName
+                    );
+                    $customCities[$deleteCityRegion] = array_values($customCities[$deleteCityRegion]);
+
+                    // Remove region if empty
+                    if (empty($customCities[$deleteCityRegion])) {
+                        unset($customCities[$deleteCityRegion]);
+                    }
+
+                    Setting::set('custom_cities', json_encode($customCities), 'string', 'Custom cities manually added by admin');
+                }
+            }
+        }
+
+        // Save enabled provinces
+        if ($request->has('enabled_provinces')) {
+            $enabledProvinces = is_array($request->enabled_provinces) ? $request->enabled_provinces : [];
+            Setting::set('enabled_provinces', json_encode($enabledProvinces), 'string', 'List of enabled provinces in the Philippines');
+        }
+
+        // Handle adding new custom province
+        if ($request->has('new_province_name') && $request->has('new_province_region')) {
+            $newProvinceName = trim($request->new_province_name);
+            $newProvinceRegion = trim($request->new_province_region);
+
+            if (!empty($newProvinceName) && !empty($newProvinceRegion)) {
+                // Get existing custom provinces
+                $customProvincesJson = Setting::get('custom_provinces', '[]');
+                $customProvinces = json_decode($customProvincesJson, true) ?? [];
+
+                // Initialize region if it doesn't exist
+                if (!isset($customProvinces[$newProvinceRegion])) {
+                    $customProvinces[$newProvinceRegion] = [];
+                }
+
+                // Add province if it doesn't already exist
+                if (!in_array($newProvinceName, $customProvinces[$newProvinceRegion])) {
+                    $customProvinces[$newProvinceRegion][] = $newProvinceName;
+                    sort($customProvinces[$newProvinceRegion]);
+                    Setting::set('custom_provinces', json_encode($customProvinces), 'string', 'Custom provinces manually added by admin');
+                }
+            }
+        }
+
+        // Handle editing province
+        if ($request->has('edit_province_original_name') && $request->has('edit_province_new_name') &&
+            $request->has('edit_province_original_region') && $request->has('edit_province_new_region')) {
+
+            $originalName = trim($request->edit_province_original_name);
+            $newName = trim($request->edit_province_new_name);
+            $originalRegion = trim($request->edit_province_original_region);
+            $newRegion = trim($request->edit_province_new_region);
+            $isCustom = $request->has('edit_province_is_custom') && $request->edit_province_is_custom === '1';
+
+            if (!empty($originalName) && !empty($newName) && !empty($originalRegion) && !empty($newRegion)) {
+                // Get existing custom provinces
+                $customProvincesJson = Setting::get('custom_provinces', '[]');
+                $customProvinces = json_decode($customProvincesJson, true) ?? [];
+
+                // Get enabled provinces
+                $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
+                $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+
+                // If it's a custom province, update it in custom provinces
+                if ($isCustom && isset($customProvinces[$originalRegion])) {
+                    // Remove old province from original region
+                    $customProvinces[$originalRegion] = array_filter(
+                        $customProvinces[$originalRegion],
+                        fn($province) => $province !== $originalName
+                    );
+                    $customProvinces[$originalRegion] = array_values($customProvinces[$originalRegion]);
+
+                    // Remove region if empty
+                    if (empty($customProvinces[$originalRegion])) {
+                        unset($customProvinces[$originalRegion]);
+                    }
+
+                    // Add new province to new region
+                    if (!isset($customProvinces[$newRegion])) {
+                        $customProvinces[$newRegion] = [];
+                    }
+                    if (!in_array($newName, $customProvinces[$newRegion])) {
+                        $customProvinces[$newRegion][] = $newName;
+                        sort($customProvinces[$newRegion]);
+                    }
+
+                    Setting::set('custom_provinces', json_encode($customProvinces), 'string', 'Custom provinces manually added by admin');
+                } else {
+                    // If it's a predefined province, convert it to custom province
+                    if (!isset($customProvinces[$newRegion])) {
+                        $customProvinces[$newRegion] = [];
+                    }
+                    if (!in_array($newName, $customProvinces[$newRegion])) {
+                        $customProvinces[$newRegion][] = $newName;
+                        sort($customProvinces[$newRegion]);
+                    }
+                    Setting::set('custom_provinces', json_encode($customProvinces), 'string', 'Custom provinces manually added by admin');
+                }
+
+                // Update enabled provinces list if the old province was enabled
+                if (in_array($originalName, $enabledProvinces)) {
+                    $enabledProvinces = array_filter($enabledProvinces, fn($province) => $province !== $originalName);
+                    if (!in_array($newName, $enabledProvinces)) {
+                        $enabledProvinces[] = $newName;
+                    }
+                    Setting::set('enabled_provinces', json_encode(array_values($enabledProvinces)), 'string', 'List of enabled provinces in the Philippines');
+                }
+            }
+        }
+
+        // Handle deleting province
+        if ($request->has('delete_province') && $request->has('delete_province_region')) {
+            $deleteProvinceName = trim($request->delete_province);
+            $deleteProvinceRegion = trim($request->delete_province_region);
+            $isCustom = $request->has('delete_province_is_custom') && $request->delete_province_is_custom === '1';
+
+            if (!empty($deleteProvinceName) && !empty($deleteProvinceRegion)) {
+                // Get existing custom provinces
+                $customProvincesJson = Setting::get('custom_provinces', '[]');
+                $customProvinces = json_decode($customProvincesJson, true) ?? [];
+
+                // Get enabled provinces
+                $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
+                $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+
+                // Remove from enabled provinces if it was enabled
+                if (in_array($deleteProvinceName, $enabledProvinces)) {
+                    $enabledProvinces = array_filter($enabledProvinces, fn($province) => $province !== $deleteProvinceName);
+                    Setting::set('enabled_provinces', json_encode(array_values($enabledProvinces)), 'string', 'List of enabled provinces in the Philippines');
+                }
+
+                // If it's a custom province, remove it from custom provinces
+                if ($isCustom && isset($customProvinces[$deleteProvinceRegion])) {
+                    $customProvinces[$deleteProvinceRegion] = array_filter(
+                        $customProvinces[$deleteProvinceRegion],
+                        fn($province) => $province !== $deleteProvinceName
+                    );
+                    $customProvinces[$deleteProvinceRegion] = array_values($customProvinces[$deleteProvinceRegion]);
+
+                    // Remove region if empty
+                    if (empty($customProvinces[$deleteProvinceRegion])) {
+                        unset($customProvinces[$deleteProvinceRegion]);
+                    }
+
+                    Setting::set('custom_provinces', json_encode($customProvinces), 'string', 'Custom provinces manually added by admin');
+                }
+            }
+        }
+
+        // Save field visibility and requirement settings
+        Setting::set('enable_province_field', $request->has('enable_province_field'), 'boolean', 'Enable province field in forms');
+        Setting::set('province_field_required', $request->has('province_field_required'), 'boolean', 'Make province field required');
+        Setting::set('enable_city_field', $request->has('enable_city_field'), 'boolean', 'Enable city field in forms');
+        Setting::set('city_field_required', $request->has('city_field_required'), 'boolean', 'Make city field required');
+
         // Clear config cache to apply new settings
         \Artisan::call('config:clear');
 
         return redirect()->route('admin.settings')
             ->with('success', 'Settings updated successfully!');
+    }
+
+    /**
+     * Get list of all Philippine cities
+     */
+    private function getPhilippineCities()
+    {
+        return [
+            // Metro Manila
+            'Metro Manila' => [
+                'Caloocan', 'Las Piñas', 'Makati', 'Malabon', 'Mandaluyong',
+                'Manila', 'Marikina', 'Muntinlupa', 'Navotas', 'Parañaque',
+                'Pasay', 'Pasig', 'Pateros', 'Quezon City', 'San Juan',
+                'Taguig', 'Valenzuela'
+            ],
+            // Luzon - Region I (Ilocos)
+            'Ilocos Region' => [
+                'Alaminos', 'Batac', 'Candon', 'Dagupan', 'Laoag',
+                'San Carlos', 'San Fernando', 'Urdaneta', 'Vigan'
+            ],
+            // Luzon - Region II (Cagayan Valley)
+            'Cagayan Valley' => [
+                'Cauayan', 'Ilagan', 'Santiago', 'Tuguegarao'
+            ],
+            // Luzon - Region III (Central Luzon)
+            'Central Luzon' => [
+                'Angeles', 'Balanga', 'Cabanatuan', 'Gapan', 'Malolos',
+                'Meycauayan', 'Mabalacat', 'Olongapo', 'Palayan', 'San Fernando',
+                'San Jose', 'Tarlac'
+            ],
+            // Luzon - Region IV-A (CALABARZON)
+            'CALABARZON' => [
+                'Antipolo', 'Bacoor', 'Batangas', 'Binan', 'Cabuyao',
+                'Calamba', 'Cavite', 'Dasmarinas', 'General Trias', 'Imus',
+                'Lipa', 'Lucena', 'San Pablo', 'San Pedro', 'Santa Rosa',
+                'Tagaytay', 'Tanauan', 'Tayabas'
+            ],
+            // Luzon - Region IV-B (MIMAROPA)
+            'MIMAROPA' => [
+                'Calapan', 'Puerto Princesa'
+            ],
+            // Luzon - Region V (Bicol)
+            'Bicol Region' => [
+                'Iriga', 'Legazpi', 'Ligao', 'Masbate', 'Naga', 'Sorsogon', 'Tabaco'
+            ],
+            // Visayas - Region VI (Western Visayas)
+            'Western Visayas' => [
+                'Bacolod', 'Bago', 'Cadiz', 'Escalante', 'Himamaylan',
+                'Iloilo', 'Kabankalan', 'La Carlota', 'Passi', 'Roxas',
+                'Sagay', 'San Carlos', 'Silay', 'Sipalay', 'Talisay',
+                'Victorias'
+            ],
+            // Visayas - Region VII (Central Visayas)
+            'Central Visayas' => [
+                'Bais', 'Bayawan', 'Bogo', 'Carcar', 'Cebu',
+                'Danao', 'Dumaguete', 'Guihulngan', 'Lapu-Lapu', 'Mandaue',
+                'Tagbilaran', 'Talisay', 'Toledo'
+            ],
+            // Visayas - Region VIII (Eastern Visayas)
+            'Eastern Visayas' => [
+                'Baybay', 'Borongan', 'Calbayog', 'Catbalogan', 'Maasin',
+                'Ormoc', 'Tacloban'
+            ],
+            // Mindanao - Region IX (Zamboanga Peninsula)
+            'Zamboanga Peninsula' => [
+                'Dapitan', 'Dipolog', 'Isabela', 'Pagadian', 'Zamboanga'
+            ],
+            // Mindanao - Region X (Northern Mindanao)
+            'Northern Mindanao' => [
+                'Cagayan de Oro', 'El Salvador', 'Gingoog', 'Iligan', 'Malaybalay',
+                'Oroquieta', 'Ozamiz', 'Tangub', 'Valencia'
+            ],
+            // Mindanao - Region XI (Davao)
+            'Davao Region' => [
+                'Davao', 'Digos', 'Mati', 'Panabo', 'Samal', 'Tagum'
+            ],
+            // Mindanao - Region XII (SOCCSKSARGEN)
+            'SOCCSKSARGEN' => [
+                'Cotabato', 'General Santos', 'Kidapawan', 'Koronadal', 'Tacurong'
+            ],
+            // Mindanao - Region XIII (Caraga)
+            'Caraga' => [
+                'Bayugan', 'Butuan', 'Cabadbaran', 'Surigao', 'Tandag'
+            ],
+            // ARMM (Autonomous Region in Muslim Mindanao)
+            'ARMM' => [
+                'Lamitan', 'Marawi'
+            ],
+            // CAR (Cordillera Administrative Region)
+            'Cordillera' => [
+                'Baguio', 'Tabuk'
+            ]
+        ];
+    }
+
+    /**
+     * Get list of all Philippine provinces
+     */
+    private function getPhilippineProvinces()
+    {
+        return [
+            // Metro Manila (No provinces, only cities)
+            'Metro Manila' => [],
+
+            // Luzon - Region I (Ilocos)
+            'Ilocos Region' => [
+                'Ilocos Norte', 'Ilocos Sur', 'La Union', 'Pangasinan'
+            ],
+
+            // Luzon - Region II (Cagayan Valley)
+            'Cagayan Valley' => [
+                'Batanes', 'Cagayan', 'Isabela', 'Nueva Vizcaya', 'Quirino'
+            ],
+
+            // Luzon - Region III (Central Luzon)
+            'Central Luzon' => [
+                'Aurora', 'Bataan', 'Bulacan', 'Nueva Ecija', 'Pampanga', 'Tarlac', 'Zambales'
+            ],
+
+            // Luzon - Region IV-A (CALABARZON)
+            'CALABARZON' => [
+                'Batangas', 'Cavite', 'Laguna', 'Quezon', 'Rizal'
+            ],
+
+            // Luzon - Region IV-B (MIMAROPA)
+            'MIMAROPA' => [
+                'Marinduque', 'Occidental Mindoro', 'Oriental Mindoro', 'Palawan', 'Romblon'
+            ],
+
+            // Luzon - Region V (Bicol)
+            'Bicol Region' => [
+                'Albay', 'Camarines Norte', 'Camarines Sur', 'Catanduanes', 'Masbate', 'Sorsogon'
+            ],
+
+            // Visayas - Region VI (Western Visayas)
+            'Western Visayas' => [
+                'Aklan', 'Antique', 'Capiz', 'Guimaras', 'Iloilo', 'Negros Occidental'
+            ],
+
+            // Visayas - Region VII (Central Visayas)
+            'Central Visayas' => [
+                'Bohol', 'Cebu', 'Negros Oriental', 'Siquijor'
+            ],
+
+            // Visayas - Region VIII (Eastern Visayas)
+            'Eastern Visayas' => [
+                'Biliran', 'Eastern Samar', 'Leyte', 'Northern Samar', 'Samar', 'Southern Leyte'
+            ],
+
+            // Mindanao - Region IX (Zamboanga Peninsula)
+            'Zamboanga Peninsula' => [
+                'Zamboanga del Norte', 'Zamboanga del Sur', 'Zamboanga Sibugay'
+            ],
+
+            // Mindanao - Region X (Northern Mindanao)
+            'Northern Mindanao' => [
+                'Bukidnon', 'Camiguin', 'Lanao del Norte', 'Misamis Occidental', 'Misamis Oriental'
+            ],
+
+            // Mindanao - Region XI (Davao)
+            'Davao Region' => [
+                'Davao de Oro', 'Davao del Norte', 'Davao del Sur', 'Davao Occidental', 'Davao Oriental'
+            ],
+
+            // Mindanao - Region XII (SOCCSKSARGEN)
+            'SOCCSKSARGEN' => [
+                'Cotabato', 'Sarangani', 'South Cotabato', 'Sultan Kudarat'
+            ],
+
+            // Mindanao - Region XIII (Caraga)
+            'Caraga' => [
+                'Agusan del Norte', 'Agusan del Sur', 'Dinagat Islands', 'Surigao del Norte', 'Surigao del Sur'
+            ],
+
+            // BARMM (Bangsamoro Autonomous Region in Muslim Mindanao)
+            'BARMM' => [
+                'Basilan', 'Lanao del Sur', 'Maguindanao', 'Sulu', 'Tawi-Tawi'
+            ],
+
+            // CAR (Cordillera Administrative Region)
+            'Cordillera' => [
+                'Abra', 'Apayao', 'Benguet', 'Ifugao', 'Kalinga', 'Mountain Province'
+            ]
+        ];
     }
 
     /**

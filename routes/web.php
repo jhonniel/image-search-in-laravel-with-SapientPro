@@ -28,7 +28,24 @@ Route::middleware(['auth'])->group(function () {
 
     // User Routes
     Route::get('/user/reported-items', function () {
-        return view('user.reported-items');
+        // Get enabled cities from settings
+        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+        sort($enabledCities);
+        
+        // Get enabled provinces from settings
+        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+        sort($enabledProvinces);
+        
+        // Get field visibility and requirement settings
+        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
+        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
+        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
+        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
+        
+        return view('user.reported-items', compact('enabledCities', 'enabledProvinces', 
+            'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'));
     })->name('user.reported-items');
 
     Route::get('/user/claim-verify', function () {

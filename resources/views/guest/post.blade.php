@@ -45,9 +45,71 @@
                     @csrf
                     <input type="hidden" name="item_type" value="{{ $itemType }}">
 
+                    @if($enableProvinceField ?? true)
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Province 
+                            @if($provinceFieldRequired ?? true)
+                                <span class="text-red-500">*</span>
+                            @endif
+                        </label>
+                        <div class="relative">
+                            <input type="text" 
+                                   id="province-input" 
+                                   name="province" 
+                                   @if($provinceFieldRequired ?? true) required @endif
+                                   autocomplete="off"
+                                   value="{{ old('province') }}"
+                                   class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                   placeholder="Enter your province name">
+                            <!-- Autocomplete dropdown -->
+                            <div id="province-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                <!-- Suggestions will be inserted here -->
+                            </div>
+                        </div>
+                        <div id="province-error-message" class="hidden mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" style="display: none;">
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                We're trying to expand our services to cover more locations. Please contact us if you'd like to see your province added.
+                            </p>
+                        </div>
+                        @error('province')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    @endif
+                    @if($enableCityField ?? true)
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            City 
+                            @if($cityFieldRequired ?? true)
+                                <span class="text-red-500">*</span>
+                            @endif
+                        </label>
+                        <div class="relative">
+                            <input type="text" 
+                                   id="city-input" 
+                                   name="city" 
+                                   @if($cityFieldRequired ?? true) required @endif
+                                   autocomplete="off"
+                                   value="{{ old('city') }}"
+                                   class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                   placeholder="Enter your city name">
+                            <!-- Autocomplete dropdown -->
+                            <div id="city-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                                <!-- Suggestions will be inserted here -->
+                            </div>
+                        </div>
+                        <div id="city-error-message" class="hidden mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" style="display: none;">
+                            <p class="text-sm text-yellow-800">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                We're trying to expand our services to cover more locations. Please contact us if you'd like to see your city added.
+                            </p>
+                        </div>
+                        @error('city')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
+                    </div>
+                    @endif
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                        <input type="text" name="location" required class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400" placeholder="Where was it lost/found?" value="{{ old('location') }}">
+                        <input type="text" name="location" required class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400" placeholder="Where was it lost/found? (e.g., Street name, Building, etc.)" value="{{ old('location') }}">
                         @error('location')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
@@ -258,6 +320,244 @@ document.addEventListener('DOMContentLoaded', function() {
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
     };
+
+    // Province autocomplete functionality
+    const enabledProvinces = @json($enabledProvinces ?? []);
+    const provinceInput = document.getElementById('province-input');
+    const provinceAutocomplete = document.getElementById('province-autocomplete');
+    const provinceErrorMessage = document.getElementById('province-error-message');
+
+    if (provinceInput && enabledProvinces.length > 0) {
+        provinceInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim().toLowerCase();
+            
+            // Hide error message initially
+            if (provinceErrorMessage) {
+                provinceErrorMessage.classList.add('hidden');
+                provinceErrorMessage.style.display = 'none';
+            }
+
+            if (query.length === 0) {
+                if (provinceAutocomplete) {
+                    provinceAutocomplete.classList.add('hidden');
+                }
+                return;
+            }
+
+            // Filter provinces that match the query
+            const matches = enabledProvinces.filter(province => 
+                province.toLowerCase().includes(query)
+            ).slice(0, 10); // Limit to 10 suggestions
+
+            if (matches.length > 0) {
+                // Show dropdown with matches
+                if (provinceAutocomplete) {
+                    provinceAutocomplete.innerHTML = '';
+                    matches.forEach((province, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-3 hover:bg-pink-50 cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors province-suggestion';
+                        div.setAttribute('data-index', index);
+                        
+                        // Highlight matching text
+                        const provinceLower = province.toLowerCase();
+                        const queryIndex = provinceLower.indexOf(query);
+                        if (queryIndex !== -1) {
+                            const beforeMatch = province.substring(0, queryIndex);
+                            const match = province.substring(queryIndex, queryIndex + query.length);
+                            const afterMatch = province.substring(queryIndex + query.length);
+                            div.innerHTML = `${beforeMatch}<strong class="text-pink-600">${match}</strong>${afterMatch}`;
+                        } else {
+                            div.textContent = province;
+                        }
+                        
+                        div.addEventListener('click', function() {
+                            provinceInput.value = province;
+                            if (provinceAutocomplete) {
+                                provinceAutocomplete.classList.add('hidden');
+                            }
+                            if (provinceErrorMessage) {
+                                provinceErrorMessage.classList.add('hidden');
+                                provinceErrorMessage.style.display = 'none';
+                            }
+                        });
+                        
+                        div.addEventListener('mouseenter', function() {
+                            div.classList.add('bg-pink-50');
+                        });
+                        
+                        div.addEventListener('mouseleave', function() {
+                            div.classList.remove('bg-pink-50');
+                        });
+                        
+                        provinceAutocomplete.appendChild(div);
+                    });
+                    provinceAutocomplete.classList.remove('hidden');
+                }
+                // Hide error message when matches are found
+                if (provinceErrorMessage) {
+                    provinceErrorMessage.classList.add('hidden');
+                    provinceErrorMessage.style.display = 'none';
+                }
+            } else {
+                // No matches found - hide dropdown and show error message
+                if (provinceAutocomplete) {
+                    provinceAutocomplete.classList.add('hidden');
+                }
+                if (query.length >= 2 && provinceErrorMessage) {
+                    provinceErrorMessage.classList.remove('hidden');
+                    provinceErrorMessage.style.display = 'block';
+                } else if (provinceErrorMessage) {
+                    provinceErrorMessage.classList.add('hidden');
+                    provinceErrorMessage.style.display = 'none';
+                }
+            }
+        });
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (provinceInput && provinceAutocomplete && 
+                !provinceInput.contains(e.target) && !provinceAutocomplete.contains(e.target)) {
+                provinceAutocomplete.classList.add('hidden');
+            }
+        });
+
+        // Validate on form submit
+        const form = provinceInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const inputValue = provinceInput.value.trim();
+                const isValidProvince = enabledProvinces.some(province => 
+                    province.toLowerCase() === inputValue.toLowerCase()
+                );
+                
+                if (!isValidProvince) {
+                    e.preventDefault();
+                    if (provinceErrorMessage) {
+                        provinceErrorMessage.classList.remove('hidden');
+                        provinceErrorMessage.style.display = 'block';
+                    }
+                    provinceInput.focus();
+                    return false;
+                }
+            });
+        }
+    }
+
+    // City autocomplete functionality
+    const enabledCities = @json($enabledCities ?? []);
+    const cityInput = document.getElementById('city-input');
+    const cityAutocomplete = document.getElementById('city-autocomplete');
+    const cityErrorMessage = document.getElementById('city-error-message');
+
+    if (cityInput && enabledCities.length > 0) {
+        cityInput.addEventListener('input', function(e) {
+            const query = e.target.value.trim().toLowerCase();
+            
+            // Hide error message initially
+            if (cityErrorMessage) {
+                cityErrorMessage.classList.add('hidden');
+            }
+
+            if (query.length === 0) {
+                if (cityAutocomplete) {
+                    cityAutocomplete.classList.add('hidden');
+                }
+                return;
+            }
+
+            // Filter cities that match the query
+            const matches = enabledCities.filter(city => 
+                city.toLowerCase().includes(query)
+            ).slice(0, 10); // Limit to 10 suggestions
+
+            if (matches.length > 0) {
+                // Show dropdown with matches
+                if (cityAutocomplete) {
+                    cityAutocomplete.innerHTML = '';
+                    matches.forEach((city, index) => {
+                        const div = document.createElement('div');
+                        div.className = 'px-4 py-3 hover:bg-pink-50 cursor-pointer border-b border-gray-200 last:border-b-0 transition-colors city-suggestion';
+                        div.setAttribute('data-index', index);
+                        
+                        // Highlight matching text
+                        const cityLower = city.toLowerCase();
+                        const queryIndex = cityLower.indexOf(query);
+                        if (queryIndex !== -1) {
+                            const beforeMatch = city.substring(0, queryIndex);
+                            const match = city.substring(queryIndex, queryIndex + query.length);
+                            const afterMatch = city.substring(queryIndex + query.length);
+                            div.innerHTML = `${beforeMatch}<strong class="text-pink-600">${match}</strong>${afterMatch}`;
+                        } else {
+                            div.textContent = city;
+                        }
+                        
+                        div.addEventListener('click', function() {
+                            cityInput.value = city;
+                            if (cityAutocomplete) {
+                                cityAutocomplete.classList.add('hidden');
+                            }
+                            if (cityErrorMessage) {
+                                cityErrorMessage.classList.add('hidden');
+                            }
+                        });
+                        
+                        div.addEventListener('mouseenter', function() {
+                            div.classList.add('bg-pink-50');
+                        });
+                        
+                        div.addEventListener('mouseleave', function() {
+                            div.classList.remove('bg-pink-50');
+                        });
+                        
+                        cityAutocomplete.appendChild(div);
+                    });
+                    cityAutocomplete.classList.remove('hidden');
+                }
+                // Hide error message when matches are found
+                if (cityErrorMessage) {
+                    cityErrorMessage.classList.add('hidden');
+                }
+            } else {
+                // No matches found - hide dropdown and show error message
+                if (cityAutocomplete) {
+                    cityAutocomplete.classList.add('hidden');
+                }
+                if (query.length >= 2 && cityErrorMessage) {
+                    cityErrorMessage.classList.remove('hidden');
+                    cityErrorMessage.style.display = 'block';
+                } else if (cityErrorMessage) {
+                    cityErrorMessage.classList.add('hidden');
+                    cityErrorMessage.style.display = 'none';
+                }
+            }
+        });
+
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            if (cityInput && cityAutocomplete && 
+                !cityInput.contains(e.target) && !cityAutocomplete.contains(e.target)) {
+                cityAutocomplete.classList.add('hidden');
+            }
+        });
+
+        // Validate on form submit
+        const form = cityInput.closest('form');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                const inputValue = cityInput.value.trim();
+                const isValidCity = enabledCities.some(city => 
+                    city.toLowerCase() === inputValue.toLowerCase()
+                );
+                
+                if (!isValidCity) {
+                    e.preventDefault();
+                    cityErrorMessage?.classList.remove('hidden');
+                    cityInput.focus();
+                    return false;
+                }
+            });
+        }
+    }
 });
 </script>
 </body>

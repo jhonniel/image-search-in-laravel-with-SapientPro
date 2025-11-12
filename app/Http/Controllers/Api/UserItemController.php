@@ -46,18 +46,72 @@ class UserItemController extends Controller
             'user' => Auth::user() ? Auth::user()->email : 'not authenticated'
         ]);
 
-        $validator = Validator::make($request->all(), [
+        // Get enabled cities for validation
+        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+        
+        // Get enabled provinces for validation
+        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+        
+        // Get field visibility and requirement settings
+        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
+        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
+        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
+        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
+        
+        $rules = [
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
             'tags' => 'nullable|string|max:255',
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max per image
-        ], [
+        ];
+        
+        // Add province validation only if field is enabled
+        if ($enableProvinceField) {
+            if ($provinceFieldRequired) {
+                if (!empty($enabledProvinces)) {
+                    $rules['province'] = 'required|string|in:' . implode(',', $enabledProvinces);
+                } else {
+                    $rules['province'] = 'required|string';
+                }
+            } else {
+                if (!empty($enabledProvinces)) {
+                    $rules['province'] = 'nullable|string|in:' . implode(',', $enabledProvinces);
+                } else {
+                    $rules['province'] = 'nullable|string';
+                }
+            }
+        }
+        
+        // Add city validation only if field is enabled
+        if ($enableCityField) {
+            if ($cityFieldRequired) {
+                if (!empty($enabledCities)) {
+                    $rules['city'] = 'required|string|in:' . implode(',', $enabledCities);
+                } else {
+                    $rules['city'] = 'required|string';
+                }
+            } else {
+                if (!empty($enabledCities)) {
+                    $rules['city'] = 'nullable|string|in:' . implode(',', $enabledCities);
+                } else {
+                    $rules['city'] = 'nullable|string';
+                }
+            }
+        }
+        
+        $validator = Validator::make($request->all(), $rules, [
             'item_type.required' => 'Please select whether this is a lost or found item',
             'item_type.in' => 'Item type must be either lost or found',
             'location.required' => 'Location is required',
             'location.max' => 'Location must not exceed 255 characters',
+            'province.required' => 'Please enter a province where the item was lost or found.',
+            'province.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your province added.',
+            'city.required' => 'Please enter a city where the item was lost or found.',
+            'city.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your city added.',
             'description.required' => 'Description is required',
             'description.max' => 'Description must not exceed 1000 characters',
             'tags.max' => 'Tags must not exceed 255 characters',
@@ -153,6 +207,8 @@ class UserItemController extends Controller
                     'uploader_email' => $user->email, // Use authenticated user's email
                     'description' => $request->description,
                     'location' => $request->location, // Save location field
+                    'province' => $request->province, // Save province field
+                    'city' => $request->city, // Save city field
                     'tags' => $request->tags ? explode(',', $request->tags) : [],
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
@@ -174,6 +230,23 @@ class UserItemController extends Controller
                     // Log error but don't fail the upload
                     \Log::error('Similarity check failed for user upload: ' . $e->getMessage());
                 }
+            }
+
+            // Create in-app notification for successful upload
+            try {
+                $user = Auth::user();
+                \App\Models\Notification::create([
+                    'user_id' => $user->id,
+                    'type' => 'item_uploaded',
+                    'title' => 'Item uploaded successfully',
+                    'message' => 'Your ' . ($request->item_type === 'lost' ? 'lost' : 'found') . ' item has been uploaded successfully.',
+                    'data' => [
+                        'upload_id' => $uploadId,
+                        'item_type' => $request->item_type,
+                    ],
+                ]);
+            } catch (\Exception $e) {
+                Log::warning('Failed to create upload notification: ' . $e->getMessage());
             }
 
             return response()->json([
@@ -216,8 +289,25 @@ class UserItemController extends Controller
                 ], 401);
             }
 
-            // Get all items uploaded by the user
+            // Get all items uploaded by the user, excluding verified claims
+            // Verified claims should only appear in Claims Management
             $items = ImageMetadata::where('uploader_email', $user->email)
+                ->where(function($query) {
+                    // Exclude items that are verified claims (is_claimed = true AND claim_verification_status = 'verified')
+                    $query->where(function($q) {
+                        // Not claimed at all
+                        $q->where('is_claimed', false)
+                          ->orWhereNull('is_claimed');
+                    })
+                    ->orWhere(function($q) {
+                        // Claimed but not verified
+                        $q->where('is_claimed', true)
+                          ->where(function($statusQ) {
+                              $statusQ->where('claim_verification_status', '!=', 'verified')
+                                      ->orWhereNull('claim_verification_status');
+                          });
+                    });
+                })
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
@@ -225,14 +315,16 @@ class UserItemController extends Controller
             $formattedItems = [];
             foreach ($items as $uploadId => $itemGroup) {
                 $firstItem = $itemGroup->first();
-                $formattedItems[] = [
-                    'upload_id' => $uploadId,
-                    'item_type' => $firstItem->status,
-                    'location' => $firstItem->location ?? 'Location not specified',
-                    'description' => $firstItem->description,
-                    'tags' => $firstItem->tags,
-                    'contact_email' => $firstItem->uploader_email,
-                    'images' => $itemGroup->map(function ($item) {
+                   $formattedItems[] = [
+                       'upload_id' => $uploadId,
+                       'item_type' => $firstItem->status,
+                       'location' => $firstItem->location ?? 'Location not specified',
+                       'province' => $firstItem->province ?? null,
+                       'city' => $firstItem->city ?? null,
+                       'description' => $firstItem->description,
+                       'tags' => $firstItem->tags,
+                       'contact_email' => $firstItem->uploader_email,
+                       'images' => $itemGroup->map(function ($item) {
                         // Fix file path - remove /storage/ prefix if it exists
                         $filePath = $item->file_path;
                         if (str_starts_with($filePath, '/storage/')) {
@@ -294,8 +386,21 @@ class UserItemController extends Controller
                 'raw_input' => file_get_contents('php://input')
             ]);
 
-            // Validate request - location and description are always sent from form
-            $validator = Validator::make($requestData, [
+            // Get enabled cities for validation
+            $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+            $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
+            
+            // Get enabled provinces for validation
+            $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+            $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
+            
+            // Get field visibility and requirement settings
+            $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
+            $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
+            $enableCityField = \App\Models\Setting::get('enable_city_field', true);
+            $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
+            
+            $rules = [
                 'item_type' => 'sometimes|required|in:lost,found',
                 'location' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
@@ -304,11 +409,52 @@ class UserItemController extends Controller
                 'images.*' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
                 'remove_images' => 'nullable|array',
                 'remove_images.*' => 'nullable|string',
-            ], [
+            ];
+            
+            // Add province validation only if field is enabled
+            if ($enableProvinceField) {
+                if ($provinceFieldRequired) {
+                    if (!empty($enabledProvinces)) {
+                        $rules['province'] = 'required|string|in:' . implode(',', $enabledProvinces);
+                    } else {
+                        $rules['province'] = 'required|string';
+                    }
+                } else {
+                    if (!empty($enabledProvinces)) {
+                        $rules['province'] = 'nullable|string|in:' . implode(',', $enabledProvinces);
+                    } else {
+                        $rules['province'] = 'nullable|string';
+                    }
+                }
+            }
+            
+            // Add city validation only if field is enabled
+            if ($enableCityField) {
+                if ($cityFieldRequired) {
+                    if (!empty($enabledCities)) {
+                        $rules['city'] = 'required|string|in:' . implode(',', $enabledCities);
+                    } else {
+                        $rules['city'] = 'required|string';
+                    }
+                } else {
+                    if (!empty($enabledCities)) {
+                        $rules['city'] = 'nullable|string|in:' . implode(',', $enabledCities);
+                    } else {
+                        $rules['city'] = 'nullable|string';
+                    }
+                }
+            }
+            
+            // Validate request - location and description are always sent from form
+            $validator = Validator::make($requestData, $rules, [
                 'item_type.required' => 'Item type is required',
                 'item_type.in' => 'Item type must be either lost or found',
                 'location.required' => 'Location is required',
                 'location.max' => 'Location must not exceed 255 characters',
+                'province.required' => 'Please select a province where the item was lost or found.',
+                'province.in' => 'Please select a valid province from the list.',
+                'city.required' => 'Please select a city where the item was lost or found.',
+                'city.in' => 'Please select a valid city from the list.',
                 'description.required' => 'Description is required',
                 'description.max' => 'Description must not exceed 1000 characters',
                 'tags.max' => 'Tags must not exceed 255 characters',
@@ -363,6 +509,16 @@ class UserItemController extends Controller
             
             if ($request->has('item_type') && $request->filled('item_type')) {
                 $updateData['status'] = $request->item_type;
+            }
+            
+            // Province is required, so always update it if present
+            if ($request->has('province')) {
+                $updateData['province'] = trim($request->province);
+            }
+            
+            // City is required, so always update it if present
+            if ($request->has('city')) {
+                $updateData['city'] = trim($request->city);
             }
             
             // Location is required, so always update it if present
@@ -462,6 +618,8 @@ class UserItemController extends Controller
                         'uploader_email' => $user->email,
                         'description' => $updateData['description'] ?? $firstItem->description,
                         'location' => $updateData['location'] ?? $firstItem->location,
+                        'province' => $updateData['province'] ?? $firstItem->province,
+                        'city' => $updateData['city'] ?? $firstItem->city,
                         'tags' => $updateData['tags'] ?? $firstItem->tags,
                         'file_size' => $image->getSize(),
                         'mime_type' => $image->getMimeType(),
@@ -740,6 +898,8 @@ class UserItemController extends Controller
                         'item_type' => $firstItem->status,
                         'description' => $firstItem->description,
                         'location' => $firstItem->location ?? 'Location not specified',
+                        'province' => $firstItem->province ?? null,
+                        'city' => $firstItem->city ?? null,
                         'tags' => is_array($tags) ? $tags : [],
                         'uploader_email' => $firstItem->uploader_email,
                         'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
@@ -748,6 +908,7 @@ class UserItemController extends Controller
                         'created_at' => $firstItem->created_at,
                         'user_has_claimed' => $userHasClaimed,
                         'claim_status' => $firstItem->claim_verification_status,
+                        'claimed_by_email' => $firstItem->claimed_by_email, // Added for checking who claimed
                         'images' => $group->map(function ($item) {
                             // Fix file path - remove /storage/ prefix if it exists
                             $filePath = $item->file_path;
