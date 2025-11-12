@@ -64,7 +64,7 @@ class UserItemController extends Controller
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
-            'tags' => 'nullable|string|max:255',
+            'tags' => 'required|string|max:255',
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max per image
         ];
@@ -114,6 +114,7 @@ class UserItemController extends Controller
             'city.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your city added.',
             'description.required' => 'Description is required',
             'description.max' => 'Description must not exceed 1000 characters',
+            'tags.required' => 'Tags are required. Please add at least one tag to help others find your item.',
             'tags.max' => 'Tags must not exceed 255 characters',
             'images.required' => 'At least one image is required',
             'images.array' => 'Images must be an array',

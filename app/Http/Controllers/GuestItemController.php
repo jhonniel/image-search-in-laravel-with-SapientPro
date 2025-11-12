@@ -59,7 +59,7 @@ class GuestItemController extends Controller
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
-            'tags' => 'nullable|string|max:255',
+            'tags' => 'required|string|max:255',
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
         ];
@@ -99,6 +99,10 @@ class GuestItemController extends Controller
         }
         
         $validated = $request->validate($rules, [
+            'location.required' => 'Location is required. Please specify where the item was lost or found.',
+            'description.required' => 'Description is required. Please describe the item.',
+            'tags.required' => 'Tags are required. Please add at least one tag to help others find your item.',
+            'tags.max' => 'Tags must not exceed 255 characters.',
             'province.required' => 'Please enter a province where the item was lost or found.',
             'province.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your province added.',
             'city.required' => 'Please enter a city where the item was lost or found.',

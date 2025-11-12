@@ -114,7 +114,7 @@
 
             <!-- Location -->
             <div>
-                <label for="location" class="block text-sm font-medium text-gray-700 mb-2">Location</label>
+                <label for="location" class="block text-sm font-medium text-gray-700 mb-2">Location <span class="text-red-500">*</span></label>
                 <input type="text" id="location" name="location" required
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                        placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
@@ -122,7 +122,7 @@
 
             <!-- Description -->
             <div>
-                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description <span class="text-red-500">*</span></label>
                 <textarea id="description" name="description" rows="3" required
                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                           placeholder="Describe the item in detail..."></textarea>
@@ -130,8 +130,8 @@
 
             <!-- Tags -->
             <div>
-                <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                <input type="text" id="tags" name="tags"
+                <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">Tags <span class="text-red-500">*</span></label>
+                <input type="text" id="tags" name="tags" required
                        class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                        placeholder="Enter tags separated by commas (e.g., phone, black, case)">
                 <p class="text-xs text-gray-500 mt-1">Tags help others find your item more easily</p>
