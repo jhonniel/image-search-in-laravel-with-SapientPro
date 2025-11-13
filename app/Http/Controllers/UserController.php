@@ -184,6 +184,31 @@ class UserController extends Controller
                     'claim_verified_at' => now()
                 ]);
 
+            // Update all messages with this item to remove item context (since it's verified)
+            // This ensures both users' conversations are updated
+            \App\Models\Message::where('item_upload_id', $uploadId)
+                ->where(function($query) use ($user, $claimer) {
+                    if ($claimer) {
+                        $query->where(function($q) use ($user, $claimer) {
+                            $q->where('sender_id', $user->id)
+                              ->where('receiver_id', $claimer->id);
+                        })->orWhere(function($q) use ($user, $claimer) {
+                            $q->where('sender_id', $claimer->id)
+                              ->where('receiver_id', $user->id);
+                        });
+                    }
+                })
+                ->whereNotNull('item_context')
+                ->get()
+                ->each(function($message) {
+                    $existingContext = json_decode($message->item_context, true);
+                    if ($existingContext) {
+                        // Mark as verified in context
+                        $existingContext['claim_status'] = 'verified';
+                        $message->update(['item_context' => json_encode($existingContext)]);
+                    }
+                });
+
             // Broadcast item claim verified event for real-time updates in chat
             if ($claimer) {
                 broadcast(new \App\Events\ItemClaimVerified($uploadId, $claimer->id, $user->id))->toOthers();

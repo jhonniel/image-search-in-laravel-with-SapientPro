@@ -105,21 +105,88 @@ class ChatController extends Controller
         // Get item context from the first message that has item context
         // BUT only if the item is not verified/claimed
         $itemContext = null;
-        $firstMessageWithContext = $messages->where('item_upload_id', '!=', null)->first();
+        $firstMessageWithContext = $messages->where('item_upload_id', '!=', null)->whereNotNull('item_context')->first();
         if ($firstMessageWithContext && $firstMessageWithContext->item_context) {
             $decodedContext = json_decode($firstMessageWithContext->item_context, true);
+            
+            // If decoding failed, try to get from database
+            if (!$decodedContext && $firstMessageWithContext->item_upload_id) {
+                $itemId = $firstMessageWithContext->item_upload_id;
+                $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
+                if ($items->count() > 0) {
+                    $firstItem = $items->first();
+                    $uploader = User::where('email', $firstItem->uploader_email)->first();
+                    $claimer = $firstItem->claimed_by_email ? User::where('email', $firstItem->claimed_by_email)->first() : null;
+                    
+                    $images = $items->map(function ($item) {
+                        $filePath = $item->file_path;
+                        if (str_starts_with($filePath, '/storage/')) {
+                            $filePath = substr($filePath, 9);
+                        }
+                        return [
+                            'path' => \Illuminate\Support\Facades\Storage::url($filePath),
+                            'original_name' => $item->original_name ?? basename($filePath),
+                            'filename' => $item->filename
+                        ];
+                    })->toArray();
+                    
+                    $decodedContext = [
+                        'upload_id' => $firstItem->upload_id,
+                        'uploadId' => $firstItem->upload_id,
+                        'description' => $firstItem->description,
+                        'location' => $firstItem->location ?? 'Location not specified',
+                        'item_type' => $firstItem->status,
+                        'itemType' => $firstItem->status,
+                        'status' => $firstItem->status,
+                        'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
+                        'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
+                        'uploader_email' => $firstItem->uploader_email,
+                        'images' => $images,
+                        'claim_status' => $firstItem->claim_verification_status ?? null,
+                        'claimed_by_id' => $claimer ? $claimer->id : null,
+                        'created_at' => $firstItem->created_at->toIso8601String(),
+                    ];
+                }
+            }
+            
             // Check if item is verified - if so, don't return context
-            if (isset($decodedContext['upload_id']) || isset($decodedContext['uploadId'])) {
+            if ($decodedContext && (isset($decodedContext['upload_id']) || isset($decodedContext['uploadId']))) {
                 $itemId = $decodedContext['upload_id'] ?? $decodedContext['uploadId'];
                 $item = \App\Models\ImageMetadata::where('upload_id', $itemId)->first();
                 // Only return context if item is NOT verified
                 if ($item && !($item->is_claimed && $item->claim_verification_status === 'verified')) {
                     $itemContext = $decodedContext;
-                    // Update claim status from database
-                    $itemContext['claim_status'] = $item->claim_verification_status;
+                    // Update claim status from database (always get latest status)
+                    $itemContext['claim_status'] = $item->claim_verification_status ?? null;
                     $itemContext['claimed_by_id'] = $item->claimed_by_email ? (User::where('email', $item->claimed_by_email)->first()?->id ?? null) : null;
+                    
+                    // Ensure all required fields are present for display
+                    if (!isset($itemContext['images']) || empty($itemContext['images'])) {
+                        $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
+                        $images = $items->map(function ($item) {
+                            $filePath = $item->file_path;
+                            if (str_starts_with($filePath, '/storage/')) {
+                                $filePath = substr($filePath, 9);
+                            }
+                            return [
+                                'path' => \Illuminate\Support\Facades\Storage::url($filePath),
+                                'original_name' => $item->original_name ?? basename($filePath),
+                                'filename' => $item->filename
+                            ];
+                        })->toArray();
+                        $itemContext['images'] = $images;
+                    }
+                    if (!isset($itemContext['item_type']) && isset($itemContext['status'])) {
+                        $itemContext['item_type'] = $itemContext['status'];
+                        $itemContext['itemType'] = $itemContext['status'];
+                    }
+                    if (!isset($itemContext['uploader_name']) && isset($itemContext['uploader_email'])) {
+                        $uploader = User::where('email', $itemContext['uploader_email'])->first();
+                        $itemContext['uploader_name'] = $uploader ? $uploader->name : 'Unknown User';
+                    }
                 }
-            } else {
+            } elseif ($decodedContext) {
+                // If no upload_id but we have context, return it (might be old format)
                 $itemContext = $decodedContext;
             }
         } elseif ($request->has('item_id')) {

@@ -226,11 +226,8 @@ function selectUser(userId) {
 // Load messages for selected user
 async function loadMessages(userId) {
     try {
-        // Build URL with item_id parameter if available
+        // Build URL - don't include item_id parameter, let server extract from messages
         let url = `/user/chat/messages/${userId}`;
-        if (itemContext && itemContext.uploadId) {
-            url += `?item_id=${itemContext.uploadId}`;
-        }
 
         const response = await fetch(url, {
             method: 'GET',
@@ -248,26 +245,27 @@ async function loadMessages(userId) {
             // Update item context if provided by server (this ensures both users see it)
             // BUT only if item is not verified
             if (data.item_context) {
+                console.log('Item context received from server:', data.item_context);
                 // Check if item is verified - if so, hide context
                 if (data.item_context.claim_status === 'verified') {
                     // Item is verified, hide context
+                    console.log('Item is verified, hiding context');
                     hideItemContext();
                 } else {
-                    // Item is not verified, show/update context
-                    if (!itemContext) {
-                        itemContext = data.item_context;
-                        sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                        showItemContext();
-                    } else {
-                        // Update existing context
-                        itemContext = data.item_context;
-                        sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                        showItemContext();
-                    }
+                    // Item is not verified, show/update context (for both users in conversation)
+                    console.log('Showing item context for both users');
+                itemContext = data.item_context;
+                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                    showItemContext(); // Always refresh to show latest claim status
                 }
             } else {
                 // No item context from server - check if current context is for a verified item
                 if (itemContext && (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified')) {
+                    console.log('Current context is verified, hiding');
+                    hideItemContext();
+                } else if (itemContext) {
+                    // If we have context but server didn't return it, it might be verified - hide it
+                    console.log('Server returned no context, hiding existing context');
                     hideItemContext();
                 }
             }
@@ -333,12 +331,64 @@ function createMessageElement(message) {
         }
     }
 
+    // Build item context preview if available
+    let itemContextHtml = '';
+    if (message.item_context) {
+        let previewContext = message.item_context;
+        if (typeof previewContext === 'string') {
+            try {
+                previewContext = JSON.parse(previewContext);
+            } catch (parseError) {
+                console.error('Failed to parse message item_context in createMessageElement:', parseError);
+                previewContext = null;
+            }
+        }
+
+        if (previewContext && typeof previewContext === 'object') {
+            const claimStatus = previewContext.claim_status || previewContext.claimStatus;
+            // Show preview only if item is not yet verified
+            if (claimStatus !== 'verified') {
+                const description = previewContext.description || 'No description provided';
+                const location = previewContext.location || 'Location not specified';
+                const statusLabel = (previewContext.item_type || previewContext.itemType || 'item').toString();
+                const uploadId = previewContext.upload_id || previewContext.uploadId;
+                const tags = Array.isArray(previewContext.tags) ? previewContext.tags : [];
+                const claimBadge = claimStatus === 'pending'
+                    ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⏳ Claim Pending</span>'
+                    : '';
+                const images = Array.isArray(previewContext.images) ? previewContext.images : [];
+                const firstImage = images.length ? images[0] : null;
+                const imagePreviewHtml = firstImage && firstImage.path
+                    ? `<div class="mb-2"><img src="${firstImage.path}" alt="Item image" class="w-full h-32 object-cover rounded-lg border border-purple-200"></div>`
+                    : '';
+
+                itemContextHtml = `
+                    <div class="mt-3 bg-white/90 text-gray-900 rounded-lg border border-purple-200 p-3 shadow-sm">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-xs font-semibold uppercase tracking-wide text-purple-600">Item Details</span>
+                            ${claimBadge}
+                        </div>
+                        ${imagePreviewHtml}
+                        <p class="text-sm font-medium mb-1">${escapeHtml(description)}</p>
+                        <p class="text-xs text-gray-600 mb-2"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(location)}</p>
+                        <p class="text-xs text-gray-600 mb-2"><i class="fas fa-tag mr-1"></i>${escapeHtml(statusLabel)}</p>
+                        ${tags.length ? `<div class="flex flex-wrap gap-1 mb-2">${tags.map(tag => `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+                        ${uploadId ? `<a href="/item/${uploadId}" target="_blank" class="text-xs text-purple-600 hover:text-purple-800 font-medium inline-flex items-center">
+                            View item <i class="fas fa-external-link-alt ml-1"></i>
+                        </a>` : ''}
+                    </div>
+                `;
+            }
+        }
+    }
+
     messageDiv.innerHTML = `
         <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isOwnMessage ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-900'}">
             <p class="text-sm">${escapeHtml(message.message)}</p>
             <p class="text-xs mt-1 ${isOwnMessage ? 'text-purple-100' : 'text-gray-500'}">
                 ${timeString}
             </p>
+            ${itemContextHtml}
         </div>
     `;
 
@@ -382,7 +432,26 @@ document.getElementById('message-form').addEventListener('submit', async functio
             // Clear input immediately for better UX
             const messageText = messageInput.value.trim();
             messageInput.value = '';
-            
+
+            // Update item context if the response includes it (e.g., claim message)
+            if (data.message && data.message.item_context) {
+                let responseContext = data.message.item_context;
+                if (typeof responseContext === 'string') {
+                    try {
+                        responseContext = JSON.parse(responseContext);
+                    } catch (parseError) {
+                        console.error('Failed to parse item_context from response:', parseError);
+                        responseContext = null;
+                    }
+                }
+
+                if (responseContext && (responseContext.claim_status !== 'verified')) {
+                    itemContext = responseContext;
+                    sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                    showItemContext();
+                }
+            }
+
             // Add message to UI immediately for sender (optimistic update)
             if (data.message) {
                 // Format the message to match expected structure
@@ -392,7 +461,7 @@ document.getElementById('message-form').addEventListener('submit', async functio
                 } else if (typeof created_at === 'object' && created_at.date) {
                     created_at = created_at.date;
                 }
-                
+
                 const formattedMessage = {
                     id: data.message.id,
                     sender_id: data.message.sender_id,
@@ -406,7 +475,7 @@ document.getElementById('message-form').addEventListener('submit', async functio
                     sender: data.message.sender || { id: data.message.sender_id },
                     receiver: data.message.receiver || { id: data.message.receiver_id }
                 };
-                
+
                 console.log('Adding sent message to UI:', formattedMessage);
                 addMessageToUI(formattedMessage);
             } else {
@@ -625,7 +694,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified') {
                 hideItemContext();
             } else {
-                setTimeout(() => showItemContext(), 100);
+            setTimeout(() => showItemContext(), 100);
             }
         }
     }
@@ -650,6 +719,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (!existingMessage) {
                     console.log('Adding message to UI:', message);
                     addMessageToUI(message);
+                    
+                    // Check if message has item_context and update item context display
+                    if (message.item_context) {
+                        let messageItemContext = message.item_context;
+                        if (typeof messageItemContext === 'string') {
+                            try {
+                                messageItemContext = JSON.parse(messageItemContext);
+                            } catch (parseError) {
+                                console.error('Failed to parse item_context from message:', parseError);
+                                messageItemContext = null;
+                            }
+                        }
+                        
+                        if (messageItemContext && typeof messageItemContext === 'object') {
+                            // Check if item is verified - if so, don't show context
+                            if (messageItemContext.claim_status !== 'verified') {
+                                console.log('Updating item context from received message:', messageItemContext);
+                                itemContext = messageItemContext;
+                                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                                showItemContext();
+                            } else {
+                                console.log('Item is verified, hiding context');
+                                hideItemContext();
+                            }
+                        }
+                    }
                     
                     // Mark as read if it's the current conversation and user is the receiver
                     if (message.receiver_id == currentUser.id && message.sender_id == currentUserId) {
@@ -680,22 +775,40 @@ document.addEventListener('DOMContentLoaded', function() {
         // Listen for item claim events
         channel.listen('.item.claimed', (e) => {
             console.log('Item claimed event received:', e);
-            if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
-                // Update item context with claim status
-                itemContext.claim_status = e.claim_status;
-                itemContext.claimed_by_id = e.claimer_id;
-                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                showItemContext(); // Refresh display
+            // Check if this is for the current conversation
+            const isCurrentConversation = currentUserId && (
+                (e.claimer_id == currentUser.id && e.owner_id == currentUserId) ||
+                (e.owner_id == currentUser.id && e.claimer_id == currentUserId)
+            );
+            
+            if (isCurrentConversation) {
+                // Always reload messages to get the item context from the claim message
+                // This ensures both users see the item context
+                if (currentUserId) {
+                    console.log('Reloading messages to show item context after claim');
+                    loadMessages(currentUserId);
+                }
             }
         });
 
         // Listen for item claim verified events
         channel.listen('.item.claim.verified', (e) => {
             console.log('Item claim verified event received:', e);
-            if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
-                // Hide item context since item is now verified/claimed
-                hideItemContext();
-                showNotification('This item has been claimed and verified. Item context removed from chat.', 'info');
+            // Check if this is for the current conversation
+            const isCurrentConversation = currentUserId && (
+                (e.claimer_id == currentUser.id && e.owner_id == currentUserId) ||
+                (e.owner_id == currentUser.id && e.claimer_id == currentUserId)
+            );
+            
+            if (isCurrentConversation) {
+                if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
+                    // Hide item context since item is now verified/claimed
+                    hideItemContext();
+                    showNotification('This item has been claimed and verified. Item context removed from chat.', 'info');
+                } else if (currentUserId) {
+                    // Reload messages to ensure context is removed
+                    loadMessages(currentUserId);
+                }
             }
         });
 

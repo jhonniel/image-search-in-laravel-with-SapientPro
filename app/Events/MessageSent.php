@@ -52,15 +52,22 @@ class MessageSent implements ShouldBroadcast
      */
     public function broadcastWith(): array
     {
+        // Parse item_context if it exists
+        $itemContext = null;
+        if ($this->message->item_context) {
+            $decoded = json_decode($this->message->item_context, true);
+            $itemContext = $decoded ?: $this->message->item_context; // Fallback to string if decode fails
+        }
+
         return [
             'id' => $this->message->id,
             'sender_id' => $this->message->sender_id,
             'receiver_id' => $this->message->receiver_id,
             'message' => $this->message->message,
             'item_upload_id' => $this->message->item_upload_id,
-            'item_context' => $this->message->item_context,
+            'item_context' => $itemContext,
             'is_read' => $this->message->is_read,
-            'read_at' => $this->message->read_at,
+            'read_at' => $this->message->read_at ? $this->message->read_at->toIso8601String() : null,
             'created_at' => $this->message->created_at->toIso8601String(),
             'sender' => [
                 'id' => $this->message->sender->id,

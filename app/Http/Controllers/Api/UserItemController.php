@@ -1078,12 +1078,35 @@ class UserItemController extends Controller
 
             // Send notification message to the item owner
             try {
+                // Get all images for this item
+                $images = $items->map(function ($item) {
+                    $filePath = $item->file_path;
+                    if (str_starts_with($filePath, '/storage/')) {
+                        $filePath = substr($filePath, 9);
+                    }
+                    return [
+                        'path' => \Illuminate\Support\Facades\Storage::url($filePath),
+                        'original_name' => $item->original_name ?? basename($filePath),
+                        'filename' => $item->filename
+                    ];
+                })->toArray();
+
+                // Create comprehensive item context for both users
                 $itemContext = [
                     'upload_id' => $uploadId,
+                    'uploadId' => $uploadId,
                     'description' => $firstItem->description,
-                    'location' => $firstItem->location,
+                    'location' => $firstItem->location ?? 'Location not specified',
+                    'item_type' => $firstItem->status,
+                    'itemType' => $firstItem->status,
                     'status' => $firstItem->status,
-                    'tags' => $firstItem->tags,
+                    'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
+                    'uploader_name' => $itemOwner->name,
+                    'uploader_email' => $firstItem->uploader_email,
+                    'images' => $images,
+                    'claim_status' => 'pending',
+                    'claimed_by_id' => $user->id,
+                    'created_at' => $firstItem->created_at->toIso8601String(),
                 ];
 
                 $claimMessage = "Hello! I believe I found your {$firstItem->status} item. Please verify if this item belongs to me so I can return it to you.";
@@ -1095,6 +1118,28 @@ class UserItemController extends Controller
                     'item_upload_id' => $uploadId,
                     'item_context' => json_encode($itemContext),
                 ]);
+
+                // Also update any existing messages with this item to include claim status
+                \App\Models\Message::where('item_upload_id', $uploadId)
+                    ->where(function($query) use ($user, $itemOwner) {
+                        $query->where(function($q) use ($user, $itemOwner) {
+                            $q->where('sender_id', $user->id)
+                              ->where('receiver_id', $itemOwner->id);
+                        })->orWhere(function($q) use ($user, $itemOwner) {
+                            $q->where('sender_id', $itemOwner->id)
+                              ->where('receiver_id', $user->id);
+                        });
+                    })
+                    ->whereNotNull('item_context')
+                    ->get()
+                    ->each(function($message) use ($itemContext) {
+                        $existingContext = json_decode($message->item_context, true);
+                        if ($existingContext) {
+                            $existingContext['claim_status'] = 'pending';
+                            $existingContext['claimed_by_id'] = $itemContext['claimed_by_id'];
+                            $message->update(['item_context' => json_encode($existingContext)]);
+                        }
+                    });
 
                 Log::info('Claim notification message sent', [
                     'claimer_id' => $user->id,
