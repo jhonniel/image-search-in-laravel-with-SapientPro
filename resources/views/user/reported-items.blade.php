@@ -256,14 +256,51 @@
                 </div>
             </div>
 
+            @if($enableProvinceField ?? true)
+            <!-- Province -->
+            <div>
+                <label for="edit-province" class="block text-sm font-medium text-gray-700 mb-2">
+                    Province 
+                    @if($provinceFieldRequired ?? true)
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
+                <div class="relative">
+                    <input type="text" 
+                           id="edit-province" 
+                           name="province" 
+                           @if($provinceFieldRequired ?? true) required @endif
+                           autocomplete="off"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="Enter your province name">
+                    <!-- Autocomplete dropdown -->
+                    <div id="edit-province-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
+                        <!-- Suggestions will be inserted here -->
+                    </div>
+                </div>
+                <div id="edit-province-error-message" class="hidden mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg" style="display: none;">
+                    <p class="text-sm text-yellow-800">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        We're trying to expand our services to cover more locations. Please contact us if you'd like to see your province added.
+                    </p>
+                </div>
+            </div>
+            @endif
+
+            @if($enableCityField ?? true)
             <!-- City -->
             <div>
-                <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-2">City <span class="text-red-500">*</span></label>
+                <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-2">
+                    City 
+                    @if($cityFieldRequired ?? true)
+                        <span class="text-red-500">*</span>
+                    @endif
+                </label>
                 <div class="relative">
                     <input type="text" 
                            id="edit-city" 
                            name="city" 
-                           required 
+                           @if($cityFieldRequired ?? true) required @endif
                            autocomplete="off"
                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                            placeholder="Enter your city name">
@@ -279,6 +316,7 @@
                     </p>
                 </div>
             </div>
+            @endif
 
             <!-- Location -->
             <div>
@@ -899,10 +937,19 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     }
     this.dataset.submitting = 'true';
 
+    // Get field visibility settings
+    const enableProvinceField = @json($enableProvinceField ?? true);
+    const provinceFieldRequired = @json($provinceFieldRequired ?? true);
+    const enableCityField = @json($enableCityField ?? true);
+    const cityFieldRequired = @json($cityFieldRequired ?? true);
+
     // Get form elements
     const files = document.getElementById('item-images').files;
     const itemType = document.querySelector('input[name="item_type"]:checked');
-    const city = document.getElementById('city').value.trim();
+    const cityElement = document.getElementById('city');
+    const provinceElement = document.getElementById('province');
+    const city = cityElement ? cityElement.value.trim() : '';
+    const province = provinceElement ? provinceElement.value.trim() : '';
     const location = document.getElementById('location').value.trim();
     const description = document.getElementById('description').value.trim();
     const tags = document.getElementById('tags').value.trim();
@@ -914,23 +961,56 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         return;
     }
 
-    if (!city) {
-        showToast('Please enter a city', 'error');
-        this.dataset.submitting = 'false';
-        return;
+    // Validate city only if field is enabled
+    if (enableCityField) {
+        if (cityFieldRequired && !city) {
+            showToast('Please enter a city', 'error');
+            this.dataset.submitting = 'false';
+            return;
+        }
+
+        // Validate city is in enabled cities list (only if city is provided)
+        if (city) {
+            const enabledCities = @json($enabledCities ?? []);
+            if (enabledCities.length > 0) {
+                const isValidCity = enabledCities.some(c => c.toLowerCase() === city.toLowerCase());
+                if (!isValidCity) {
+                    const cityErrorMessage = document.getElementById('city-error-message');
+                    if (cityErrorMessage) {
+                        cityErrorMessage.classList.remove('hidden');
+                    }
+                    showToast('Please select a valid city from the suggestions', 'error');
+                    this.dataset.submitting = 'false';
+                    return;
+                }
+            }
+        }
     }
 
-    // Validate city is in enabled cities list
-    const enabledCities = @json($enabledCities ?? []);
-    const isValidCity = enabledCities.some(c => c.toLowerCase() === city.toLowerCase());
-    if (!isValidCity) {
-        const cityErrorMessage = document.getElementById('city-error-message');
-        if (cityErrorMessage) {
-            cityErrorMessage.classList.remove('hidden');
+    // Validate province only if field is enabled
+    if (enableProvinceField) {
+        if (provinceFieldRequired && !province) {
+            showToast('Please enter a province', 'error');
+            this.dataset.submitting = 'false';
+            return;
         }
-        showToast('Please select a valid city from the suggestions', 'error');
-        this.dataset.submitting = 'false';
-        return;
+
+        // Validate province is in enabled provinces list (only if province is provided)
+        if (province) {
+            const enabledProvinces = @json($enabledProvinces ?? []);
+            if (enabledProvinces.length > 0) {
+                const isValidProvince = enabledProvinces.some(p => p.toLowerCase() === province.toLowerCase());
+                if (!isValidProvince) {
+                    const provinceErrorMessage = document.getElementById('province-error-message');
+                    if (provinceErrorMessage) {
+                        provinceErrorMessage.classList.remove('hidden');
+                    }
+                    showToast('Please select a valid province from the suggestions', 'error');
+                    this.dataset.submitting = 'false';
+                    return;
+                }
+            }
+        }
     }
 
     if (!location) {
@@ -941,6 +1021,12 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
 
     if (!description) {
         showToast('Please enter a description', 'error');
+        this.dataset.submitting = 'false';
+        return;
+    }
+
+    if (!tags) {
+        showToast('Please enter tags', 'error');
         this.dataset.submitting = 'false';
         return;
     }
@@ -957,7 +1043,15 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     // Create FormData
     const formData = new FormData();
     formData.append('item_type', itemType.value);
-    formData.append('city', city);
+    
+    // Only include city/province if fields are enabled
+    if (enableCityField && city) {
+        formData.append('city', city);
+    }
+    if (enableProvinceField && province) {
+        formData.append('province', province);
+    }
+    
     formData.append('location', location);
     formData.append('description', description);
     formData.append('tags', tags);
@@ -1460,7 +1554,14 @@ function editItem(uploadId) {
 
     // Populate edit form
     document.getElementById('edit-upload-id').value = uploadId;
-    document.getElementById('edit-city').value = item.city || '';
+    const editCityInput = document.getElementById('edit-city');
+    const editProvinceInput = document.getElementById('edit-province');
+    if (editCityInput) {
+        editCityInput.value = item.city || '';
+    }
+    if (editProvinceInput) {
+        editProvinceInput.value = item.province || '';
+    }
     document.getElementById('edit-location').value = item.location || '';
     document.getElementById('edit-description').value = item.description || '';
     document.getElementById('edit-tags').value = item.tags ? (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) : '';
@@ -1717,42 +1818,88 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
 
+    // Get field visibility settings
+    const enableProvinceField = @json($enableProvinceField ?? true);
+    const provinceFieldRequired = @json($provinceFieldRequired ?? true);
+    const enableCityField = @json($enableCityField ?? true);
+    const cityFieldRequired = @json($cityFieldRequired ?? true);
+
     // Get form values and validate
     const itemType = document.querySelector('input[name="item_type"]:checked');
     const cityInput = document.getElementById('edit-city');
+    const provinceInput = document.getElementById('edit-province');
     const locationInput = document.getElementById('edit-location');
     const descriptionInput = document.getElementById('edit-description');
     const tagsInput = document.getElementById('edit-tags');
     
     const city = cityInput ? cityInput.value.trim() : '';
+    const province = provinceInput ? provinceInput.value.trim() : '';
     const location = locationInput ? locationInput.value.trim() : '';
     const description = descriptionInput ? descriptionInput.value.trim() : '';
     const tags = tagsInput ? tagsInput.value.trim() : '';
 
-    // Client-side validation
-    if (!city || city === '') {
-        showToast('Please enter a city', 'error');
-        submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
-        this.dataset.submitting = 'false';
-        if (cityInput) cityInput.focus();
-        return;
+    // Client-side validation - city only if enabled
+    if (enableCityField) {
+        if (cityFieldRequired && (!city || city === '')) {
+            showToast('Please enter a city', 'error');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            this.dataset.submitting = 'false';
+            if (cityInput) cityInput.focus();
+            return;
+        }
+
+        // Validate city is in enabled cities list (only if city is provided)
+        if (city) {
+            const enabledCities = @json($enabledCities ?? []);
+            if (enabledCities.length > 0) {
+                const isValidCity = enabledCities.some(c => c.toLowerCase() === city.toLowerCase());
+                if (!isValidCity) {
+                    const cityErrorMessage = document.getElementById('edit-city-error-message');
+                    if (cityErrorMessage) {
+                        cityErrorMessage.classList.remove('hidden');
+                    }
+                    showToast('Please select a valid city from the suggestions', 'error');
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
+                    this.dataset.submitting = 'false';
+                    if (cityInput) cityInput.focus();
+                    return;
+                }
+            }
+        }
     }
 
-    // Validate city is in enabled cities list
-    const enabledCities = @json($enabledCities ?? []);
-    const isValidCity = enabledCities.some(c => c.toLowerCase() === city.toLowerCase());
-    if (!isValidCity) {
-        const cityErrorMessage = document.getElementById('edit-city-error-message');
-        if (cityErrorMessage) {
-            cityErrorMessage.classList.remove('hidden');
+    // Client-side validation - province only if enabled
+    if (enableProvinceField) {
+        if (provinceFieldRequired && (!province || province === '')) {
+            showToast('Please enter a province', 'error');
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
+            this.dataset.submitting = 'false';
+            if (provinceInput) provinceInput.focus();
+            return;
         }
-        showToast('Please select a valid city from the suggestions', 'error');
-        submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
-        this.dataset.submitting = 'false';
-        if (cityInput) cityInput.focus();
-        return;
+
+        // Validate province is in enabled provinces list (only if province is provided)
+        if (province) {
+            const enabledProvinces = @json($enabledProvinces ?? []);
+            if (enabledProvinces.length > 0) {
+                const isValidProvince = enabledProvinces.some(p => p.toLowerCase() === province.toLowerCase());
+                if (!isValidProvince) {
+                    const provinceErrorMessage = document.getElementById('edit-province-error-message');
+                    if (provinceErrorMessage) {
+                        provinceErrorMessage.classList.remove('hidden');
+                    }
+                    showToast('Please select a valid province from the suggestions', 'error');
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = originalButtonText;
+                    this.dataset.submitting = 'false';
+                    if (provinceInput) provinceInput.focus();
+                    return;
+                }
+            }
+        }
     }
 
     if (!location || location === '') {
@@ -1786,8 +1933,13 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
         formData.append('item_type', itemType.value);
     }
 
-    // Add required fields - they're already validated above
-    formData.append('city', city);
+    // Add fields - only include city/province if enabled
+    if (enableCityField && city) {
+        formData.append('city', city);
+    }
+    if (enableProvinceField && province) {
+        formData.append('province', province);
+    }
     formData.append('location', location);
     formData.append('description', description);
 

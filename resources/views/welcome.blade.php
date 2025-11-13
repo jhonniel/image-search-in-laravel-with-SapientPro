@@ -493,12 +493,36 @@
 
                     <!-- Social Media Icons -->
                     <div class="flex space-x-5 mb-8">
-                        <a href="#" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
+                        @if(!empty($socialLinks['facebook']))
+                        <a href="{{ $socialLinks['facebook'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
                             <i class="fab fa-facebook-f"></i>
                         </a>
-                        <a href="#" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
+                        @endif
+                        @if(!empty($socialLinks['instagram']))
+                        <a href="{{ $socialLinks['instagram'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
                             <i class="fab fa-instagram"></i>
                         </a>
+                        @endif
+                        @if(!empty($socialLinks['twitter']))
+                        <a href="{{ $socialLinks['twitter'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        @endif
+                        @if(!empty($socialLinks['linkedin']))
+                        <a href="{{ $socialLinks['linkedin'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                        @endif
+                        @if(!empty($socialLinks['youtube']))
+                        <a href="{{ $socialLinks['youtube'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
+                            <i class="fab fa-youtube"></i>
+                        </a>
+                        @endif
+                        @if(!empty($socialLinks['tiktok']))
+                        <a href="{{ $socialLinks['tiktok'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
+                            <i class="fab fa-tiktok"></i>
+                        </a>
+                        @endif
                     </div>
 
                     <!-- Contact Information -->

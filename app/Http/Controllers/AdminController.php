@@ -1053,6 +1053,14 @@ class AdminController extends Controller
         Setting::set('enable_city_field', $request->has('enable_city_field'), 'boolean', 'Enable city field in forms');
         Setting::set('city_field_required', $request->has('city_field_required'), 'boolean', 'Make city field required');
 
+        // Save social media links
+        Setting::set('social_facebook', $request->input('social_facebook', ''), 'string', 'Facebook page URL');
+        Setting::set('social_instagram', $request->input('social_instagram', ''), 'string', 'Instagram page URL');
+        Setting::set('social_twitter', $request->input('social_twitter', ''), 'string', 'Twitter/X page URL');
+        Setting::set('social_linkedin', $request->input('social_linkedin', ''), 'string', 'LinkedIn page URL');
+        Setting::set('social_youtube', $request->input('social_youtube', ''), 'string', 'YouTube channel URL');
+        Setting::set('social_tiktok', $request->input('social_tiktok', ''), 'string', 'TikTok page URL');
+
         // Clear config cache to apply new settings
         \Artisan::call('config:clear');
 

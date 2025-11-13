@@ -95,6 +95,88 @@
                         </div>
                     </div>
 
+                    <!-- Social Media Settings -->
+                    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-5 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fab fa-facebook-f text-white"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">Social Media Links</h2>
+                                    <p class="text-sm text-gray-600">Manage social media links displayed in the footer</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6 space-y-5">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fab fa-facebook-f text-blue-600 mr-2"></i>Facebook URL
+                                </label>
+                                <input type="url" name="social_facebook" 
+                                       value="{{ \App\Models\Setting::get('social_facebook', '') }}"
+                                       placeholder="https://facebook.com/yourpage"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                <p class="text-xs text-gray-500 mt-1">Leave empty to hide this social media icon</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fab fa-instagram text-pink-600 mr-2"></i>Instagram URL
+                                </label>
+                                <input type="url" name="social_instagram" 
+                                       value="{{ \App\Models\Setting::get('social_instagram', '') }}"
+                                       placeholder="https://instagram.com/yourpage"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                <p class="text-xs text-gray-500 mt-1">Leave empty to hide this social media icon</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fab fa-twitter text-blue-400 mr-2"></i>Twitter/X URL
+                                </label>
+                                <input type="url" name="social_twitter" 
+                                       value="{{ \App\Models\Setting::get('social_twitter', '') }}"
+                                       placeholder="https://twitter.com/yourpage"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                <p class="text-xs text-gray-500 mt-1">Leave empty to hide this social media icon</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fab fa-linkedin text-blue-700 mr-2"></i>LinkedIn URL
+                                </label>
+                                <input type="url" name="social_linkedin" 
+                                       value="{{ \App\Models\Setting::get('social_linkedin', '') }}"
+                                       placeholder="https://linkedin.com/company/yourpage"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                <p class="text-xs text-gray-500 mt-1">Leave empty to hide this social media icon</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fab fa-youtube text-red-600 mr-2"></i>YouTube URL
+                                </label>
+                                <input type="url" name="social_youtube" 
+                                       value="{{ \App\Models\Setting::get('social_youtube', '') }}"
+                                       placeholder="https://youtube.com/@yourchannel"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                <p class="text-xs text-gray-500 mt-1">Leave empty to hide this social media icon</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    <i class="fab fa-tiktok text-gray-900 mr-2"></i>TikTok URL
+                                </label>
+                                <input type="url" name="social_tiktok" 
+                                       value="{{ \App\Models\Setting::get('social_tiktok', '') }}"
+                                       placeholder="https://tiktok.com/@yourpage"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                <p class="text-xs text-gray-500 mt-1">Leave empty to hide this social media icon</p>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Notification Settings -->
                     <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                         <div class="px-6 py-5 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-gray-200">

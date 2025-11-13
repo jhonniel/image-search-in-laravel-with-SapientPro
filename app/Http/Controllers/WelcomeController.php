@@ -87,6 +87,16 @@ class WelcomeController extends Controller
         $showSponsors = \App\Models\Setting::get('show_sponsors_carousel', false);
         $sponsors = $showSponsors ? \App\Models\Sponsor::getActive() : collect([]);
         
+        // Get social media links
+        $socialLinks = [
+            'facebook' => \App\Models\Setting::get('social_facebook', ''),
+            'instagram' => \App\Models\Setting::get('social_instagram', ''),
+            'twitter' => \App\Models\Setting::get('social_twitter', ''),
+            'linkedin' => \App\Models\Setting::get('social_linkedin', ''),
+            'youtube' => \App\Models\Setting::get('social_youtube', ''),
+            'tiktok' => \App\Models\Setting::get('social_tiktok', ''),
+        ];
+        
         return view('welcome', compact(
             'freshReports',
             'totalLostReports',
@@ -97,7 +107,8 @@ class WelcomeController extends Controller
             'sponsors',
             'searchQuery',
             'statusFilter',
-            'isSearch'
+            'isSearch',
+            'socialLinks'
         ));
     }
     
