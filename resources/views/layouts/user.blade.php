@@ -392,6 +392,23 @@
             }, 30000);
         });
     </script>
-    @vite(['resources/js/app.js'])
+    @php
+        $manifestExists = false;
+        try {
+            $manifestPath = public_path('build/manifest.json');
+            $manifestExists = file_exists($manifestPath) && is_readable($manifestPath);
+        } catch (\Exception $e) {
+            // Silently fail - manifest doesn't exist
+            $manifestExists = false;
+        }
+    @endphp
+    @if($manifestExists)
+        @vite(['resources/js/app.js'])
+    @else
+        {{-- Vite manifest not found - this is okay for development --}}
+        <script>
+            console.warn('Vite manifest not found. Real-time messaging features may not work. Run "npm run build" or "npm run dev" to enable.');
+        </script>
+    @endif
 </body>
 </html>
