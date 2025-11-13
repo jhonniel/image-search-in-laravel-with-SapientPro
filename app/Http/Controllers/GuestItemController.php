@@ -174,21 +174,29 @@ class GuestItemController extends Controller
                 $path = $image->storeAs('user-items', $filename, 'public');
 
                 // Create image metadata record
-                $metadata = ImageMetadata::create([
+                $metadataData = [
                     'filename' => $filename,
                     'file_path' => Storage::url($path),
                     'original_name' => $image->getClientOriginalName(),
                     'uploader_email' => $user->email,
                     'description' => $validated['description'],
                     'location' => $validated['location'] ?? null,
-                    'province' => $validated['province'] ?? null,
-                    'city' => $validated['city'] ?? null,
                     'tags' => !empty($validated['tags']) ? array_map('trim', explode(',', $validated['tags'])) : [],
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
                     'status' => $validated['item_type'],
                     'upload_id' => $uploadId,
-                ]);
+                ];
+                
+                // Only include province/city if they're provided in validated data
+                if (isset($validated['province']) && $validated['province'] !== null && $validated['province'] !== '') {
+                    $metadataData['province'] = $validated['province'];
+                }
+                if (isset($validated['city']) && $validated['city'] !== null && $validated['city'] !== '') {
+                    $metadataData['city'] = $validated['city'];
+                }
+                
+                $metadata = ImageMetadata::create($metadataData);
 
                 $itemsSaved++;
 

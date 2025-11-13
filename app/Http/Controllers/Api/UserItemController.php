@@ -201,21 +201,29 @@ class UserItemController extends Controller
                 $path = $image->storeAs('user-items', $filename, 'public');
 
                 // Create image metadata record
-                $imageMetadata = ImageMetadata::create([
+                $metadataData = [
                     'filename' => $filename,
                     'file_path' => Storage::url($path),
                     'original_name' => $image->getClientOriginalName(),
                     'uploader_email' => $user->email, // Use authenticated user's email
                     'description' => $request->description,
                     'location' => $request->location, // Save location field
-                    'province' => $request->province, // Save province field
-                    'city' => $request->city, // Save city field
                     'tags' => $request->tags ? explode(',', $request->tags) : [],
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
                     'status' => $request->item_type, // 'lost' or 'found'
                     'upload_id' => $uploadId,
-                ]);
+                ];
+                
+                // Only include province/city if they're provided in the request
+                if ($request->has('province') && $request->province !== null && $request->province !== '') {
+                    $metadataData['province'] = $request->province;
+                }
+                if ($request->has('city') && $request->city !== null && $request->city !== '') {
+                    $metadataData['city'] = $request->city;
+                }
+                
+                $imageMetadata = ImageMetadata::create($metadataData);
 
                 $uploadedImages[] = [
                     'filename' => $filename,
@@ -612,21 +620,34 @@ class UserItemController extends Controller
                     $path = $image->storeAs('user-items', $filename, 'public');
 
                     // Create new image metadata record
-                    $newImageMetadata = ImageMetadata::create([
+                    $newMetadataData = [
                         'filename' => $filename,
                         'file_path' => Storage::url($path),
                         'original_name' => $image->getClientOriginalName(),
                         'uploader_email' => $user->email,
                         'description' => $updateData['description'] ?? $firstItem->description,
                         'location' => $updateData['location'] ?? $firstItem->location,
-                        'province' => $updateData['province'] ?? $firstItem->province,
-                        'city' => $updateData['city'] ?? $firstItem->city,
                         'tags' => $updateData['tags'] ?? $firstItem->tags,
                         'file_size' => $image->getSize(),
                         'mime_type' => $image->getMimeType(),
                         'status' => $updateData['status'] ?? $firstItem->status,
                         'upload_id' => $uploadId,
-                    ]);
+                    ];
+                    
+                    // Only include province/city if they exist in updateData or firstItem
+                    if (isset($updateData['province']) && $updateData['province'] !== null && $updateData['province'] !== '') {
+                        $newMetadataData['province'] = $updateData['province'];
+                    } elseif ($firstItem->province) {
+                        $newMetadataData['province'] = $firstItem->province;
+                    }
+                    
+                    if (isset($updateData['city']) && $updateData['city'] !== null && $updateData['city'] !== '') {
+                        $newMetadataData['city'] = $updateData['city'];
+                    } elseif ($firstItem->city) {
+                        $newMetadataData['city'] = $firstItem->city;
+                    }
+                    
+                    $newImageMetadata = ImageMetadata::create($newMetadataData);
                 }
             } else {
                 // If no new images and all images are being removed, check if at least one remains
@@ -678,6 +699,9 @@ class UserItemController extends Controller
             ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', $user->email)
                 ->delete(); // This will perform soft delete automatically
+
+            // Broadcast item deleted event for real-time updates in chat
+            broadcast(new \App\Events\ItemDeleted($uploadId, $user->id))->toOthers();
 
             return response()->json([
                 'success' => true,
@@ -1048,6 +1072,9 @@ class UserItemController extends Controller
                     'claim_verification_status' => 'pending'
                     // Note: is_claimed remains false until owner verifies
                 ]);
+
+            // Broadcast item claimed event for real-time updates in chat
+            broadcast(new \App\Events\ItemClaimed($uploadId, $user->id, $itemOwner->id, 'pending'))->toOthers();
 
             // Send notification message to the item owner
             try {

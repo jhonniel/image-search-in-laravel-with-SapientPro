@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Models\Message;
 use App\Models\User;
+use App\Events\MessageSent as MessageSentEvent;
 
 class ChatController extends Controller
 {
@@ -43,6 +44,8 @@ class ChatController extends Controller
                     ];
                 })->toArray();
                 
+                $claimer = $firstItem->claimed_by_email ? User::where('email', $firstItem->claimed_by_email)->first() : null;
+                
                 $itemContextData = [
                     'upload_id' => $firstItem->upload_id,
                     'uploadId' => $firstItem->upload_id,
@@ -53,7 +56,9 @@ class ChatController extends Controller
                     'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
                     'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
                     'uploader_email' => $firstItem->uploader_email,
-                    'images' => $images
+                    'images' => $images,
+                    'claim_status' => $firstItem->claim_verification_status,
+                    'claimed_by_id' => $claimer ? $claimer->id : null,
                 ];
             }
         }
@@ -131,7 +136,9 @@ class ChatController extends Controller
                     'uploader_email' => $firstItem->uploader_email,
                     'uploader_verified' => $uploader ? ($uploader->is_verified ?? false) : false,
                     'created_at' => $firstItem->created_at->toIso8601String(),
-                    'images' => $images
+                    'images' => $images,
+                    'claim_status' => $firstItem->claim_verification_status,
+                    'claimed_by_id' => $firstItem->claimed_by_email ? (User::where('email', $firstItem->claimed_by_email)->first()?->id ?? null) : null,
                 ];
             }
         }
@@ -177,9 +184,35 @@ class ChatController extends Controller
 
             $message->load(['sender', 'receiver']);
 
+            // Broadcast the message event for real-time updates (to others, not to sender)
+            broadcast(new MessageSentEvent($message))->toOthers();
+
+            // Return message with proper serialization
             return response()->json([
                 'success' => true,
-                'message' => $message,
+                'message' => [
+                    'id' => $message->id,
+                    'sender_id' => $message->sender_id,
+                    'receiver_id' => $message->receiver_id,
+                    'message' => $message->message,
+                    'item_upload_id' => $message->item_upload_id,
+                    'item_context' => $message->item_context,
+                    'is_read' => $message->is_read,
+                    'read_at' => $message->read_at ? $message->read_at->toIso8601String() : null,
+                    'created_at' => $message->created_at->toIso8601String(),
+                    'sender' => [
+                        'id' => $message->sender->id,
+                        'name' => $message->sender->name,
+                        'email' => $message->sender->email,
+                        'profile_picture' => $message->sender->profile_picture,
+                    ],
+                    'receiver' => [
+                        'id' => $message->receiver->id,
+                        'name' => $message->receiver->name,
+                        'email' => $message->receiver->email,
+                        'profile_picture' => $message->receiver->profile_picture,
+                    ],
+                ],
                 'message_text' => 'Message sent successfully'
             ]);
 

@@ -216,11 +216,11 @@ function selectUser(userId) {
     // Load messages
     loadMessages(userId);
 
-    // Start polling for new messages
+    // Stop polling since we're using WebSocket now
     if (messageInterval) {
         clearInterval(messageInterval);
+        messageInterval = null;
     }
-    messageInterval = setInterval(() => loadMessages(userId), 3000);
 }
 
 // Load messages for selected user
@@ -300,20 +300,42 @@ function displayMessages(messages) {
 
 // Create message element
 function createMessageElement(message) {
-    const isOwnMessage = message.sender_id == {{ Auth::id() }};
+    const currentUserId = {{ Auth::id() }};
+    const isOwnMessage = parseInt(message.sender_id) === parseInt(currentUserId);
     const messageDiv = document.createElement('div');
-    messageDiv.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`;
+    messageDiv.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`;
+    messageDiv.setAttribute('data-message-id', message.id);
+
+    // Format created_at date
+    let timeString = 'Just now';
+    if (message.created_at) {
+        try {
+            const date = new Date(message.created_at);
+            if (!isNaN(date.getTime())) {
+                timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            }
+        } catch (e) {
+            console.error('Error parsing date:', e);
+        }
+    }
 
     messageDiv.innerHTML = `
         <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isOwnMessage ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-900'}">
-            <p class="text-sm">${message.message}</p>
+            <p class="text-sm">${escapeHtml(message.message)}</p>
             <p class="text-xs mt-1 ${isOwnMessage ? 'text-purple-100' : 'text-gray-500'}">
-                ${new Date(message.created_at).toLocaleTimeString()}
+                ${timeString}
             </p>
         </div>
     `;
 
     return messageDiv;
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 // Send message
@@ -343,9 +365,39 @@ document.getElementById('message-form').addEventListener('submit', async functio
         const data = await response.json();
 
         if (data.success) {
+            // Clear input immediately for better UX
+            const messageText = messageInput.value.trim();
             messageInput.value = '';
-            // Reload messages to show the new message
-            loadMessages(currentUserId);
+            
+            // Add message to UI immediately for sender (optimistic update)
+            if (data.message) {
+                // Format the message to match expected structure
+                let created_at = data.message.created_at;
+                if (!created_at) {
+                    created_at = new Date().toISOString();
+                } else if (typeof created_at === 'object' && created_at.date) {
+                    created_at = created_at.date;
+                }
+                
+                const formattedMessage = {
+                    id: data.message.id,
+                    sender_id: data.message.sender_id,
+                    receiver_id: data.message.receiver_id,
+                    message: data.message.message || messageText,
+                    item_upload_id: data.message.item_upload_id,
+                    item_context: data.message.item_context,
+                    is_read: data.message.is_read || false,
+                    read_at: data.message.read_at,
+                    created_at: created_at,
+                    sender: data.message.sender || { id: data.message.sender_id },
+                    receiver: data.message.receiver || { id: data.message.receiver_id }
+                };
+                
+                console.log('Adding sent message to UI:', formattedMessage);
+                addMessageToUI(formattedMessage);
+            } else {
+                console.error('No message data in response:', data);
+            }
         } else {
             showNotification(data.message || 'Failed to send message', 'error');
         }
@@ -413,17 +465,121 @@ function showNotification(message, type = 'info') {
     }, 5000);
 }
 
+// Add message to UI without reloading
+function addMessageToUI(message) {
+    if (!message || !message.id) {
+        console.error('Invalid message data:', message);
+        return;
+    }
+    
+    const messagesList = document.getElementById('messages-list');
+    if (!messagesList) {
+        console.error('Messages list element not found');
+        return;
+    }
+    
+    // Check if message already exists to prevent duplicates
+    const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
+    if (existingMessage) {
+        console.log('Message already exists, skipping:', message.id);
+        return;
+    }
+    
+    const messageElement = createMessageElement(message);
+    messagesList.appendChild(messageElement);
+    
+    // Scroll to bottom smoothly
+    const messagesContainer = document.getElementById('messages-container');
+    if (messagesContainer) {
+        messagesContainer.scrollTo({
+            top: messagesContainer.scrollHeight,
+            behavior: 'smooth'
+        });
+    }
+}
+
+// Mark message as read
+async function markMessageAsRead(messageId) {
+    try {
+        await fetch(`/user/chat/messages/${currentUserId}/read`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+    } catch (error) {
+        console.error('Error marking message as read:', error);
+    }
+}
+
+// Update unread count in sidebar
+function updateUnreadCount() {
+    // This will be called when a new message arrives
+    // You can implement a fetch to get the latest unread count
+    fetch('/user/chat/unread-count')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Update unread count display if needed
+                console.log('Unread count:', data.unread_count);
+            }
+        })
+        .catch(error => console.error('Error fetching unread count:', error));
+}
+
+// Update conversation list when new message arrives
+function updateConversationList(message) {
+    // Find the conversation in the sidebar and update it
+    const otherUserId = message.sender_id == {{ Auth::id() }} ? message.receiver_id : message.sender_id;
+    const userItem = document.querySelector(`[data-user-id="${otherUserId}"]`);
+    if (userItem) {
+        // Update last message preview
+        const lastMessageElement = userItem.querySelector('p.text-gray-500:not(.text-xs)');
+        if (lastMessageElement) {
+            lastMessageElement.textContent = message.message;
+        }
+        
+        // Update timestamp
+        const timeElement = userItem.querySelector('p.text-xs.text-gray-400');
+        if (timeElement) {
+            const messageTime = new Date(message.created_at);
+            timeElement.textContent = messageTime.toLocaleTimeString();
+        }
+        
+        // Update unread count if message is from other user
+        if (message.sender_id != {{ Auth::id() }}) {
+            const unreadBadge = userItem.querySelector('.inline-flex.items-center.px-2');
+            if (unreadBadge) {
+                const currentCount = parseInt(unreadBadge.textContent) || 0;
+                unreadBadge.textContent = currentCount + 1;
+                unreadBadge.classList.remove('hidden');
+            } else {
+                // Create unread badge if it doesn't exist
+                const badge = document.createElement('span');
+                badge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800';
+                badge.textContent = '1';
+                userItem.querySelector('.flex.items-center.justify-between').appendChild(badge);
+            }
+        }
+    }
+}
+
 // Clean up interval when page is unloaded
 window.addEventListener('beforeunload', function() {
     if (messageInterval) {
         clearInterval(messageInterval);
+    }
+    
+    // Disconnect Echo
+    if (typeof window.Echo !== 'undefined') {
+        window.Echo.disconnect();
     }
 });
 
 // Item Context Functions
 let itemContext = null;
 
-// Check for item context on page load
+// Check for item context on page load and initialize WebSocket
 document.addEventListener('DOMContentLoaded', function() {
     // Check URL parameters
     const urlParams = new URLSearchParams(window.location.search);
@@ -454,6 +610,88 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => showItemContext(), 100);
         }
     }
+
+    // Initialize Laravel Echo for real-time messaging
+    if (typeof window.Echo !== 'undefined') {
+        const currentUser = @json(Auth::user());
+        
+        console.log('Initializing Laravel Echo for user:', currentUser.id);
+        
+        // Listen for new messages on the current user's private channel
+        const channel = window.Echo.private(`user.${currentUser.id}`);
+        
+        channel.listen('.message.sent', (e) => {
+            console.log('Received message event:', e);
+            const message = e;
+            
+            // Only add message if it's for the currently open conversation
+            if (currentUserId && (message.sender_id == currentUserId || message.receiver_id == currentUserId)) {
+                // Check if message already exists in UI (prevent duplicates)
+                const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
+                if (!existingMessage) {
+                    console.log('Adding message to UI:', message);
+                    addMessageToUI(message);
+                    
+                    // Mark as read if it's the current conversation and user is the receiver
+                    if (message.receiver_id == currentUser.id && message.sender_id == currentUserId) {
+                        markMessageAsRead(message.id);
+                    }
+                } else {
+                    console.log('Message already exists in UI, skipping:', message.id);
+                }
+            } else {
+                // Update unread count in sidebar if message is not for current conversation
+                console.log('Message not for current conversation, updating unread count');
+                updateUnreadCount();
+            }
+            
+            // Update conversation list
+            updateConversationList(message);
+        });
+        
+        // Log connection status
+        channel.subscribed(() => {
+            console.log('Successfully subscribed to private channel: user.' + currentUser.id);
+        });
+        
+        channel.error((error) => {
+            console.error('Echo subscription error:', error);
+        });
+
+        // Listen for item claim events
+        channel.listen('.item.claimed', (e) => {
+            console.log('Item claimed event received:', e);
+            if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
+                // Update item context with claim status
+                itemContext.claim_status = e.claim_status;
+                itemContext.claimed_by_id = e.claimer_id;
+                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                showItemContext(); // Refresh display
+            }
+        });
+
+        // Listen for item claim verified events
+        channel.listen('.item.claim.verified', (e) => {
+            console.log('Item claim verified event received:', e);
+            if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
+                // Hide item context since item is now verified/claimed
+                hideItemContext();
+                showNotification('This item has been claimed and verified. Item context removed from chat.', 'info');
+            }
+        });
+
+        // Listen for item deleted events
+        channel.listen('.item.deleted', (e) => {
+            console.log('Item deleted event received:', e);
+            if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
+                // Hide item context since item is deleted
+                hideItemContext();
+                showNotification('This item has been deleted. Item context removed from chat.', 'info');
+            }
+        });
+    } else {
+        console.error('Laravel Echo is not available. Real-time messaging will not work. Make sure to include the app.js script and that Pusher credentials are configured.');
+    }
 });
 
 // Show item context in chat
@@ -473,6 +711,21 @@ function showItemContext() {
     const firstImage = itemContext.images && itemContext.images.length > 0 ? itemContext.images[0] : null;
     const itemType = itemContext.item_type || itemContext.itemType || 'item';
     const uploadId = itemContext.upload_id || itemContext.uploadId;
+    const claimStatus = itemContext.claim_status || itemContext.claimStatus;
+    const currentUserId = {{ Auth::id() }};
+    const claimedById = itemContext.claimed_by_id || itemContext.claimedById;
+    
+    // Determine if item is claimed and by whom
+    let claimBadge = '';
+    if (claimStatus === 'pending') {
+        if (claimedById == currentUserId) {
+            claimBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">⏳ Claim Pending (You claimed this)</span>';
+        } else {
+            claimBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">⏳ Claim Pending</span>';
+        }
+    } else if (claimStatus === 'verified') {
+        claimBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">✅ Claim Verified</span>';
+    }
     
     contextContent.innerHTML = `
         <div class="flex items-start space-x-4">
@@ -493,6 +746,7 @@ function showItemContext() {
                         <span class="px-3 py-1 rounded-full text-xs font-semibold ${itemType === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
                             ${itemType === 'lost' ? '📌 Lost Item' : '📌 Found Item'}
                         </span>
+                        ${claimBadge}
                         <span class="text-xs text-gray-600">
                             Posted by ${itemContext.uploader_name || 'Unknown'}
                         </span>

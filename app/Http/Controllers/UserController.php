@@ -172,6 +172,9 @@ class UserController extends Controller
             $firstItem = $items->first();
             $claimerEmail = $firstItem->claimed_by_email;
 
+            // Get claimer before updating
+            $claimer = User::where('email', $claimerEmail)->first();
+
             // Now mark as claimed AND verified (this is when it becomes officially claimed)
             ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', $user->email)
@@ -180,6 +183,11 @@ class UserController extends Controller
                     'claim_verification_status' => 'verified',
                     'claim_verified_at' => now()
                 ]);
+
+            // Broadcast item claim verified event for real-time updates in chat
+            if ($claimer) {
+                broadcast(new \App\Events\ItemClaimVerified($uploadId, $claimer->id, $user->id))->toOthers();
+            }
 
             // Check if user has reached 50 verified returns and auto-verify them
             $verifiedReturns = ImageMetadata::where('uploader_email', $user->email)
@@ -201,8 +209,7 @@ class UserController extends Controller
                 ]);
             }
 
-            // Send confirmation message to claimer
-            $claimer = User::where('email', $claimerEmail)->first();
+            // Send confirmation message to claimer (claimer already retrieved above)
             if ($claimer) {
                 try {
                     \App\Models\Message::create([

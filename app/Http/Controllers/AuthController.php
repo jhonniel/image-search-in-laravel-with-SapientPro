@@ -310,21 +310,29 @@ class AuthController extends Controller
                     }
                     
                     // Create metadata record with explicit user email
-                    $metadata = ImageMetadata::create([
+                    $metadataData = [
                         'filename' => $filename,
                         'file_path' => Storage::url($targetPath),
                         'original_name' => $originalName,
                         'uploader_email' => $user->email, // Explicitly set to user's email
                         'description' => $pending['description'] ?? '',
                         'location' => $pending['location'] ?? null, // Save location field
-                        'province' => $pending['province'] ?? null,
-                        'city' => $pending['city'] ?? null,
                         'tags' => !empty($pending['tags']) ? array_map('trim', explode(',', $pending['tags'])) : [],
                         'file_size' => $fileSize ?? 0,
                         'mime_type' => $mimeType,
                         'status' => $pending['item_type'] ?? 'lost',
                         'upload_id' => $uploadId,
-                    ]);
+                    ];
+                    
+                    // Only include province/city if they're provided in pending data
+                    if (isset($pending['province']) && $pending['province'] !== null && $pending['province'] !== '') {
+                        $metadataData['province'] = $pending['province'];
+                    }
+                    if (isset($pending['city']) && $pending['city'] !== null && $pending['city'] !== '') {
+                        $metadataData['city'] = $pending['city'];
+                    }
+                    
+                    $metadata = ImageMetadata::create($metadataData);
                     
                     $itemsLinked++;
                     
