@@ -246,16 +246,30 @@ async function loadMessages(userId) {
             displayMessages(data.messages);
 
             // Update item context if provided by server (this ensures both users see it)
-            if (data.item_context && !itemContext) {
-                itemContext = data.item_context;
-                // Also store in sessionStorage for persistence
-                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                showItemContext();
-            } else if (data.item_context) {
-                // Update existing context
-                itemContext = data.item_context;
-                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                showItemContext();
+            // BUT only if item is not verified
+            if (data.item_context) {
+                // Check if item is verified - if so, hide context
+                if (data.item_context.claim_status === 'verified') {
+                    // Item is verified, hide context
+                    hideItemContext();
+                } else {
+                    // Item is not verified, show/update context
+                    if (!itemContext) {
+                        itemContext = data.item_context;
+                        sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                        showItemContext();
+                    } else {
+                        // Update existing context
+                        itemContext = data.item_context;
+                        sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
+                        showItemContext();
+                    }
+                }
+            } else {
+                // No item context from server - check if current context is for a verified item
+                if (itemContext && (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified')) {
+                    hideItemContext();
+                }
             }
         }
     } catch (error) {
@@ -605,9 +619,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (userId) {
         selectUser(parseInt(userId));
-        // Show item context if available
+        // Show item context if available and not verified
         if (itemContext) {
-            setTimeout(() => showItemContext(), 100);
+            // Check if item is verified - if so, don't show context
+            if (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified') {
+                hideItemContext();
+            } else {
+                setTimeout(() => showItemContext(), 100);
+            }
         }
     }
 
