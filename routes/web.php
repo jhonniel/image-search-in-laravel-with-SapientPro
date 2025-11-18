@@ -8,6 +8,9 @@ Route::get('/', [\App\Http\Controllers\WelcomeController::class, 'index'])->name
 Route::get('/search', [\App\Http\Controllers\WelcomeController::class, 'index'])->name('search');
 Route::get('/api/search', [\App\Http\Controllers\WelcomeController::class, 'searchApi'])->name('api.search');
 
+// Public Contributors Page
+Route::get('/contributors', [\App\Http\Controllers\ContributorController::class, 'index'])->name('contributors.public');
+
 // Public item viewing (no auth required)
 Route::get('/item/{uploadId}', [\App\Http\Controllers\PublicItemController::class, 'show'])->name('public.item.show');
 
@@ -35,19 +38,19 @@ Route::middleware(['auth'])->group(function () {
         $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
         sort($enabledCities);
-        
+
         // Get enabled provinces from settings
         $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
         $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
         sort($enabledProvinces);
-        
+
         // Get field visibility and requirement settings
         $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
         $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
         $enableCityField = \App\Models\Setting::get('enable_city_field', true);
         $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
-        
-        return view('user.reported-items', compact('enabledCities', 'enabledProvinces', 
+
+        return view('user.reported-items', compact('enabledCities', 'enabledProvinces',
             'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'));
     })->name('reported-items');
 
@@ -90,7 +93,15 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/sponsors/{id}/restore', [\App\Http\Controllers\Admin\SponsorController::class, 'restore'])->name('sponsors.restore');
         Route::delete('/sponsors/{id}/force', [\App\Http\Controllers\Admin\SponsorController::class, 'forceDelete'])->name('sponsors.force-delete');
         Route::post('/sponsors/toggle-show', [\App\Http\Controllers\Admin\SponsorController::class, 'toggleShow'])->name('sponsors.toggle-show');
-        
+
+        // Contributors Management (Admin)
+        Route::get('/admin/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'index'])->name('contributors.index');
+        Route::post('/admin/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'store'])->name('contributors.store');
+        Route::put('/admin/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'update'])->name('contributors.update');
+        Route::delete('/admin/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'destroy'])->name('contributors.destroy');
+        Route::post('/admin/contributors/{id}/restore', [\App\Http\Controllers\Admin\ContributorController::class, 'restore'])->name('contributors.restore');
+        Route::delete('/admin/contributors/{id}/force', [\App\Http\Controllers\Admin\ContributorController::class, 'forceDelete'])->name('contributors.force-delete');
+
         // Rewards Management
         Route::get('/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'index'])->name('rewards.index');
         Route::get('/rewards/create', [\App\Http\Controllers\Admin\RewardController::class, 'create'])->name('rewards.create');

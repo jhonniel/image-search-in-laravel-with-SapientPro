@@ -219,10 +219,30 @@ class AdminController extends Controller
                 'uploader_email' => $firstItem->uploader_email,
                 'created_at' => $firstItem->created_at,
                 'images' => $itemGroup->map(function ($item) {
+                    // Handle file path - ensure it's a valid URL
+                    $filePath = $item->file_path;
+                    
+                    // Normalize the path - ensure it starts with /storage/
+                    if (empty($filePath)) {
+                        $imagePath = '';
+                    } elseif (str_starts_with($filePath, '/storage/')) {
+                        // Already in correct format, use as is
+                        $imagePath = $filePath;
+                    } elseif (str_starts_with($filePath, 'storage/')) {
+                        // Missing leading slash, add it
+                        $imagePath = '/' . $filePath;
+                    } elseif (str_starts_with($filePath, 'http')) {
+                        // Full URL, use as is
+                        $imagePath = $filePath;
+                    } else {
+                        // Relative path, use Storage::url to generate proper path
+                        $imagePath = \Illuminate\Support\Facades\Storage::url($filePath);
+                    }
+                    
                     return [
                         'filename' => $item->filename,
                         'original_name' => $item->original_name,
-                        'path' => $item->file_path,
+                        'path' => $imagePath,
                         'file_size' => $item->file_size,
                         'mime_type' => $item->mime_type,
                     ];
@@ -558,15 +578,29 @@ class AdminController extends Controller
                 'claimed_at' => $firstItem->claimed_at,
                 'created_at' => $firstItem->created_at,
                 'images' => $itemGroup->map(function ($item) {
-                    // Fix file path - remove /storage/ prefix if it exists
+                    // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
-                    if (str_starts_with($filePath, '/storage/')) {
-                        $filePath = substr($filePath, 9); // Remove '/storage/' prefix
+                    
+                    // Normalize the path - ensure it starts with /storage/
+                    if (empty($filePath)) {
+                        $imagePath = '';
+                    } elseif (str_starts_with($filePath, '/storage/')) {
+                        // Already in correct format, use as is
+                        $imagePath = $filePath;
+                    } elseif (str_starts_with($filePath, 'storage/')) {
+                        // Missing leading slash, add it
+                        $imagePath = '/' . $filePath;
+                    } elseif (str_starts_with($filePath, 'http')) {
+                        // Full URL, use as is
+                        $imagePath = $filePath;
+                    } else {
+                        // Relative path, use Storage::url to generate proper path
+                        $imagePath = \Illuminate\Support\Facades\Storage::url($filePath);
                     }
 
                     return [
                         'filename' => $item->filename,
-                        'path' => Storage::url($filePath),
+                        'path' => $imagePath,
                         'original_name' => $item->original_name,
                         'size' => $item->file_size,
                     ];

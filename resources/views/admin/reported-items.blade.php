@@ -141,19 +141,78 @@
                 <div class="relative">
                     <div class="carousel-container overflow-hidden rounded-lg">
                         <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-{{ $item['upload_id'] }}">
-                            @foreach($item['images'] as $index => $image)
+                            @forelse($item['images'] as $index => $image)
                             <div class="carousel-slide flex-shrink-0 w-full">
                                 <div class="relative group">
-                                    <img src="{{ $image['path'] }}" alt="{{ $image['original_name'] }}" class="w-full h-48 object-cover rounded-lg border border-gray-200">
-                                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                                        <button onclick="viewImage('{{ $image['path'] }}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200">
+                                    @php
+                                        $imgPath = $image['path'] ?? $image['file_path'] ?? '';
+                                        // Use path directly if it starts with /storage/ or http, otherwise use asset()
+                                        if (empty($imgPath)) {
+                                            $imgSrc = '';
+                                        } elseif (str_starts_with($imgPath, 'http')) {
+                                            $imgSrc = $imgPath;
+                                        } elseif (str_starts_with($imgPath, '/storage/')) {
+                                            // Path already correct, use directly
+                                            $imgSrc = $imgPath;
+                                        } elseif (str_starts_with($imgPath, 'storage/')) {
+                                            // Missing leading slash
+                                            $imgSrc = '/' . $imgPath;
+                                        } else {
+                                            // Use asset() for relative paths
+                                            $imgSrc = asset($imgPath);
+                                        }
+                                    @endphp
+                                    <img src="{{ $imgSrc }}" 
+                                         alt="{{ $image['original_name'] ?? 'Item image' }}" 
+                                         class="w-full h-48 object-cover rounded-lg border border-gray-200"
+                                         style="background-color: #f3f4f6; min-height: 192px; display: block; width: 100%; height: 192px; position: relative; z-index: 1;"
+                                         onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                         onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
+                                         loading="lazy">
+                                    <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
+                                        <div class="text-center text-gray-400">
+                                            <i class="fas fa-image text-4xl mb-2"></i>
+                                            <p class="text-sm">Image not available</p>
+                                        </div>
+                                    </div>
+                                    <div class="absolute inset-0 transition-all duration-200 rounded-lg flex items-center justify-center pointer-events-none" style="background-color: transparent;">
+                                        @php
+                                            $viewPath = $image['path'] ?? $image['file_path'] ?? '';
+                                            // Use path directly if it starts with /storage/ or http, otherwise use asset()
+                                            if (empty($viewPath)) {
+                                                $viewSrc = '';
+                                            } elseif (str_starts_with($viewPath, 'http')) {
+                                                $viewSrc = $viewPath;
+                                            } elseif (str_starts_with($viewPath, '/storage/')) {
+                                                // Path already correct, use directly
+                                                $viewSrc = $viewPath;
+                                            } elseif (str_starts_with($viewPath, 'storage/')) {
+                                                // Missing leading slash
+                                                $viewSrc = '/' . $viewPath;
+                                            } else {
+                                                // Use asset() for relative paths
+                                                $viewSrc = asset($viewPath);
+                                            }
+                                        @endphp
+                                        <button onclick="viewImage('{{ $viewSrc }}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 pointer-events-auto z-10 shadow-lg">
                                             <i class="fas fa-eye mr-1"></i>
                                             View
                                         </button>
                                     </div>
                                 </div>
                             </div>
-                            @endforeach
+                            @empty
+                            <div class="carousel-slide flex-shrink-0 w-full">
+                                <div class="relative group">
+                                    <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                        <div class="text-center text-gray-400">
+                                            <i class="fas fa-image text-4xl mb-2"></i>
+                                            <p class="text-sm">No image available</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            @endforelse
                         </div>
                     </div>
 

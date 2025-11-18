@@ -334,15 +334,29 @@ class UserItemController extends Controller
                        'tags' => $firstItem->tags,
                        'contact_email' => $firstItem->uploader_email,
                        'images' => $itemGroup->map(function ($item) {
-                        // Fix file path - remove /storage/ prefix if it exists
+                        // Handle file path - ensure it's a valid URL
                         $filePath = $item->file_path;
-                        if (str_starts_with($filePath, '/storage/')) {
-                            $filePath = substr($filePath, 9); // Remove '/storage/' prefix
+                        
+                        // Normalize the path - ensure it starts with /storage/
+                        if (empty($filePath)) {
+                            $imagePath = '';
+                        } elseif (str_starts_with($filePath, '/storage/')) {
+                            // Already in correct format, use as is
+                            $imagePath = $filePath;
+                        } elseif (str_starts_with($filePath, 'storage/')) {
+                            // Missing leading slash, add it
+                            $imagePath = '/' . $filePath;
+                        } elseif (str_starts_with($filePath, 'http')) {
+                            // Full URL, use as is
+                            $imagePath = $filePath;
+                        } else {
+                            // Relative path, use Storage::url to generate proper path
+                            $imagePath = Storage::url($filePath);
                         }
 
                         return [
                             'filename' => $item->filename,
-                            'path' => Storage::url($filePath),
+                            'path' => $imagePath,
                             'original_name' => $item->original_name,
                             'size' => $item->file_size,
                         ];
@@ -836,14 +850,29 @@ class UserItemController extends Controller
                     'tags' => is_array($tags) ? $tags : [],
                     'contact_email' => $firstItem->uploader_email,
                     'images' => $itemGroup->map(function ($item) {
+                        // Handle file path - ensure it's a valid URL
                         $filePath = $item->file_path;
-                        if (str_starts_with($filePath, '/storage/')) {
-                            $filePath = substr($filePath, 9);
+                        
+                        // Normalize the path - ensure it starts with /storage/
+                        if (empty($filePath)) {
+                            $imagePath = '';
+                        } elseif (str_starts_with($filePath, '/storage/')) {
+                            // Already in correct format, use as is
+                            $imagePath = $filePath;
+                        } elseif (str_starts_with($filePath, 'storage/')) {
+                            // Missing leading slash, add it
+                            $imagePath = '/' . $filePath;
+                        } elseif (str_starts_with($filePath, 'http')) {
+                            // Full URL, use as is
+                            $imagePath = $filePath;
+                        } else {
+                            // Relative path, use Storage::url to generate proper path
+                            $imagePath = Storage::url($filePath);
                         }
 
                         return [
                             'filename' => $item->filename,
-                            'path' => Storage::url($filePath),
+                            'path' => $imagePath,
                             'original_name' => $item->original_name,
                             'size' => $item->file_size,
                         ];
@@ -935,15 +964,29 @@ class UserItemController extends Controller
                         'claim_status' => $firstItem->claim_verification_status,
                         'claimed_by_email' => $firstItem->claimed_by_email, // Added for checking who claimed
                         'images' => $group->map(function ($item) {
-                            // Fix file path - remove /storage/ prefix if it exists
+                            // Handle file path - ensure it's a valid URL
                             $filePath = $item->file_path;
-                            if (str_starts_with($filePath, '/storage/')) {
-                                $filePath = substr($filePath, 9); // Remove '/storage/' prefix
+                            
+                            // Normalize the path - ensure it starts with /storage/
+                            if (empty($filePath)) {
+                                $imagePath = '';
+                            } elseif (str_starts_with($filePath, '/storage/')) {
+                                // Already in correct format, use as is
+                                $imagePath = $filePath;
+                            } elseif (str_starts_with($filePath, 'storage/')) {
+                                // Missing leading slash, add it
+                                $imagePath = '/' . $filePath;
+                            } elseif (str_starts_with($filePath, 'http')) {
+                                // Full URL, use as is
+                                $imagePath = $filePath;
+                            } else {
+                                // Relative path, use Storage::url to generate proper path
+                                $imagePath = Storage::url($filePath);
                             }
 
                             return [
-                                'path' => Storage::url($filePath),
-                                'original_name' => basename($filePath)
+                                'path' => $imagePath,
+                                'original_name' => $item->original_name ?? basename($filePath)
                             ];
                         })->toArray()
                     ];
@@ -1080,12 +1123,28 @@ class UserItemController extends Controller
             try {
                 // Get all images for this item
                 $images = $items->map(function ($item) {
+                    // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
-                    if (str_starts_with($filePath, '/storage/')) {
-                        $filePath = substr($filePath, 9);
+                    
+                    // Normalize the path - ensure it starts with /storage/
+                    if (empty($filePath)) {
+                        $imagePath = '';
+                    } elseif (str_starts_with($filePath, '/storage/')) {
+                        // Already in correct format, use as is
+                        $imagePath = $filePath;
+                    } elseif (str_starts_with($filePath, 'storage/')) {
+                        // Missing leading slash, add it
+                        $imagePath = '/' . $filePath;
+                    } elseif (str_starts_with($filePath, 'http')) {
+                        // Full URL, use as is
+                        $imagePath = $filePath;
+                    } else {
+                        // Relative path, use Storage::url to generate proper path
+                        $imagePath = \Illuminate\Support\Facades\Storage::url($filePath);
                     }
+                    
                     return [
-                        'path' => \Illuminate\Support\Facades\Storage::url($filePath),
+                        'path' => $imagePath,
                         'original_name' => $item->original_name ?? basename($filePath),
                         'filename' => $item->filename
                     ];

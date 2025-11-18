@@ -23,12 +23,18 @@
 
                 <!-- Navigation -->
                 <nav class="flex items-center space-x-2 sm:space-x-4">
-                    <a href="/login" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
-                        Login
-                    </a>
-                    <a href="/register" class="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-purple-primary text-white rounded-lg font-medium hover:bg-purple-600 transition-colors">
-                        Sign Up
-                    </a>
+                    @auth
+                        <a href="{{ route('dashboard') }}" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
+                            Dashboard
+                        </a>
+                    @else
+                        <a href="/login" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
+                            Login
+                        </a>
+                        <a href="/register" class="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-purple-primary text-white rounded-lg font-medium hover:bg-purple-600 transition-colors">
+                            Sign Up
+                        </a>
+                    @endauth
                 </nav>
             </div>
         </div>
@@ -500,6 +506,7 @@
                     <ul class="space-y-3 sm:space-y-4">
                         <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">FAQs</a></li>
                         <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Contact Us</a></li>
+                        <li><a href="/contributors" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Contributors</a></li>
                         <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Privacy Policy</a></li>
                         <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Terms & Condition</a></li>
                     </ul>

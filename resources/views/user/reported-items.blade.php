@@ -143,7 +143,7 @@
                 
                 <!-- Drag and Drop Zone -->
                 <div id="drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 cursor-pointer">
-                    <input type="file" id="item-images" name="images[]" multiple accept="image/*" class="hidden" required>
+                    <input type="file" id="item-images" name="images[]" multiple accept="image/*" class="hidden">
                     
                     <div id="drop-zone-content" class="space-y-4">
                         <div class="flex justify-center">
@@ -532,10 +532,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 const previewDiv = document.createElement('div');
                 previewDiv.className = 'relative group';
                 previewDiv.innerHTML = `
-                    <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors">
-                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
-                            <button onclick="removeImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600">
+                    <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors" style="background-color: #f3f4f6;">
+                        <img src="${e.target.result}" 
+                             alt="${file.name}" 
+                             class="w-full h-full object-cover"
+                             style="display: block; background-color: transparent; position: relative; z-index: 1; opacity: 1;"
+                             onerror="console.error('Preview image failed to load:', this.src); this.style.display='none';"
+                             onload="console.log('Preview image loaded:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';">
+                        <div class="absolute inset-0 transition-all flex items-center justify-center pointer-events-none" style="background-color: transparent;">
+                            <button onclick="removeImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600 pointer-events-auto z-10">
                                 <i class="fas fa-trash mr-1"></i>Remove
                             </button>
                         </div>
@@ -961,6 +966,24 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         return;
     }
 
+    // Validate that at least one image is selected
+    if (!files || files.length === 0) {
+        showToast('Please select at least one image to upload.', 'error');
+        // Focus the drop zone to indicate where to add images
+        const dropZone = document.getElementById('drop-zone');
+        if (dropZone) {
+            dropZone.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            dropZone.style.borderColor = '#ef4444';
+            dropZone.style.borderWidth = '3px';
+            setTimeout(() => {
+                dropZone.style.borderColor = '';
+                dropZone.style.borderWidth = '';
+            }, 2000);
+        }
+        this.dataset.submitting = 'false';
+        return;
+    }
+
     // Validate city only if field is enabled
     if (enableCityField) {
         if (cityFieldRequired && !city) {
@@ -1151,29 +1174,46 @@ async function loadItems() {
 
 function displayUserItems(items) {
     const itemsContainer = document.getElementById('user-items-list');
-    if (!itemsContainer) return;
-
-    // Store items globally for access in other functions
-    window.userItems = items;
-
-    if (items.length === 0) {
-        itemsContainer.innerHTML = `
-            <div class="text-center py-12">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-inbox text-gray-400 text-2xl"></i>
-                </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No items reported yet</h3>
-                <p class="text-gray-500 mb-4">Start by reporting a lost or found item to help others.</p>
-                <button onclick="toggleUploadForm()" class="bg-purple-primary text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors">
-                    <i class="fas fa-plus mr-2"></i>
-                    Report Your First Item
-                </button>
-            </div>
-        `;
+    if (!itemsContainer) {
+        console.error('Items container not found');
         return;
     }
 
-    itemsContainer.innerHTML = `
+    try {
+        // Store items globally for access in other functions
+        window.userItems = items;
+        
+        // Debug: Log items to check image paths
+        console.log('Displaying items:', items);
+        items.forEach(item => {
+            if (item.images && item.images.length > 0) {
+                console.log(`Item ${item.upload_id} images:`, item.images);
+                item.images.forEach((img, idx) => {
+                    console.log(`  Image ${idx}:`, img.path || img.file_path, 'Full image object:', img);
+                });
+            } else {
+                console.warn(`Item ${item.upload_id} has no images!`, item);
+            }
+        });
+
+        if (items.length === 0) {
+            itemsContainer.innerHTML = `
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-inbox text-gray-400 text-2xl"></i>
+                    </div>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">No items reported yet</h3>
+                    <p class="text-gray-500 mb-4">Start by reporting a lost or found item to help others.</p>
+                    <button onclick="toggleUploadForm()" class="bg-purple-primary text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors">
+                        <i class="fas fa-plus mr-2"></i>
+                        Report Your First Item
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
+        itemsContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             ${items.map(item => `
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
@@ -1222,23 +1262,50 @@ function displayUserItems(items) {
                         <div class="relative">
                             <div class="carousel-container overflow-hidden rounded-lg">
                                 <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-${item.upload_id}">
-                                    ${item.images.map((image, index) => `
-                                        <div class="carousel-slide flex-shrink-0 w-full">
-                                            <div class="relative group">
-                                                <img src="${image.path}" alt="${image.original_name}" class="w-full h-48 object-cover rounded-lg border border-gray-200">
-                                                <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                                                    <button onclick="viewImage('${image.path}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200">
+                                    ${item.images && item.images.length > 0 ? item.images.map((image, index) => {
+                                        const imgPath = image.path || image.file_path || '';
+                                        console.log('Rendering image:', imgPath, 'for item:', item.upload_id);
+                                        return `
+                                        <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6;">
+                                            <div class="relative group" style="background-color: #f3f4f6;">
+                                                <img src="${imgPath}" 
+                                                     alt="${image.original_name || 'Item image'}" 
+                                                     class="w-full h-48 object-cover rounded-lg border border-gray-200"
+                                                     style="background-color: #f3f4f6; min-height: 192px; display: block; width: 100%; height: 192px; position: relative; z-index: 1;"
+                                                     onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                     onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
+                                                     loading="lazy">
+                                                <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
+                                                    <div class="text-center text-gray-400">
+                                                        <i class="fas fa-image text-4xl mb-2"></i>
+                                                        <p class="text-sm">Image not available</p>
+                                                    </div>
+                                                </div>
+                                                <div class="absolute inset-0 transition-all duration-200 rounded-lg flex items-center justify-center pointer-events-none" style="background-color: transparent;">
+                                                    <button onclick="viewImage('${imgPath}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 pointer-events-auto z-10 shadow-lg">
                                                         <i class="fas fa-eye mr-1"></i>
                                                         View
                                                     </button>
                                                 </div>
                                             </div>
                                         </div>
-                                    `).join('')}
+                                    `;
+                                    }).join('') : `
+                                        <div class="carousel-slide flex-shrink-0 w-full">
+                                            <div class="relative group">
+                                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                                    <div class="text-center text-gray-400">
+                                                        <i class="fas fa-image text-4xl mb-2"></i>
+                                                        <p class="text-sm">No image available</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `}
                                 </div>
                             </div>
 
-                            ${item.images.length > 1 ? `
+                            ${item.images && item.images.length > 1 ? `
                                 <!-- Carousel Navigation -->
                                 <div class="flex items-center justify-between mt-4">
                                     <button onclick="previousSlide('${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
@@ -1286,14 +1353,18 @@ function displayUserItems(items) {
                 </div>
             `).join('')}
         </div>
-    `;
+        `;
 
-    // Initialize carousels
-    items.forEach(item => {
-        if (item.images.length > 1) {
-            initializeCarousel(item.upload_id, item.images.length);
-        }
-    });
+        // Initialize carousels
+        items.forEach(item => {
+            if (item.images && item.images.length > 1) {
+                initializeCarousel(item.upload_id, item.images.length);
+            }
+        });
+    } catch (error) {
+        console.error('Error displaying items:', error);
+        showErrorState('Error displaying items: ' + error.message);
+    }
 }
 
 function showErrorState(message) {
@@ -1718,10 +1789,15 @@ function initEditFormDragDrop() {
                 const previewDiv = document.createElement('div');
                 previewDiv.className = 'relative group';
                 previewDiv.innerHTML = `
-                    <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors">
-                        <img src="${e.target.result}" alt="${file.name}" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
-                            <button onclick="removeEditImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600">
+                    <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-purple-400 transition-colors" style="background-color: #f3f4f6;">
+                        <img src="${e.target.result}" 
+                             alt="${file.name}" 
+                             class="w-full h-full object-cover"
+                             style="display: block; background-color: transparent; position: relative; z-index: 1; opacity: 1;"
+                             onerror="console.error('Preview image failed to load:', this.src); this.style.display='none';"
+                             onload="console.log('Preview image loaded:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';">
+                        <div class="absolute inset-0 transition-all flex items-center justify-center pointer-events-none" style="background-color: transparent;">
+                            <button onclick="removeEditImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600 pointer-events-auto z-10">
                                 <i class="fas fa-trash mr-1"></i>Remove
                             </button>
                         </div>
