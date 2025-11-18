@@ -85,7 +85,7 @@ class RewardController extends Controller
             'status' => 'active',
         ]);
 
-        return redirect()->route('admin.rewards.index')
+        return redirect()->route('rewards.index')
             ->with('success', 'Reward created successfully!');
     }
 
@@ -140,7 +140,7 @@ class RewardController extends Controller
             }
         });
 
-        return redirect()->route('admin.rewards.index')
+        return redirect()->route('rewards.index')
             ->with('success', "Reward sent to {$sentCount} user(s) successfully!");
     }
 
@@ -195,7 +195,7 @@ class RewardController extends Controller
             }
         });
 
-        return redirect()->route('admin.rewards.index')
+        return redirect()->route('rewards.index')
             ->with('success', "Auto-assigned {$assignedCount} reward(s) to eligible users!");
     }
 
@@ -256,11 +256,11 @@ class RewardController extends Controller
         // Only allow deleting template rewards (not assigned to users)
         if ($reward->user_id === null) {
             $reward->delete();
-            return redirect()->route('admin.rewards.index')
+            return redirect()->route('rewards.index')
                 ->with('success', 'Reward deleted successfully!');
         }
 
-        return redirect()->route('admin.rewards.index')
+        return redirect()->route('rewards.index')
             ->with('error', 'Cannot delete rewards that have been assigned to users.');
     }
 }

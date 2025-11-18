@@ -1079,7 +1079,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         // Simulate progress (since we can't track actual upload progress with fetch)
         simulateUploadProgress();
 
-        const response = await fetch('/api/user/items/upload', {
+        const response = await fetch('/api/items/upload', {
             method: 'POST',
             body: formData,
             credentials: 'same-origin',
@@ -1119,7 +1119,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
 // Load user items
 async function loadItems() {
     try {
-        const response = await fetch('/api/user/items', {
+        const response = await fetch('/api/items', {
             method: 'GET',
             credentials: 'same-origin',
             headers: {
@@ -1322,7 +1322,7 @@ async function deleteItem(uploadId) {
     }
 
     try {
-        const response = await fetch(`/api/user/items/${uploadId}`, {
+        const response = await fetch(`/api/items/${uploadId}`, {
             method: 'DELETE',
             credentials: 'same-origin',
             headers: {
@@ -1982,7 +1982,7 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
 
     try {
         // Use POST with method spoofing since PUT might have issues with FormData
-        const response = await fetch(`/api/user/items/${uploadId}`, {
+        const response = await fetch(`/api/items/${uploadId}`, {
             method: 'POST',
             body: formData,
             credentials: 'same-origin',

@@ -19,7 +19,7 @@
     </div>
     @endif
 
-    <form method="POST" action="{{ route('admin.settings.update') }}">
+    <form method="POST" action="{{ route('settings.update') }}">
         @csrf
         
         <!-- Settings Tabs -->
@@ -96,7 +96,7 @@
                     </div>
 
                     <!-- Social Media Settings -->
-                    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden mt-8">
                         <div class="px-6 py-5 bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-gray-200">
                             <div class="flex items-center">
                                 <div class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center mr-3">
@@ -177,16 +177,20 @@
                         </div>
                     </div>
 
-                    <!-- Notification Settings -->
+                </div>
+
+                <!-- Email Tab Content -->
+                <div id="content-email" class="tab-content hidden space-y-6">
+                    <!-- Email Configuration -->
                     <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                         <div class="px-6 py-5 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-gray-200">
                             <div class="flex items-center">
                                 <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                                    <i class="fas fa-bell text-white"></i>
+                                    <i class="fas fa-envelope text-white"></i>
                                 </div>
                                 <div>
-                                    <h2 class="text-lg font-semibold text-gray-900">Notification Settings</h2>
-                                    <p class="text-sm text-gray-600">Configure email and system notifications</p>
+                                    <h2 class="text-lg font-semibold text-gray-900">Email Configuration</h2>
+                                    <p class="text-sm text-gray-600">Configure SMTP and email sending settings</p>
                                 </div>
                             </div>
                         </div>
@@ -904,7 +908,7 @@ document.addEventListener('DOMContentLoaded', function() {
         testEmailResult.classList.add('hidden');
         
         // Send AJAX request
-        fetch('{{ route("admin.settings.test-email") }}', {
+        fetch('{{ route("settings.test-email") }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -979,7 +983,7 @@ function importDatabase(input) {
     formData.append('_token', '{{ csrf_token() }}');
     
     // Send request
-    fetch('{{ route("admin.settings.import-database") }}', {
+    fetch('{{ route("settings.import-database") }}', {
         method: 'POST',
         body: formData,
         headers: {
@@ -1616,7 +1620,7 @@ function exportDatabase() {
     if (exportBtn) exportBtn.disabled = true;
     
     // Fetch database export
-    fetch('{{ route("admin.settings.export-database") }}?json=1', {
+    fetch('{{ route("settings.export-database") }}?json=1', {
         method: 'GET',
         headers: {
             'X-Requested-With': 'XMLHttpRequest',

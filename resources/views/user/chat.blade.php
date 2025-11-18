@@ -119,20 +119,22 @@
             </div>
 
             <!-- Messages Area -->
-            <div id="messages-container" class="flex-1 overflow-y-auto p-4 space-y-4 hidden">
-                <div id="messages-list" class="space-y-4">
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-gray-50 to-white hidden">
+                <div id="messages-list" class="space-y-1">
                     <!-- Messages will be loaded here -->
                 </div>
             </div>
 
             <!-- Message Input -->
-            <div id="message-input-container" class="p-4 border-t border-gray-200 hidden">
+            <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden">
                 <!-- Item Context Message -->
-                <div id="item-context-message" class="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg hidden">
+                <div id="item-context-message" class="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl shadow-sm hidden">
                     <div class="flex items-center justify-between mb-2">
-                        <h4 class="text-sm font-medium text-purple-900">Chatting about this item:</h4>
-                        <button onclick="clearItemContext()" class="text-purple-600 hover:text-purple-800">
-                            <i class="fas fa-times"></i>
+                        <h4 class="text-sm font-semibold text-purple-900 flex items-center">
+                            <i class="fas fa-info-circle mr-2"></i>Chatting about this item:
+                        </h4>
+                        <button onclick="clearItemContext()" class="text-purple-600 hover:text-purple-800 transition-colors p-1 rounded-full hover:bg-purple-100">
+                            <i class="fas fa-times text-sm"></i>
                         </button>
                     </div>
                     <div id="item-context-content" class="text-sm text-purple-700">
@@ -140,16 +142,25 @@
                     </div>
                 </div>
 
-                <form id="message-form" class="flex items-center space-x-4">
-                    <div class="flex-1">
-                        <input type="text" id="message-input" placeholder="Type a message..."
-                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                               maxlength="1000">
+                <form id="message-form" class="flex items-end gap-3">
+                    <div class="flex-1 relative">
+                        <textarea id="message-input" 
+                                  placeholder="Type a message..."
+                                  rows="1"
+                                  class="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden transition-all"
+                                  maxlength="1000"
+                                  style="min-height: 48px; max-height: 120px;"></textarea>
+                        <div class="absolute bottom-2 right-2 flex items-center gap-2">
+                            <span id="char-count" class="text-xs text-gray-400 hidden">0/1000</span>
+                            <button type="button" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 rounded-full hover:bg-purple-50" title="Add emoji">
+                                <i class="fas fa-smile text-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     <button type="submit"
-                            class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center">
-                        <i class="fas fa-paper-plane mr-2"></i>
-                        Send
+                            class="px-5 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-2xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            title="Send message">
+                        <i class="fas fa-paper-plane"></i>
                     </button>
                 </form>
             </div>
@@ -227,7 +238,7 @@ function selectUser(userId) {
 async function loadMessages(userId) {
     try {
         // Build URL - don't include item_id parameter, let server extract from messages
-        let url = `/user/chat/messages/${userId}`;
+        let url = `/chat/messages/${userId}`;
 
         const response = await fetch(url, {
             method: 'GET',
@@ -300,22 +311,58 @@ function displayMessages(messages) {
     const messagesList = document.getElementById('messages-list');
     messagesList.innerHTML = '';
 
-    messages.forEach(message => {
+    // Group messages by date
+    let currentDate = null;
+    messages.forEach((message, index) => {
+        // Check if we need to show a date separator
+        const messageDate = new Date(message.created_at);
+        const messageDateStr = messageDate.toDateString();
+        
+        if (currentDate !== messageDateStr) {
+            currentDate = messageDateStr;
+            const dateSeparator = document.createElement('div');
+            dateSeparator.className = 'flex items-center justify-center my-4';
+            const today = new Date().toDateString();
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            let dateLabel = '';
+            if (messageDateStr === today) {
+                dateLabel = 'Today';
+            } else if (messageDateStr === yesterday.toDateString()) {
+                dateLabel = 'Yesterday';
+            } else {
+                dateLabel = messageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: messageDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+            }
+            
+            dateSeparator.innerHTML = `
+                <div class="px-4 py-1.5 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full shadow-sm">
+                    <span class="text-xs font-medium text-gray-600">${dateLabel}</span>
+                </div>
+            `;
+            messagesList.appendChild(dateSeparator);
+        }
+
         const messageElement = createMessageElement(message);
         messagesList.appendChild(messageElement);
     });
 
-    // Scroll to bottom
+    // Scroll to bottom smoothly
     const messagesContainer = document.getElementById('messages-container');
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    setTimeout(() => {
+        messagesContainer.scrollTo({
+            top: messagesContainer.scrollHeight,
+            behavior: 'smooth'
+        });
+    }, 100);
 }
 
-// Create message element
+// Create message element with messenger-style speech bubbles
 function createMessageElement(message) {
     const currentUserId = {{ Auth::id() }};
     const isOwnMessage = parseInt(message.sender_id) === parseInt(currentUserId);
     const messageDiv = document.createElement('div');
-    messageDiv.className = `flex ${isOwnMessage ? 'justify-end' : 'justify-start'} mb-4`;
+    messageDiv.className = `flex items-end gap-2 mb-4 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`;
     messageDiv.setAttribute('data-message-id', message.id);
 
     // Format created_at date
@@ -330,6 +377,12 @@ function createMessageElement(message) {
             console.error('Error parsing date:', e);
         }
     }
+
+    // Get sender info for avatar
+    const sender = message.sender || {};
+    const senderName = sender.name || 'User';
+    const senderAvatar = sender.profile_picture || null;
+    const senderInitials = senderName.substring(0, 2).toUpperCase();
 
     // Build item context preview if available
     let itemContextHtml = '';
@@ -359,11 +412,11 @@ function createMessageElement(message) {
                 const images = Array.isArray(previewContext.images) ? previewContext.images : [];
                 const firstImage = images.length ? images[0] : null;
                 const imagePreviewHtml = firstImage && firstImage.path
-                    ? `<div class="mb-2"><img src="${firstImage.path}" alt="Item image" class="w-full h-32 object-cover rounded-lg border border-purple-200"></div>`
+                    ? `<div class="mb-2 -mx-2 -mt-2 first:mt-0"><img src="${firstImage.path}" alt="Item image" class="w-full h-40 object-cover rounded-t-lg"></div>`
                     : '';
 
                 itemContextHtml = `
-                    <div class="mt-3 bg-white/90 text-gray-900 rounded-lg border border-purple-200 p-3 shadow-sm">
+                    <div class="mt-2 bg-white text-gray-900 rounded-2xl border border-gray-200 p-3 shadow-sm">
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-xs font-semibold uppercase tracking-wide text-purple-600">Item Details</span>
                             ${claimBadge}
@@ -382,13 +435,40 @@ function createMessageElement(message) {
         }
     }
 
+    // Avatar HTML (only show for received messages)
+    const avatarHtml = !isOwnMessage ? `
+        <div class="flex-shrink-0 w-8 h-8">
+            ${senderAvatar ? `
+                <img src="${senderAvatar}" alt="${senderName}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
+            ` : `
+                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center border-2 border-gray-200">
+                    <span class="text-xs font-semibold text-white">${senderInitials}</span>
+                </div>
+            `}
+        </div>
+    ` : '';
+
+    // Message bubble with speech bubble tail
+    const bubbleClass = isOwnMessage 
+        ? 'bg-gradient-to-br from-[#0a7bff] to-[#1d8dff] text-white rounded-2xl rounded-tr-sm shadow-md' 
+        : 'bg-[#e9e9eb] text-gray-900 rounded-2xl rounded-tl-sm shadow-sm border border-gray-200';
+    
     messageDiv.innerHTML = `
-        <div class="max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${isOwnMessage ? 'bg-purple-600 text-white' : 'bg-gray-100 text-gray-900'}">
-            <p class="text-sm">${escapeHtml(message.message)}</p>
-            <p class="text-xs mt-1 ${isOwnMessage ? 'text-purple-100' : 'text-gray-500'}">
-                ${timeString}
-            </p>
-            ${itemContextHtml}
+        ${avatarHtml}
+        <div class="flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[70%] sm:max-w-[65%] lg:max-w-[55%]">
+            ${!isOwnMessage ? `<span class="text-xs text-gray-500 mb-1 px-2">${escapeHtml(senderName)}</span>` : ''}
+            <div class="${bubbleClass} px-4 py-2.5 relative group">
+                <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(message.message)}</p>
+                ${itemContextHtml}
+                <div class="flex items-center justify-end gap-1.5 mt-1.5">
+                    <span class="text-[10px] ${isOwnMessage ? 'text-white/70' : 'text-gray-400'}">
+                        ${timeString}
+                    </span>
+                    ${isOwnMessage ? `
+                        <i class="fas fa-check text-[10px] ${message.is_read ? 'text-blue-300' : 'text-white/50'}"></i>
+                    ` : ''}
+                </div>
+            </div>
         </div>
     `;
 
@@ -402,6 +482,26 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
+// Auto-resize textarea
+const messageInput = document.getElementById('message-input');
+if (messageInput) {
+    messageInput.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        
+        // Show character count if typing
+        const charCount = document.getElementById('char-count');
+        if (charCount) {
+            if (this.value.length > 0) {
+                charCount.textContent = `${this.value.length}/1000`;
+                charCount.classList.remove('hidden');
+            } else {
+                charCount.classList.add('hidden');
+            }
+        }
+    });
+}
+
 // Send message
 document.getElementById('message-form').addEventListener('submit', async function(e) {
     e.preventDefault();
@@ -410,9 +510,12 @@ document.getElementById('message-form').addEventListener('submit', async functio
     const message = messageInput.value.trim();
 
     if (!message || !currentUserId) return;
+    
+    // Reset textarea height
+    messageInput.style.height = 'auto';
 
     try {
-        const response = await fetch('/user/chat/send', {
+        const response = await fetch('/chat/send', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -432,6 +535,13 @@ document.getElementById('message-form').addEventListener('submit', async functio
             // Clear input immediately for better UX
             const messageText = messageInput.value.trim();
             messageInput.value = '';
+            messageInput.style.height = 'auto';
+            
+            // Hide character count
+            const charCount = document.getElementById('char-count');
+            if (charCount) {
+                charCount.classList.add('hidden');
+            }
 
             // Update item context if the response includes it (e.g., claim message)
             if (data.message && data.message.item_context) {
@@ -584,7 +694,7 @@ function addMessageToUI(message) {
 // Mark message as read
 async function markMessageAsRead(messageId) {
     try {
-        await fetch(`/user/chat/messages/${currentUserId}/read`, {
+        await fetch(`/chat/messages/${currentUserId}/read`, {
             method: 'POST',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
@@ -599,7 +709,7 @@ async function markMessageAsRead(messageId) {
 function updateUnreadCount() {
     // This will be called when a new message arrives
     // You can implement a fetch to get the latest unread count
-    fetch('/user/chat/unread-count')
+    fetch('/chat/unread-count')
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -911,6 +1021,7 @@ function showItemContext() {
     const messageInput = document.getElementById('message-input');
     if (messageInput) {
         messageInput.placeholder = `Type your message about this ${itemType} item...`;
+        messageInput.focus();
     }
 }
 
@@ -925,7 +1036,10 @@ function clearItemContext() {
 
     // Reset message placeholder
     const messageInput = document.getElementById('message-input');
-    messageInput.placeholder = 'Type a message...';
+    if (messageInput) {
+        messageInput.placeholder = 'Type a message...';
+        messageInput.focus();
+    }
 
     // Clean URL
     const url = new URL(window.location);

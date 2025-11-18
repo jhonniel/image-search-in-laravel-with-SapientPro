@@ -4,13 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post a {{ $itemType === 'found' ? 'Found' : 'Lost' }} Item - FindITFast</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        :root { --purple-primary:#8B5CF6; --pink-primary:#EC4899; }
-        .text-purple-primary{ color: var(--purple-primary); }
-        .text-pink-primary{ color: var(--pink-primary); }
-        .bg-pink-primary{ background-color: var(--pink-primary); }
-    </style>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @php
         $illustration = asset('images/register.png');
     @endphp

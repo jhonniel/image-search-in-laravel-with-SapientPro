@@ -233,7 +233,7 @@ document.addEventListener('change', function(e) {
 // User actions
 function viewUser(userId) {
     // Load user details and show modal
-    fetch(`/admin/users/${userId}`)
+    fetch(`/users/${userId}`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -311,7 +311,7 @@ function toggleVerification(userId) {
         return;
     }
 
-    fetch(`/admin/users/${userId}/toggle-verification`, {
+    fetch(`/users/${userId}/toggle-verification`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -338,7 +338,7 @@ function toggleVerification(userId) {
 
 function editUser(userId) {
     // Redirect to edit page
-    window.location.href = `/admin/users/${userId}/edit`;
+    window.location.href = `/users/${userId}/edit`;
 }
 
 function deleteUser(userId) {

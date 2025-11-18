@@ -10,7 +10,7 @@
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Send Rewards</h1>
                 <p class="text-gray-600 mt-1 text-sm">Send rewards to selected users</p>
             </div>
-            <a href="{{ route('admin.rewards.index') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
+            <a href="{{ route('rewards.index') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm">
                 <i class="fas fa-arrow-left mr-2"></i>
                 Back to Rewards
             </a>
@@ -18,7 +18,7 @@
     </div>
 
     <div class="max-w-6xl">
-        <form action="{{ route('admin.rewards.send.post') }}" method="POST" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <form action="{{ route('rewards.send.post') }}" method="POST" class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             @csrf
 
             <!-- Select Reward -->
@@ -77,7 +77,7 @@
 
             <!-- Submit Button -->
             <div class="flex items-center justify-end space-x-4 pt-4 border-t">
-                <a href="{{ route('admin.rewards.index') }}" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <a href="{{ route('rewards.index') }}" class="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                     Cancel
                 </a>
                 <button type="submit" class="px-6 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors">

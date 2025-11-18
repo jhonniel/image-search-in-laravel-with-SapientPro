@@ -178,7 +178,7 @@
                                     </p>
                                 @endif
                                 <p class="mt-3">
-                                    <a href="{{ url('/user/reported-items') }}?highlight={{ $index + 1 }}&item={{ $similar['item_id'] ?? '' }}"
+                                    <a href="{{ url('/reported-items') }}?highlight={{ $index + 1 }}&item={{ $similar['item_id'] ?? '' }}"
                                        class="button"
                                        style="display: inline-block; background-color: #8B5CF6; color: #ffffff; padding: 8px 16px; border-radius: 4px; text-decoration: none; font-size: 14px;">
                                         View This Item
@@ -283,8 +283,8 @@
                 </div>
 
                 <div class="button-container">
-                    <a href="{{ url('/user/pending-claims') }}" class="button">Review Pending Claims</a>
-                    <a href="{{ url('/user/chat') }}?user={{ $data['claimer_id'] ?? '' }}&item={{ $data['upload_id'] ?? '' }}" 
+                    <a href="{{ url('/pending-claims') }}" class="button">Review Pending Claims</a>
+                    <a href="{{ url('/chat') }}?user={{ $data['claimer_id'] ?? '' }}&item={{ $data['upload_id'] ?? '' }}" 
                        class="button" 
                        style="margin-left: 10px; background-color: #EC4899;">
                         Message Claimer
@@ -298,15 +298,15 @@
             @endif
 
             <div class="button-container">
-                <a href="{{ url('/user/reported-items') }}" class="button">View My Items</a>
-                <a href="{{ url('/user/dashboard') }}" class="button" style="margin-left: 10px; background-color: #EC4899;">Go to Dashboard</a>
+                <a href="{{ url('/reported-items') }}" class="button">View My Items</a>
+                <a href="{{ url('/dashboard') }}" class="button" style="margin-left: 10px; background-color: #EC4899;">Go to Dashboard</a>
             </div>
 
             <div class="highlight" style="margin-top: 20px;">
                 <h3 style="color: #8B5CF6; margin-top: 0;">Quick Access Links:</h3>
-                <p style="margin: 5px 0;"><a href="{{ url('/user/reported-items') }}" style="color: #8B5CF6; text-decoration: none;">📋 My Reported Items</a></p>
-                <p style="margin: 5px 0;"><a href="{{ url('/user/dashboard') }}" style="color: #8B5CF6; text-decoration: none;">🏠 Dashboard</a></p>
-                <p style="margin: 5px 0;"><a href="{{ url('/user/claim-verify') }}" style="color: #8B5CF6; text-decoration: none;">✅ Claim & Verify</a></p>
+                <p style="margin: 5px 0;"><a href="{{ url('/reported-items') }}" style="color: #8B5CF6; text-decoration: none;">📋 My Reported Items</a></p>
+                <p style="margin: 5px 0;"><a href="{{ url('/dashboard') }}" style="color: #8B5CF6; text-decoration: none;">🏠 Dashboard</a></p>
+                <p style="margin: 5px 0;"><a href="{{ url('/claim-verify') }}" style="color: #8B5CF6; text-decoration: none;">✅ Claim & Verify</a></p>
             </div>
         </div>
         <div class="footer">

@@ -5,25 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'FindITFast')</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'purple-primary': '#8B5CF6',
-                        'purple-light': '#A78BFA',
-                        'pink-primary': '#EC4899',
-                        'pink-light': '#F472B6',
-                        'blue-primary': '#3B82F6',
-                        'blue-light': '#60A5FA',
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="antialiased bg-gray-100" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('sidebarCollapsed', value))">
     <div class="flex h-screen overflow-hidden bg-gray-100">
@@ -68,14 +52,14 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isDashboard = ($currentRoute === 'user.dashboard' || $currentPath === 'user/dashboard') 
-                                && $currentPath !== 'user/reported-items' 
-                                && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim-verify')
-                                && !str_starts_with($currentPath, 'user/profile')
-                                && !str_starts_with($currentPath, 'user/chat');
+                            $isDashboard = ($currentRoute === 'dashboard' || $currentPath === 'dashboard') 
+                                && $currentPath !== 'reported-items' 
+                                && !str_starts_with($currentPath, 'reported-items')
+                                && !str_starts_with($currentPath, 'claim-verify')
+                                && !str_starts_with($currentPath, 'profile')
+                                && !str_starts_with($currentPath, 'chat');
                         @endphp
-                        <a href="{{ route('user.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
+                        <a href="{{ route('dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
                             <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Dashboard</span>
                         </a>
@@ -84,13 +68,13 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isReportedItems = ($currentRoute === 'user.reported-items' || str_starts_with($currentPath, 'user/reported-items')) 
-                                && !str_starts_with($currentPath, 'user/dashboard')
-                                && !str_starts_with($currentPath, 'user/claim-verify')
-                                && !str_starts_with($currentPath, 'user/profile')
-                                && !str_starts_with($currentPath, 'user/chat');
+                            $isReportedItems = ($currentRoute === 'reported-items' || str_starts_with($currentPath, 'reported-items')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'claim-verify')
+                                && !str_starts_with($currentPath, 'profile')
+                                && !str_starts_with($currentPath, 'chat');
                         @endphp
-                        <a href="{{ route('user.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
+                        <a href="{{ route('reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
                             <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
                         </a>
@@ -98,9 +82,9 @@
                     <li>
                         @php
                             $currentPath = request()->path();
-                            $isClaimVerify = str_starts_with($currentPath, 'user/claim-verify');
+                            $isClaimVerify = str_starts_with($currentPath, 'claim-verify');
                         @endphp
-                        <a href="/user/claim-verify" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Claim and Verify' : ''">
+                        <a href="{{ route('claim-verify') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Claim and Verify' : ''">
                             <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Claim and Verify</span>
                         </a>
@@ -108,9 +92,9 @@
                     <li>
                         @php
                             $currentPath = request()->path();
-                            $isPendingClaims = str_starts_with($currentPath, 'user/pending-claims');
+                            $isPendingClaims = str_starts_with($currentPath, 'pending-claims');
                         @endphp
-                        <a href="{{ route('user.pending-claims') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isPendingClaims ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Pending Claims' : ''">
+                        <a href="{{ route('pending-claims') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isPendingClaims ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Pending Claims' : ''">
                             <i class="fas fa-clock w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Pending Claims</span>
                         </a>
@@ -119,13 +103,13 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isChat = (str_starts_with($currentRoute, 'user.chat') || str_starts_with($currentPath, 'user/chat')) 
-                                && !str_starts_with($currentPath, 'user/dashboard')
-                                && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim-verify')
-                                && !str_starts_with($currentPath, 'user/profile');
+                            $isChat = (str_starts_with($currentRoute, 'chat') || str_starts_with($currentPath, 'chat')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items')
+                                && !str_starts_with($currentPath, 'claim-verify')
+                                && !str_starts_with($currentPath, 'profile');
                         @endphp
-                        <a href="{{ route('user.chat') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isChat ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Messages' : ''">
+                        <a href="{{ route('chat') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isChat ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Messages' : ''">
                             <i class="fas fa-comments w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Messages</span>
                             <span id="messages-unread-badge" class="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full hidden" :class="sidebarCollapsed ? 'lg:hidden' : ''">0</span>
@@ -135,13 +119,13 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isProfile = (str_starts_with($currentRoute, 'user.profile') || str_starts_with($currentPath, 'user/profile')) 
-                                && !str_starts_with($currentPath, 'user/dashboard')
-                                && !str_starts_with($currentPath, 'user/reported-items')
-                                && !str_starts_with($currentPath, 'user/claim-verify')
-                                && !str_starts_with($currentPath, 'user/chat');
+                            $isProfile = (str_starts_with($currentRoute, 'profile') || str_starts_with($currentPath, 'profile')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items')
+                                && !str_starts_with($currentPath, 'claim-verify')
+                                && !str_starts_with($currentPath, 'chat');
                         @endphp
-                        <a href="{{ route('user.profile') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isProfile ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Profile' : ''">
+                        <a href="{{ route('profile') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isProfile ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Profile' : ''">
                             <i class="fas fa-user w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Profile</span>
                         </a>
@@ -234,11 +218,11 @@
                                  x-transition:leave-end="transform opacity-0 scale-95"
                                  class="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
                                  style="display: none;">
-                                <a href="{{ route('user.profile') }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <a href="{{ route('profile') }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <i class="fas fa-user mr-3 text-gray-400"></i>
                                     Profile
                                 </a>
-                                <a href="{{ route('user.profile.edit') }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                                <a href="{{ route('profile.edit') }}" class="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
                                     <i class="fas fa-cog mr-3 text-gray-400"></i>
                                     Settings
                                 </a>
@@ -266,7 +250,7 @@
     <script>
         // Fetch and update unread message count
         function updateUnreadMessageCount() {
-            fetch('{{ route("user.chat.unread-count") }}')
+            fetch('{{ route("chat.unread-count") }}')
                 .then(response => response.json())
                 .then(data => {
                     const badge = document.getElementById('messages-unread-badge');
@@ -392,23 +376,6 @@
             }, 30000);
         });
     </script>
-    @php
-        $manifestExists = false;
-        try {
-            $manifestPath = public_path('build/manifest.json');
-            $manifestExists = file_exists($manifestPath) && is_readable($manifestPath);
-        } catch (\Exception $e) {
-            // Silently fail - manifest doesn't exist
-            $manifestExists = false;
-        }
-    @endphp
-    @if($manifestExists)
-        @vite(['resources/js/app.js'])
-    @else
-        {{-- Vite manifest not found - this is okay for development --}}
-        <script>
-            console.warn('Vite manifest not found. Real-time messaging features may not work. Run "npm run build" or "npm run dev" to enable.');
-        </script>
-    @endif
+
 </body>
 </html>

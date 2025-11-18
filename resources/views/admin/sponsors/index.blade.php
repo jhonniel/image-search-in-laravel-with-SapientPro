@@ -45,7 +45,7 @@
     <!-- Add New Sponsor Form -->
     <div class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
         <h2 class="text-xl font-semibold text-gray-900 mb-4">Add New Sponsor</h2>
-        <form action="{{ route('admin.sponsors.store') }}" method="POST" enctype="multipart/form-data">
+        <form action="{{ route('sponsors.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -153,7 +153,7 @@
                                     class="text-purple-primary hover:text-purple-600 mr-4">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            <form action="{{ route('admin.sponsors.destroy', $sponsor) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this sponsor?')">
+                            <form action="{{ route('sponsors.destroy', $sponsor) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this sponsor?')">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-800">
@@ -261,7 +261,7 @@ function editSponsor(id) {
     document.getElementById('edit_name').value = sponsor.name;
     document.getElementById('edit_order').value = sponsor.order;
     document.getElementById('edit_is_active').checked = sponsor.is_active;
-    document.getElementById('editForm').action = `/admin/sponsors/${id}`;
+    document.getElementById('editForm').action = `/sponsors/${id}`;
     document.getElementById('editModal').classList.remove('hidden');
 }
 
@@ -272,7 +272,7 @@ function closeEditModal() {
 // Toggle show sponsors carousel
 document.getElementById('toggleShowSponsors').addEventListener('change', function() {
     const show = this.checked;
-    fetch('{{ route("admin.sponsors.toggle-show") }}', {
+    fetch('{{ route("sponsors.toggle-show") }}', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

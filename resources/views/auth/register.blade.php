@@ -5,24 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Register - FindITFast</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'purple-primary': '#8B5CF6',
-                        'purple-light': '#A78BFA',
-                        'pink-primary': '#EC4899',
-                        'pink-light': '#F472B6',
-                        'blue-primary': '#3B82F6',
-                        'blue-light': '#60A5FA',
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="bg-white min-h-screen">
     @php

@@ -5,18 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Item Details - FindITFast</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        :root {
-            --purple-primary: #8B5CF6;
-            --pink-primary: #EC4899;
-        }
-        .bg-purple-primary { background-color: var(--purple-primary); }
-        .text-purple-primary { color: var(--purple-primary); }
-        .bg-pink-primary { background-color: var(--pink-primary); }
-        .text-pink-primary { color: var(--pink-primary); }
-    </style>
 </head>
 <body class="bg-gray-50">
     <!-- Header -->
@@ -30,7 +20,7 @@
             </div>
             <nav class="flex items-center space-x-4">
                 @auth
-                    <a href="/user/dashboard" class="px-4 py-2 text-purple-primary hover:bg-purple-50 rounded-lg transition-colors">
+                    <a href="/dashboard" class="px-4 py-2 text-purple-primary hover:bg-purple-50 rounded-lg transition-colors">
                         Dashboard
                     </a>
                     <form method="POST" action="{{ route('logout') }}" class="inline">
@@ -165,7 +155,7 @@
                                         This is your item. You can manage it from your dashboard.
                                     </p>
                                 </div>
-                                <a href="/user/reported-items" class="block w-full bg-purple-primary text-white text-center px-6 py-3 rounded-lg hover:bg-purple-600 transition-colors font-medium">
+                                <a href="/reported-items" class="block w-full bg-purple-primary text-white text-center px-6 py-3 rounded-lg hover:bg-purple-600 transition-colors font-medium">
                                     <i class="fas fa-tasks mr-2"></i>Manage Item
                                 </a>
                             @elseif($canClaim && !$item['is_claimed'])
@@ -210,7 +200,7 @@
                 return;
             }
 
-            fetch(`/api/user/items/${uploadId}/claim`, {
+            fetch(`/api/items/${uploadId}/claim`, {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: {
@@ -257,7 +247,7 @@
             sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
 
             // Redirect to chat
-            window.location.href = `/user/chat?user=${userId}&item=${uploadId}`;
+            window.location.href = `/chat?user=${userId}&item=${uploadId}`;
         }
     </script>
     @endauth

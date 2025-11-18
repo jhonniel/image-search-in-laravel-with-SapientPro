@@ -10,7 +10,7 @@
                 <p class="text-gray-600 mt-2">Update your account information and settings</p>
             </div>
             <div class="flex items-center space-x-4">
-                <a href="{{ route('user.profile') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <a href="{{ route('profile') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Back to Profile
                 </a>
@@ -134,7 +134,7 @@
 
                     <!-- Form Actions -->
                     <div class="border-t pt-6 flex items-center justify-end space-x-4">
-                        <button type="button" onclick="window.location.href='{{ route('user.profile') }}'"
+                        <button type="button" onclick="window.location.href='{{ route('profile') }}'"
                                 class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                             Cancel
                         </button>
@@ -196,7 +196,7 @@ document.getElementById('profile-form').addEventListener('submit', async functio
     submitButton.disabled = true;
 
     try {
-        const response = await fetch('{{ route("user.profile.update") }}', {
+        const response = await fetch('{{ route("profile.update") }}', {
             method: 'POST',
             body: formData,
             headers: {
@@ -271,7 +271,7 @@ function uploadAvatar(input) {
         const formData = new FormData();
         formData.append('avatar', file);
 
-        fetch('{{ route("user.profile.avatar") }}', {
+        fetch('{{ route("profile.avatar") }}', {
             method: 'POST',
             body: formData,
             headers: {

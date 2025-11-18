@@ -118,7 +118,7 @@
 
                     <!-- Actions -->
                     <div class="space-y-2 pt-4 border-t border-gray-200">
-                        <a href="{{ route('user.chat', ['userId' => $claim['claimer']['id']]) }}" 
+                        <a href="{{ route('chat', ['userId' => $claim['claimer']['id']]) }}" 
                            class="block w-full px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium text-center">
                             <i class="fas fa-comments mr-1"></i>
                             Message Claimer
@@ -288,7 +288,7 @@ function verifyClaim(uploadId) {
         return;
     }
 
-    fetch(`/user/claims/${uploadId}/verify`, {
+    fetch(`/claims/${uploadId}/verify`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -317,7 +317,7 @@ function rejectClaim(uploadId) {
         return;
     }
 
-    fetch(`/user/claims/${uploadId}/reject`, {
+    fetch(`/claims/${uploadId}/reject`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

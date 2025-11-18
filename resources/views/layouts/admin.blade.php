@@ -5,25 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'FindITFast Admin')</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        'purple-primary': '#8B5CF6',
-                        'purple-light': '#A78BFA',
-                        'pink-primary': '#EC4899',
-                        'pink-light': '#F472B6',
-                        'blue-primary': '#3B82F6',
-                        'blue-light': '#60A5FA',
-                    }
-                }
-            }
-        }
-    </script>
 </head>
 <body class="antialiased bg-gray-100" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('adminSidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('adminSidebarCollapsed', value))">
     <div class="flex h-screen overflow-hidden bg-gray-100">
@@ -68,17 +52,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isDashboard = ($currentRoute === 'admin.dashboard' || $currentPath === 'admin/dashboard') 
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isDashboard = ($currentRoute === 'dashboard' || $currentPath === 'dashboard') 
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
+                        <a href="{{ route('dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
                             <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Dashboard</span>
                         </a>
@@ -87,17 +71,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isReportedItems = (in_array($currentRoute, ['admin.reported-items', 'admin.delete-item']) || str_starts_with($currentPath, 'admin/reported-items')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isReportedItems = (in_array($currentRoute, ['reported-items-admin', 'delete-item']) || str_starts_with($currentPath, 'reported-items-admin')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
+                        <a href="{{ route('reported-items-admin') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
                             <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
                         </a>
@@ -106,17 +90,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isClaimVerify = ($currentRoute === 'admin.claimed' || str_starts_with($currentPath, 'admin/claimed')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isClaimVerify = ($currentRoute === 'claimed' || str_starts_with($currentPath, 'claimed')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.claimed') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Claimed' : ''">
+                        <a href="{{ route('claimed') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Claimed' : ''">
                             <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Claimed</span>
                         </a>
@@ -125,17 +109,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isUsers = (str_starts_with($currentRoute, 'admin.users') || str_starts_with($currentPath, 'admin/users')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isUsers = (str_starts_with($currentRoute, 'users') || str_starts_with($currentPath, 'users')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.users') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isUsers ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Users' : ''">
+                        <a href="{{ route('users') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isUsers ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Users' : ''">
                             <i class="fas fa-users w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Users</span>
                         </a>
@@ -144,17 +128,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isInsights = ($currentRoute === 'admin.insights' || str_starts_with($currentPath, 'admin/insights')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isInsights = ($currentRoute === 'insights' || str_starts_with($currentPath, 'insights')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.insights') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isInsights ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Insights' : ''">
+                        <a href="{{ route('insights') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isInsights ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Insights' : ''">
                             <i class="fas fa-chart-line w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Insights</span>
                         </a>
@@ -163,17 +147,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isRewards = (str_starts_with($currentRoute, 'admin.rewards') || str_starts_with($currentPath, 'admin/rewards')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
+                            $isRewards = (str_starts_with($currentRoute, 'rewards') || str_starts_with($currentPath, 'rewards')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.rewards.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isRewards ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Rewards' : ''">
+                        <a href="{{ route('rewards.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isRewards ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Rewards' : ''">
                             <i class="fas fa-gift w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Rewards</span>
                         </a>
@@ -182,17 +166,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isSettings = (str_starts_with($currentRoute, 'admin.settings') || str_starts_with($currentPath, 'admin/settings')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isSettings = (str_starts_with($currentRoute, 'settings') || str_starts_with($currentPath, 'settings')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.settings') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSettings ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Settings' : ''">
+                        <a href="{{ route('settings') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSettings ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Settings' : ''">
                             <i class="fas fa-cog w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Settings</span>
                         </a>
@@ -201,17 +185,17 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isSponsors = (str_starts_with($currentRoute, 'admin.sponsors') || str_starts_with($currentPath, 'admin/sponsors')) 
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isSponsors = (str_starts_with($currentRoute, 'sponsors') || str_starts_with($currentPath, 'sponsors')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Sponsors' : ''">
+                        <a href="{{ route('sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Sponsors' : ''">
                             <i class="fas fa-handshake w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Sponsors</span>
                         </a>
@@ -237,18 +221,18 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isAdminNotifications = ($currentRoute === 'admin.notifications.create' || str_starts_with($currentPath, 'admin/notifications'))
-                                && !str_starts_with($currentPath, 'admin/dashboard')
-                                && !str_starts_with($currentPath, 'admin/reported-items')
-                                && !str_starts_with($currentPath, 'admin/claimed')
-                                && !str_starts_with($currentPath, 'admin/users')
-                                && !str_starts_with($currentPath, 'admin/insights')
-                                && !str_starts_with($currentPath, 'admin/settings')
-                                && !str_starts_with($currentPath, 'admin/sponsors')
-                                && !str_starts_with($currentPath, 'admin/rewards')
+                            $isAdminNotifications = ($currentRoute === 'notifications.create' || str_starts_with($currentPath, 'notifications'))
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('admin.notifications.create') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isAdminNotifications ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Send Notifications' : ''">
+                        <a href="{{ route('notifications.create') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isAdminNotifications ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Send Notifications' : ''">
                             <i class="fas fa-bullhorn w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Send Notifications</span>
                         </a>

@@ -223,7 +223,7 @@ class GuestItemController extends Controller
             ]);
 
             // Redirect to user dashboard with success message
-            return redirect()->route('user.dashboard')->with('success', "Your {$itemsSaved} item(s) have been posted successfully!");
+            return redirect()->route('dashboard')->with('success', "Your {$itemsSaved} item(s) have been posted successfully!");
 
         } catch (\Exception $e) {
             Log::error('Failed to save item for authenticated user: ' . $e->getMessage(), [

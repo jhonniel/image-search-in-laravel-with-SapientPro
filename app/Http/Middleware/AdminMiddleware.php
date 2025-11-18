@@ -21,9 +21,10 @@ class AdminMiddleware
             return redirect()->route('login');
         }
 
-        // For now, we'll consider all authenticated users as admins
-        // In a real application, you would check for a specific role or permission
-        // Example: if (Auth::user()->role !== 'admin') { ... }
+        // Check if user has admin role
+        if (Auth::user()->role !== 'admin') {
+            return redirect()->route('welcome')->with('error', 'Unauthorized access. Admin privileges required.');
+        }
 
         return $next($request);
     }

@@ -118,7 +118,7 @@
                     <div class="flex-1 flex flex-col">
                         <p class="text-gray-700 text-sm leading-relaxed mb-5">View the items you've reported both lost and found.</p>
                         <div class="mt-auto">
-                            <a href="{{ route('user.reported-items') }}" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
+                            <a href="{{ route('reported-items') }}" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
                                 Track My Reports
                             </a>
                         </div>

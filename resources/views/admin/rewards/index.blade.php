@@ -11,15 +11,15 @@
                 <p class="text-gray-600 mt-1 text-sm">Manage and send rewards to users</p>
             </div>
             <div class="flex flex-wrap gap-2">
-                <a href="{{ route('admin.rewards.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm">
+                <a href="{{ route('rewards.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm">
                     <i class="fas fa-plus mr-2"></i>
                     Create Reward
                 </a>
-                <a href="{{ route('admin.rewards.send') }}" class="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm">
+                <a href="{{ route('rewards.send') }}" class="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm">
                     <i class="fas fa-paper-plane mr-2"></i>
                     Send Reward
                 </a>
-                <form action="{{ route('admin.rewards.auto-assign') }}" method="POST" class="inline">
+                <form action="{{ route('rewards.auto-assign') }}" method="POST" class="inline">
                     @csrf
                     <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
                         <i class="fas fa-magic mr-2"></i>
@@ -178,7 +178,7 @@
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             @if($reward->user_id === null)
-                            <form action="{{ route('admin.rewards.destroy', $reward->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this reward?');">
+                            <form action="{{ route('rewards.destroy', $reward->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this reward?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="text-red-600 hover:text-red-900">

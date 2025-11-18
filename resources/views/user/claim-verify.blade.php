@@ -101,7 +101,7 @@ let filteredItems = [];
 // Load items from other users
 async function loadOtherUsersItems() {
     try {
-        const response = await fetch('/api/user/items/other-users', {
+        const response = await fetch('/api/items/other-users', {
             method: 'GET',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
@@ -485,7 +485,7 @@ function messageAboutItem(uploadId, description, itemType, location) {
     const itemOwnerEmail = item.uploader_email;
 
     // Find the user ID for the item owner
-    fetch('/user/chat/get-user-by-email', {
+    fetch('/chat/get-user-by-email', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -514,7 +514,7 @@ function messageAboutItem(uploadId, description, itemType, location) {
             sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
 
             // Redirect to chat with the item owner
-            window.location.href = `/user/chat?user=${data.user.id}&item=${uploadId}`;
+            window.location.href = `/chat?user=${data.user.id}&item=${uploadId}`;
         } else {
             alert('Could not find the item owner');
         }
@@ -532,7 +532,7 @@ async function claimItem(uploadId) {
     }
 
     try {
-        const response = await fetch(`/api/user/items/${uploadId}/claim`, {
+        const response = await fetch(`/api/items/${uploadId}/claim`, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {
@@ -563,7 +563,7 @@ async function cancelClaim(uploadId) {
     }
 
     try {
-        const response = await fetch(`/api/user/items/${uploadId}/cancel-claim`, {
+        const response = await fetch(`/api/items/${uploadId}/cancel-claim`, {
             method: 'POST',
             credentials: 'same-origin',
             headers: {

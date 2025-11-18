@@ -58,11 +58,11 @@ class SponsorController extends Controller
                 'order' => $request->order ?? 0,
             ]);
 
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('success', 'Sponsor added successfully!');
         } catch (\Exception $e) {
             Log::error('Failed to create sponsor: ' . $e->getMessage());
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('error', 'Failed to add sponsor: ' . $e->getMessage());
         }
     }
@@ -102,11 +102,11 @@ class SponsorController extends Controller
 
             $sponsor->update($data);
 
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('success', 'Sponsor updated successfully!');
         } catch (\Exception $e) {
             Log::error('Failed to update sponsor: ' . $e->getMessage());
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('error', 'Failed to update sponsor: ' . $e->getMessage());
         }
     }
@@ -120,11 +120,11 @@ class SponsorController extends Controller
             // Soft delete (image is kept for potential restore)
             $sponsor->delete(); // This will perform soft delete automatically
 
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('success', 'Sponsor deleted successfully! It can be restored from the trash.');
         } catch (\Exception $e) {
             Log::error('Failed to delete sponsor: ' . $e->getMessage());
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('error', 'Failed to delete sponsor: ' . $e->getMessage());
         }
     }
@@ -138,11 +138,11 @@ class SponsorController extends Controller
             $sponsor = Sponsor::onlyTrashed()->findOrFail($id);
             $sponsor->restore();
 
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('success', 'Sponsor restored successfully!');
         } catch (\Exception $e) {
             Log::error('Failed to restore sponsor: ' . $e->getMessage());
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('error', 'Failed to restore sponsor: ' . $e->getMessage());
         }
     }
@@ -163,11 +163,11 @@ class SponsorController extends Controller
 
             $sponsor->forceDelete();
 
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('success', 'Sponsor permanently deleted!');
         } catch (\Exception $e) {
             Log::error('Failed to permanently delete sponsor: ' . $e->getMessage());
-            return redirect()->route('admin.sponsors.index')
+            return redirect()->route('sponsors.index')
                 ->with('error', 'Failed to permanently delete sponsor: ' . $e->getMessage());
         }
     }

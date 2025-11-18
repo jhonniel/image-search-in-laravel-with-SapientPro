@@ -9,7 +9,7 @@
         @if(session('status'))
             <div class="mb-4 px-4 py-2 bg-green-50 text-green-700 rounded">{{ session('status') }}</div>
         @endif
-        <form method="POST" action="{{ route('admin.notifications.send') }}" class="space-y-4">
+        <form method="POST" action="{{ route('notifications.send') }}" class="space-y-4">
             @csrf
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">Title</label>

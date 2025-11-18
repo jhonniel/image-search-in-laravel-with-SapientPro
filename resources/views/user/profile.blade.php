@@ -9,7 +9,7 @@
                 <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">My Profile</h1>
                 <p class="text-gray-600 mt-1 text-sm sm:text-base">View and manage your account information</p>
             </div>
-            <a href="{{ route('user.profile.edit') }}" class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base">
+            <a href="{{ route('profile.edit') }}" class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base">
                 <i class="fas fa-edit mr-2"></i>
                 Edit Profile
             </a>

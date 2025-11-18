@@ -20,14 +20,17 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
 // Protected routes
 Route::middleware(['auth'])->group(function () {
-    // Admin Dashboard
-    Route::get('/admin/dashboard', [\App\Http\Controllers\AdminController::class, 'dashboard'])->name('admin.dashboard');
-
-    // User Dashboard
-    Route::get('/user/dashboard', [\App\Http\Controllers\UserController::class, 'dashboard'])->name('user.dashboard');
+    // Unified Dashboard - redirects based on role
+    Route::get('/dashboard', function () {
+        $user = auth()->user();
+        if ($user->role === 'admin') {
+            return app(\App\Http\Controllers\AdminController::class)->dashboard();
+        }
+        return app(\App\Http\Controllers\UserController::class)->dashboard();
+    })->name('dashboard');
 
     // User Routes
-    Route::get('/user/reported-items', function () {
+    Route::get('/reported-items', function () {
         // Get enabled cities from settings
         $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
@@ -46,16 +49,16 @@ Route::middleware(['auth'])->group(function () {
         
         return view('user.reported-items', compact('enabledCities', 'enabledProvinces', 
             'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'));
-    })->name('user.reported-items');
+    })->name('reported-items');
 
-    Route::get('/user/claim-verify', function () {
+    Route::get('/claim-verify', function () {
         return view('user.claim-verify');
-    });
+    })->name('claim-verify');
 
     // Pending Claims Management
-    Route::get('/user/pending-claims', [\App\Http\Controllers\UserController::class, 'pendingClaims'])->name('user.pending-claims');
-    Route::post('/user/claims/{uploadId}/verify', [\App\Http\Controllers\UserController::class, 'verifyClaim'])->name('user.claims.verify');
-    Route::post('/user/claims/{uploadId}/reject', [\App\Http\Controllers\UserController::class, 'rejectClaim'])->name('user.claims.reject');
+    Route::get('/pending-claims', [\App\Http\Controllers\UserController::class, 'pendingClaims'])->name('pending-claims');
+    Route::post('/claims/{uploadId}/verify', [\App\Http\Controllers\UserController::class, 'verifyClaim'])->name('claims.verify');
+    Route::post('/claims/{uploadId}/reject', [\App\Http\Controllers\UserController::class, 'rejectClaim'])->name('claims.reject');
 
     // Admin routes (admin only)
     Route::middleware(['admin'])->group(function () {
@@ -64,65 +67,65 @@ Route::middleware(['auth'])->group(function () {
             return view('image-comparison');
         });
 
-        Route::get('/admin/reported-items', [\App\Http\Controllers\AdminController::class, 'reportedItems'])->name('admin.reported-items');
-    Route::delete('/admin/reported-items/{uploadId}', [\App\Http\Controllers\AdminController::class, 'deleteItem'])->name('admin.delete-item');
-    Route::post('/admin/reported-items/{uploadId}/restore', [\App\Http\Controllers\AdminController::class, 'restoreItem'])->name('admin.restore-item');
-    Route::delete('/admin/reported-items/{uploadId}/force', [\App\Http\Controllers\AdminController::class, 'forceDeleteItem'])->name('admin.force-delete-item');
-    Route::get('/admin/claimed', [\App\Http\Controllers\AdminController::class, 'claimVerify'])->name('admin.claimed');
-    Route::get('/admin/users', [\App\Http\Controllers\AdminController::class, 'users'])->name('admin.users');
-    Route::get('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'showUser'])->name('admin.users.show');
-    Route::get('/admin/users/{user}/edit', [\App\Http\Controllers\AdminController::class, 'editUser'])->name('admin.users.edit');
-    Route::put('/admin/users/{user}', [\App\Http\Controllers\AdminController::class, 'updateUser'])->name('admin.users.update');
-    Route::post('/admin/users/{user}/toggle-verification', [\App\Http\Controllers\AdminController::class, 'toggleVerification'])->name('admin.users.toggle-verification');
-    Route::get('/admin/insights', [\App\Http\Controllers\AdminController::class, 'insights'])->name('admin.insights');
-        Route::get('/admin/settings', [\App\Http\Controllers\AdminController::class, 'settings'])->name('admin.settings');
-        Route::post('/admin/settings', [\App\Http\Controllers\AdminController::class, 'updateSettings'])->name('admin.settings.update');
-        Route::post('/admin/settings/test-email', [\App\Http\Controllers\AdminController::class, 'testEmail'])->name('admin.settings.test-email');
-        Route::get('/admin/settings/export-database', [\App\Http\Controllers\AdminController::class, 'exportDatabase'])->name('admin.settings.export-database');
-        Route::post('/admin/settings/import-database', [\App\Http\Controllers\AdminController::class, 'importDatabase'])->name('admin.settings.import-database');
-        Route::get('/admin/sponsors', [\App\Http\Controllers\Admin\SponsorController::class, 'index'])->name('admin.sponsors.index');
-        Route::post('/admin/sponsors', [\App\Http\Controllers\Admin\SponsorController::class, 'store'])->name('admin.sponsors.store');
-        Route::put('/admin/sponsors/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'update'])->name('admin.sponsors.update');
-        Route::delete('/admin/sponsors/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'destroy'])->name('admin.sponsors.destroy');
-        Route::post('/admin/sponsors/{id}/restore', [\App\Http\Controllers\Admin\SponsorController::class, 'restore'])->name('admin.sponsors.restore');
-        Route::delete('/admin/sponsors/{id}/force', [\App\Http\Controllers\Admin\SponsorController::class, 'forceDelete'])->name('admin.sponsors.force-delete');
-        Route::post('/admin/sponsors/toggle-show', [\App\Http\Controllers\Admin\SponsorController::class, 'toggleShow'])->name('admin.sponsors.toggle-show');
+        Route::get('/reported-items-admin', [\App\Http\Controllers\AdminController::class, 'reportedItems'])->name('reported-items-admin');
+    Route::delete('/reported-items-admin/{uploadId}', [\App\Http\Controllers\AdminController::class, 'deleteItem'])->name('delete-item');
+    Route::post('/reported-items-admin/{uploadId}/restore', [\App\Http\Controllers\AdminController::class, 'restoreItem'])->name('restore-item');
+    Route::delete('/reported-items-admin/{uploadId}/force', [\App\Http\Controllers\AdminController::class, 'forceDeleteItem'])->name('force-delete-item');
+    Route::get('/claimed', [\App\Http\Controllers\AdminController::class, 'claimVerify'])->name('claimed');
+    Route::get('/users', [\App\Http\Controllers\AdminController::class, 'users'])->name('users');
+    Route::get('/users/{user}', [\App\Http\Controllers\AdminController::class, 'showUser'])->name('users.show');
+    Route::get('/users/{user}/edit', [\App\Http\Controllers\AdminController::class, 'editUser'])->name('users.edit');
+    Route::put('/users/{user}', [\App\Http\Controllers\AdminController::class, 'updateUser'])->name('users.update');
+    Route::post('/users/{user}/toggle-verification', [\App\Http\Controllers\AdminController::class, 'toggleVerification'])->name('users.toggle-verification');
+    Route::get('/insights', [\App\Http\Controllers\AdminController::class, 'insights'])->name('insights');
+        Route::get('/settings', [\App\Http\Controllers\AdminController::class, 'settings'])->name('settings');
+        Route::post('/settings', [\App\Http\Controllers\AdminController::class, 'updateSettings'])->name('settings.update');
+        Route::post('/settings/test-email', [\App\Http\Controllers\AdminController::class, 'testEmail'])->name('settings.test-email');
+        Route::get('/settings/export-database', [\App\Http\Controllers\AdminController::class, 'exportDatabase'])->name('settings.export-database');
+        Route::post('/settings/import-database', [\App\Http\Controllers\AdminController::class, 'importDatabase'])->name('settings.import-database');
+        Route::get('/sponsors', [\App\Http\Controllers\Admin\SponsorController::class, 'index'])->name('sponsors.index');
+        Route::post('/sponsors', [\App\Http\Controllers\Admin\SponsorController::class, 'store'])->name('sponsors.store');
+        Route::put('/sponsors/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'update'])->name('sponsors.update');
+        Route::delete('/sponsors/{sponsor}', [\App\Http\Controllers\Admin\SponsorController::class, 'destroy'])->name('sponsors.destroy');
+        Route::post('/sponsors/{id}/restore', [\App\Http\Controllers\Admin\SponsorController::class, 'restore'])->name('sponsors.restore');
+        Route::delete('/sponsors/{id}/force', [\App\Http\Controllers\Admin\SponsorController::class, 'forceDelete'])->name('sponsors.force-delete');
+        Route::post('/sponsors/toggle-show', [\App\Http\Controllers\Admin\SponsorController::class, 'toggleShow'])->name('sponsors.toggle-show');
         
         // Rewards Management
-        Route::get('/admin/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'index'])->name('admin.rewards.index');
-        Route::get('/admin/rewards/create', [\App\Http\Controllers\Admin\RewardController::class, 'create'])->name('admin.rewards.create');
-        Route::post('/admin/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'store'])->name('admin.rewards.store');
-        Route::get('/admin/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'showSendForm'])->name('admin.rewards.send');
-        Route::post('/admin/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'send'])->name('admin.rewards.send.post');
-        Route::post('/admin/rewards/auto-assign', [\App\Http\Controllers\Admin\RewardController::class, 'checkAutoAssign'])->name('admin.rewards.auto-assign');
-        Route::delete('/admin/rewards/{id}', [\App\Http\Controllers\Admin\RewardController::class, 'destroy'])->name('admin.rewards.destroy');
+        Route::get('/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'index'])->name('rewards.index');
+        Route::get('/rewards/create', [\App\Http\Controllers\Admin\RewardController::class, 'create'])->name('rewards.create');
+        Route::post('/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'store'])->name('rewards.store');
+        Route::get('/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'showSendForm'])->name('rewards.send');
+        Route::post('/rewards/send', [\App\Http\Controllers\Admin\RewardController::class, 'send'])->name('rewards.send.post');
+        Route::post('/rewards/auto-assign', [\App\Http\Controllers\Admin\RewardController::class, 'checkAutoAssign'])->name('rewards.auto-assign');
+        Route::delete('/rewards/{id}', [\App\Http\Controllers\Admin\RewardController::class, 'destroy'])->name('rewards.destroy');
     });
 
     // User Items API Routes (moved from API routes for better session handling)
-    Route::post('/api/user/items/upload', [\App\Http\Controllers\Api\UserItemController::class, 'uploadItems']);
-    Route::get('/api/user/items', [\App\Http\Controllers\Api\UserItemController::class, 'getUserItems']);
-    Route::match(['PUT', 'POST'], '/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'updateItem']);
-    Route::delete('/api/user/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'deleteItem']);
-    Route::post('/api/user/items/{uploadId}/restore', [\App\Http\Controllers\Api\UserItemController::class, 'restoreItem']);
-    Route::delete('/api/user/items/{uploadId}/force', [\App\Http\Controllers\Api\UserItemController::class, 'forceDeleteItem']);
-    Route::get('/api/user/items/trashed', [\App\Http\Controllers\Api\UserItemController::class, 'getTrashedItems']);
-    Route::get('/api/user/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
-    Route::post('/api/user/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
-    Route::post('/api/user/items/{uploadId}/cancel-claim', [\App\Http\Controllers\Api\UserItemController::class, 'cancelClaim']);
+    Route::post('/api/items/upload', [\App\Http\Controllers\Api\UserItemController::class, 'uploadItems']);
+    Route::get('/api/items', [\App\Http\Controllers\Api\UserItemController::class, 'getUserItems']);
+    Route::match(['PUT', 'POST'], '/api/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'updateItem']);
+    Route::delete('/api/items/{uploadId}', [\App\Http\Controllers\Api\UserItemController::class, 'deleteItem']);
+    Route::post('/api/items/{uploadId}/restore', [\App\Http\Controllers\Api\UserItemController::class, 'restoreItem']);
+    Route::delete('/api/items/{uploadId}/force', [\App\Http\Controllers\Api\UserItemController::class, 'forceDeleteItem']);
+    Route::get('/api/items/trashed', [\App\Http\Controllers\Api\UserItemController::class, 'getTrashedItems']);
+    Route::get('/api/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
+    Route::post('/api/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
+    Route::post('/api/items/{uploadId}/cancel-claim', [\App\Http\Controllers\Api\UserItemController::class, 'cancelClaim']);
 
     // User Profile Routes
-    Route::get('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('user.profile');
-    Route::get('/user/profile/edit', [\App\Http\Controllers\UserProfileController::class, 'edit'])->name('user.profile.edit');
-    Route::put('/user/profile', [\App\Http\Controllers\UserProfileController::class, 'update'])->name('user.profile.update');
-    Route::post('/user/profile/avatar', [\App\Http\Controllers\UserProfileController::class, 'uploadAvatar'])->name('user.profile.avatar');
+    Route::get('/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('profile');
+    Route::get('/profile/edit', [\App\Http\Controllers\UserProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [\App\Http\Controllers\UserProfileController::class, 'update'])->name('profile.update');
+    Route::post('/profile/avatar', [\App\Http\Controllers\UserProfileController::class, 'uploadAvatar'])->name('profile.avatar');
 
     // Chat Routes
-    Route::get('/user/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('user.chat');
-    Route::get('/user/chat/messages/{userId}', [\App\Http\Controllers\ChatController::class, 'getMessages'])->name('user.chat.messages');
-    Route::post('/user/chat/send', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('user.chat.send');
-    Route::get('/user/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('user.chat.unread-count');
-    Route::post('/user/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('user.chat.mark-read');
-    Route::post('/user/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('user.chat.get-user-by-email');
+    Route::get('/chat', [\App\Http\Controllers\ChatController::class, 'index'])->name('chat');
+    Route::get('/chat/messages/{userId}', [\App\Http\Controllers\ChatController::class, 'getMessages'])->name('chat.messages');
+    Route::post('/chat/send', [\App\Http\Controllers\ChatController::class, 'sendMessage'])->name('chat.send');
+    Route::get('/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('chat.unread-count');
+    Route::post('/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('chat.mark-read');
+    Route::post('/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('chat.get-user-by-email');
 });
 
 // Guest posting routes
@@ -139,6 +142,6 @@ Route::post('/api/notifications/mark-read', [\App\Http\Controllers\NotificationC
 
 // Admin routes (admin only)
 Route::middleware(['auth','admin'])->group(function () {
-    Route::get('/admin/notifications/create', [\App\Http\Controllers\Admin\NotificationController::class, 'create'])->name('admin.notifications.create');
-    Route::post('/admin/notifications/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('admin.notifications.send');
+    Route::get('/notifications/create', [\App\Http\Controllers\Admin\NotificationController::class, 'create'])->name('notifications.create');
+    Route::post('/notifications/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('notifications.send');
 });

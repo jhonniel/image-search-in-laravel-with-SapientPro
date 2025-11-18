@@ -407,10 +407,10 @@ class AdminController extends Controller
             $user = \App\Models\User::onlyTrashed()->findOrFail($id);
             $user->restore();
 
-            return redirect()->route('admin.users')
+            return redirect()->route('users')
                 ->with('success', 'User restored successfully!');
         } catch (\Exception $e) {
-            return redirect()->route('admin.users')
+            return redirect()->route('users')
                 ->with('error', 'Failed to restore user: ' . $e->getMessage());
         }
     }
@@ -424,10 +424,10 @@ class AdminController extends Controller
             $user = \App\Models\User::onlyTrashed()->findOrFail($id);
             $user->forceDelete();
 
-            return redirect()->route('admin.users')
+            return redirect()->route('users')
                 ->with('success', 'User permanently deleted!');
         } catch (\Exception $e) {
-            return redirect()->route('admin.users')
+            return redirect()->route('users')
                 ->with('error', 'Failed to permanently delete user: ' . $e->getMessage());
         }
     }
@@ -1064,7 +1064,7 @@ class AdminController extends Controller
         // Clear config cache to apply new settings
         \Artisan::call('config:clear');
 
-        return redirect()->route('admin.settings')
+        return redirect()->route('settings')
             ->with('success', 'Settings updated successfully!');
     }
 

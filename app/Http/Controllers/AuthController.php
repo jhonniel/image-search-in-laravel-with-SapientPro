@@ -24,7 +24,6 @@ class AuthController extends Controller
         // Check if user is already logged in
         if (Auth::check()) {
             $user = Auth::user();
-            $email = strtolower($user->email);
             
             // Check if there's a redirect URL in session (from item page)
             $redirectUrl = $request->session()->pull('redirect_after_login', null);
@@ -32,13 +31,8 @@ class AuthController extends Controller
                 return redirect($redirectUrl);
             }
             
-            // Redirect admin users to admin dashboard
-            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
-                return redirect('/admin/dashboard');
-            }
-            
-            // Redirect regular users to user dashboard
-            return redirect('/user/dashboard');
+            // Redirect based on user role
+            return redirect('/dashboard');
         }
         
         // Check if redirecting from item page
@@ -58,7 +52,6 @@ class AuthController extends Controller
         // Check if user is already logged in
         if (Auth::check()) {
             $user = Auth::user();
-            $email = strtolower($user->email);
             
             // Check if there's a redirect URL in session (from item page)
             $redirectUrl = $request->session()->pull('redirect_after_register', null);
@@ -66,13 +59,8 @@ class AuthController extends Controller
                 return redirect($redirectUrl);
             }
             
-            // Redirect admin users to admin dashboard
-            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
-                return redirect('/admin/dashboard');
-            }
-            
-            // Redirect regular users to user dashboard
-            return redirect('/user/dashboard');
+            // Redirect based on user role
+            return redirect('/dashboard');
         }
         
         // Check if there's a pending guest item
@@ -120,11 +108,16 @@ class AuthController extends Controller
         ]);
 
         try {
+            // Determine role based on email
+            $email = strtolower($request->email);
+            $role = ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) ? 'admin' : 'user';
+            
             $user = User::create([
                 'name' => $request->name,
                 'username' => $request->username,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
+                'role' => $role,
             ]);
 
             Auth::login($user);
@@ -143,7 +136,8 @@ class AuthController extends Controller
                 return redirect($redirectUrl)->with('success', $successMessage);
             }
 
-            return redirect()->intended('/user/dashboard')->with('success', $successMessage);
+            // Redirect based on user role
+            return redirect('/dashboard')->with('success', $successMessage);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Registration failed. Please try again.'])->withInput();
         }
@@ -157,7 +151,6 @@ class AuthController extends Controller
         // Check if user is already logged in
         if (Auth::check()) {
             $user = Auth::user();
-            $email = strtolower($user->email);
             
             // Check if there's a redirect URL in session (from item page)
             $redirectUrl = $request->session()->pull('redirect_after_login', null);
@@ -165,13 +158,8 @@ class AuthController extends Controller
                 return redirect($redirectUrl);
             }
             
-            // Redirect admin users to admin dashboard
-            if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
-                return redirect('/admin/dashboard');
-            }
-            
-            // Redirect regular users to user dashboard
-            return redirect('/user/dashboard');
+            // Redirect based on user role
+            return redirect('/dashboard');
         }
         
         $request->validate([
@@ -213,18 +201,14 @@ class AuthController extends Controller
         $this->processGuestPendingItem($request, $user);
         $request->session()->regenerate();
 
-        $email = strtolower($user->email);
-
         // Redirect to stored redirect first
         $redirectUrl = $request->session()->pull('redirect_after_login', null);
         if ($redirectUrl) {
             return redirect($redirectUrl);
         }
 
-        if ($email === 'admin@finditfast.com' || str_contains($email, 'admin@')) {
-            return redirect('/admin/dashboard');
-        }
-        return redirect('/user/dashboard');
+        // Redirect based on user role
+        return redirect('/dashboard');
     }
 
     /**

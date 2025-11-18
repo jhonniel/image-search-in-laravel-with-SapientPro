@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - FindITFast</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <style>
         .gradient-bg {
@@ -15,10 +15,6 @@
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
-        :root { --purple-primary:#8B5CF6; --pink-primary:#EC4899; }
-        .text-purple-primary{ color: var(--purple-primary); }
-        .text-pink-primary{ color: var(--pink-primary); }
-        .bg-pink-primary{ background-color: var(--pink-primary); }
     </style>
 </head>
 <body class="min-h-screen bg-white">

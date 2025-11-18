@@ -10,7 +10,7 @@
                 <p class="text-gray-600 mt-2">Update user information and settings</p>
             </div>
             <div class="flex items-center space-x-4">
-                <a href="{{ route('admin.users') }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                <a href="{{ route('users') }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
                     <i class="fas fa-arrow-left mr-2"></i>
                     Back to Users
                 </a>
@@ -99,7 +99,7 @@
 
             <!-- Form Actions -->
             <div class="border-t pt-6 flex items-center justify-end space-x-4">
-                <button type="button" onclick="window.location.href='{{ route('admin.users') }}'"
+                <button type="button" onclick="window.location.href='{{ route('users') }}'"
                         class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
                     Cancel
                 </button>
@@ -126,7 +126,7 @@ document.getElementById('edit-user-form').addEventListener('submit', async funct
     submitButton.disabled = true;
 
     try {
-        const response = await fetch('{{ route("admin.users.update", $user->id) }}', {
+        const response = await fetch('{{ route("users.update", $user->id) }}', {
             method: 'POST',
             body: formData,
             headers: {

@@ -5,52 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FindITFast - Lost and Found Platform</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <script src="https://cdn.tailwindcss.com"></script>
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-            <style>
-        :root {
-            --purple-primary: #8B5CF6;
-            --pink-primary: #EC4899;
-        }
-
-        .bg-purple-primary {
-            background-color: var(--purple-primary);
-        }
-
-        .text-purple-primary {
-            color: var(--purple-primary);
-        }
-
-        .bg-pink-primary {
-            background-color: var(--pink-primary);
-        }
-
-        .text-pink-primary {
-            color: var(--pink-primary);
-        }
-
-        .border-purple-primary {
-            border-color: var(--purple-primary);
-        }
-
-        .border-pink-primary {
-            border-color: var(--pink-primary);
-        }
-
-        .line-clamp-1 {
-            display: -webkit-box;
-            -webkit-line-clamp: 1;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-
-        .line-clamp-2 {
-            display: -webkit-box;
-            -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical;
-            overflow: hidden;
-        }
-            </style>
     </head>
 <body class="bg-white">
     <!-- Header -->
