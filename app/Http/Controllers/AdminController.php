@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Faq;
 use App\Models\ImageMetadata;
 use App\Models\User;
 use App\Models\Setting;
@@ -221,6 +222,15 @@ class AdminController extends Controller
                 'images' => $itemGroup->map(function ($item) {
                     // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
+                    
+                    // Fallback to stored filename paths when file_path is missing
+                    if (empty($filePath) && !empty($item->full_path)) {
+                        $filePath = $item->full_path;
+                    }
+
+                    if (empty($filePath) && !empty($item->filename)) {
+                        $filePath = 'storage/reference-images/' . ltrim($item->filename, '/');
+                    }
                     
                     // Normalize the path - ensure it starts with /storage/
                     if (empty($filePath)) {
@@ -601,6 +611,7 @@ class AdminController extends Controller
                     return [
                         'filename' => $item->filename,
                         'path' => $imagePath,
+                        'url' => $this->resolveImageUrl($imagePath),
                         'original_name' => $item->original_name,
                         'size' => $item->file_size,
                     ];
@@ -609,6 +620,21 @@ class AdminController extends Controller
         }
 
         return view('admin.claimed', compact('formattedItems'));
+    }
+
+    private function resolveImageUrl(?string $path): string
+    {
+        if (empty($path)) {
+            return asset('images/report-found-item-placeholder.svg');
+        }
+
+        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+            return $path;
+        }
+
+        $normalized = str_starts_with($path, '/') ? $path : '/' . ltrim($path, '/');
+
+        return url($normalized);
     }
 
     /**
@@ -703,6 +729,8 @@ class AdminController extends Controller
      */
     public function settings()
     {
+        $activeTab = request()->get('tab', 'general');
+
         // Get current email configuration from env/config
         $emailSettings = [
             'mail_mailer' => Setting::get('mail_mailer', config('mail.default')),
@@ -776,7 +804,23 @@ class AdminController extends Controller
         $allProvinceRegions = array_keys($philippineProvinces);
         sort($allProvinceRegions);
 
-        return view('admin.settings', compact('emailSettings', 'enabledCities', 'philippineCities', 'customCities', 'allRegions', 'enabledProvinces', 'philippineProvinces', 'customProvinces', 'allProvinceRegions'));
+        $faqs = Faq::orderBy('display_order', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get();
+
+        return view('admin.settings', compact(
+            'emailSettings',
+            'enabledCities',
+            'philippineCities',
+            'customCities',
+            'allRegions',
+            'enabledProvinces',
+            'philippineProvinces',
+            'customProvinces',
+            'allProvinceRegions',
+            'faqs',
+            'activeTab'
+        ));
     }
 
     /**
@@ -1094,11 +1138,57 @@ class AdminController extends Controller
         Setting::set('social_linkedin', $request->input('social_linkedin', ''), 'string', 'LinkedIn page URL');
         Setting::set('social_youtube', $request->input('social_youtube', ''), 'string', 'YouTube channel URL');
         Setting::set('social_tiktok', $request->input('social_tiktok', ''), 'string', 'TikTok page URL');
+        Setting::set('contact_support_hours', $request->input('contact_support_hours', 'Mon - Sat · 8AM - 8PM PHT'), 'string', 'Support hours shown in Contact Us');
+        Setting::set('contact_email_help_text', $request->input('contact_email_help_text', 'Expect a reply within 24 hours.'), 'string', 'Contact email helper text');
+
+        // Save FAQs
+        $incomingFaqs = $request->input('faqs', []);
+        $faqIdsKept = [];
+
+        foreach ($incomingFaqs as $faqData) {
+            $question = trim($faqData['question'] ?? '');
+            $answer = trim($faqData['answer'] ?? '');
+
+            if ($question === '' || $answer === '') {
+                continue;
+            }
+
+            $faq = null;
+            if (!empty($faqData['id'])) {
+                $faq = Faq::find($faqData['id']);
+            }
+
+            if ($faq) {
+                $faq->update([
+                    'question' => $question,
+                    'answer' => $answer,
+                    'display_order' => (int) ($faqData['display_order'] ?? 0),
+                    'is_active' => !empty($faqData['is_active']),
+                ]);
+            } else {
+                $faq = Faq::create([
+                    'question' => $question,
+                    'answer' => $answer,
+                    'display_order' => (int) ($faqData['display_order'] ?? 0),
+                    'is_active' => !empty($faqData['is_active']),
+                ]);
+            }
+
+            $faqIdsKept[] = $faq->id;
+        }
+
+        if (!empty($faqIdsKept)) {
+            Faq::whereNotIn('id', $faqIdsKept)->delete();
+        } else {
+            Faq::truncate();
+        }
 
         // Clear config cache to apply new settings
         \Artisan::call('config:clear');
 
-        return redirect()->route('settings')
+        $activeTab = $request->input('active_tab', 'general');
+
+        return redirect()->route('settings', ['tab' => $activeTab])
             ->with('success', 'Settings updated successfully!');
     }
 

@@ -130,13 +130,10 @@ class AuthController extends Controller
                 $successMessage .= " Your {$itemsLinked} item(s) have been linked to your account.";
             }
 
-            // Check if there's a redirect URL in session (from item page)
-            $redirectUrl = $request->session()->pull('redirect_after_register', null);
-            if ($redirectUrl) {
-                return redirect($redirectUrl)->with('success', $successMessage);
-            }
+            // Clear any redirect URLs from session - always go to dashboard after registration
+            $request->session()->forget('redirect_after_register');
 
-            // Redirect based on user role
+            // Always redirect to dashboard after successful registration
             return redirect('/dashboard')->with('success', $successMessage);
         } catch (\Exception $e) {
             return back()->withErrors(['error' => 'Registration failed. Please try again.'])->withInput();

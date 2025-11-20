@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\Faq;
+use App\Models\ContactHelpSection;
 use App\Models\ImageMetadata;
+use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
@@ -96,7 +99,28 @@ class WelcomeController extends Controller
             'youtube' => \App\Models\Setting::get('social_youtube', ''),
             'tiktok' => \App\Models\Setting::get('social_tiktok', ''),
         ];
-        
+
+        $contactEmail = Setting::get('contact_email', 'support@finditfast.com');
+        $contactWebsite = Setting::get('contact_website', 'finditfast.com');
+        $contactSupportHours = Setting::get('contact_support_hours', 'Mon - Sat · 8AM - 8PM PHT');
+        $contactEmailHelpText = Setting::get('contact_email_help_text', 'Expect a reply within 24 hours.');
+        $contactHelpSections = ContactHelpSection::where('is_active', true)
+            ->orderBy('display_order')
+            ->get();
+
+        $faqs = Faq::where('is_active', true)
+            ->orderBy('display_order', 'asc')
+            ->orderBy('created_at', 'asc')
+            ->get(['question', 'answer']);
+
+        if ($faqs->isEmpty()) {
+            $faqs = collect([
+                ['question' => 'How does FindITFast work?', 'answer' => 'Report a lost or found item with photos, and we notify users with matching posts so they can connect securely.'],
+                ['question' => 'Do I need an account to post?', 'answer' => 'You can browse without signing in, but an account lets you post items, track updates, and message other members.'],
+                ['question' => 'Is FindITFast available nationwide?', 'answer' => 'Yes, you can search and post items across all supported provinces and major cities in the Philippines.'],
+            ])->map(fn ($faq) => (object) $faq);
+        }
+
         return view('welcome', compact(
             'freshReports',
             'totalLostReports',
@@ -108,7 +132,13 @@ class WelcomeController extends Controller
             'searchQuery',
             'statusFilter',
             'isSearch',
-            'socialLinks'
+            'socialLinks',
+            'contactEmail',
+            'contactWebsite',
+            'faqs',
+            'contactHelpSections',
+            'contactSupportHours',
+            'contactEmailHelpText'
         ));
     }
     

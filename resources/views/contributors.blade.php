@@ -159,12 +159,11 @@
         </div>
     </main>
 
-    <!-- Footer -->
-    <footer class="bg-purple-50 py-8 mt-16">
-        <div class="container mx-auto px-4 sm:px-6 text-center">
-            <p class="text-gray-700 text-base sm:text-lg">© 2025 FindITFast — Built with care for the city we love.</p>
-        </div>
-    </footer>
+    @include('components.footer', [
+        'socialLinks' => $socialLinks ?? [],
+        'contactEmail' => $contactEmail ?? null,
+        'contactWebsite' => $contactWebsite ?? null,
+    ])
 </body>
 </html>
 

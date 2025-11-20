@@ -204,7 +204,7 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isContributors = (str_starts_with($currentRoute, 'contributors') || str_starts_with($currentPath, 'admin/contributors')) 
+                            $isContributors = (str_starts_with($currentRoute, 'contributors') || str_starts_with($currentPath, 'contributors')) 
                                 && !str_starts_with($currentPath, 'dashboard')
                                 && !str_starts_with($currentPath, 'reported-items-admin')
                                 && !str_starts_with($currentPath, 'claimed')
@@ -218,6 +218,26 @@
                         <a href="{{ route('contributors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isContributors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Contributors' : ''">
                             <i class="fas fa-users-cog w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Contributors</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isContactRequests = (str_starts_with($currentRoute, 'contact-requests') || str_starts_with($currentPath, 'contact-requests'))
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('contact-requests.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isContactRequests ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Contact Requests' : ''">
+                            <i class="fas fa-inbox w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Contact Requests</span>
                         </a>
                     </li>
                     <li>

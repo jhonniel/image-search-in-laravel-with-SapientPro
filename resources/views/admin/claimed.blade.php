@@ -131,9 +131,9 @@
                                             @foreach($item['images'] as $index => $image)
                                                 <div class="carousel-slide flex-shrink-0 w-full">
                                                     <div class="relative group">
-                                                        <img src="{{ $image['path'] }}" alt="{{ $image['original_name'] }}" class="w-full h-48 object-cover rounded-lg border border-gray-200">
-                                                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 rounded-lg flex items-center justify-center">
-                                                            <button onclick="viewImage('{{ $image['path'] }}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200">
+                                                        <img src="{{ $image['url'] ?? $image['path'] }}" alt="{{ $image['original_name'] }}" class="w-full h-48 object-cover rounded-lg border border-gray-200 bg-gray-100" onerror="this.onerror=null; this.src='{{ asset('images/report-found-item-placeholder.svg') }}';">
+                                                        <div class="absolute inset-0 bg-transparent group-hover:bg-black/30 transition-all duration-200 rounded-lg flex items-center justify-center">
+                                                            <button onclick="viewImage('{{ $image['url'] ?? $image['path'] }}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200">
                                                                 <i class="fas fa-eye mr-1"></i>
                                                                 View
                                                             </button>

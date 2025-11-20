@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Contributor;
+use App\Models\Setting;
 use Illuminate\Http\Request;
 
 class ContributorController extends Controller
@@ -33,7 +34,24 @@ class ContributorController extends Controller
                 return $contributor;
             });
 
-        return view('contributors', compact('contributors'));
+        $socialLinks = [
+            'facebook' => Setting::get('social_facebook', ''),
+            'instagram' => Setting::get('social_instagram', ''),
+            'twitter' => Setting::get('social_twitter', ''),
+            'linkedin' => Setting::get('social_linkedin', ''),
+            'youtube' => Setting::get('social_youtube', ''),
+            'tiktok' => Setting::get('social_tiktok', ''),
+        ];
+
+        $contactEmail = Setting::get('contact_email', 'support@finditfast.com');
+        $contactWebsite = Setting::get('contact_website', 'finditfast.com');
+
+        return view('contributors', compact(
+            'contributors',
+            'socialLinks',
+            'contactEmail',
+            'contactWebsite'
+        ));
     }
 }
 

@@ -1,12 +1,17 @@
 <?php
 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ImageComparisonController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PageController;
 
 Route::get('/', [\App\Http\Controllers\WelcomeController::class, 'index'])->name('welcome');
 Route::get('/search', [\App\Http\Controllers\WelcomeController::class, 'index'])->name('search');
 Route::get('/api/search', [\App\Http\Controllers\WelcomeController::class, 'searchApi'])->name('api.search');
+Route::post('/contact', [\App\Http\Controllers\ContactRequestController::class, 'store'])->name('contact.store');
+Route::get('/privacy-policy', [PageController::class, 'privacy'])->name('privacy');
+Route::get('/terms-and-conditions', [PageController::class, 'terms'])->name('terms');
 
 // Public Contributors Page
 Route::get('/contributors', [\App\Http\Controllers\ContributorController::class, 'index'])->name('contributors.public');
@@ -25,7 +30,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 Route::middleware(['auth'])->group(function () {
     // Unified Dashboard - redirects based on role
     Route::get('/dashboard', function () {
-        $user = auth()->user();
+        $user = Auth::user();
         if ($user->role === 'admin') {
             return app(\App\Http\Controllers\AdminController::class)->dashboard();
         }
@@ -95,12 +100,18 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/sponsors/toggle-show', [\App\Http\Controllers\Admin\SponsorController::class, 'toggleShow'])->name('sponsors.toggle-show');
 
         // Contributors Management (Admin)
-        Route::get('/admin/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'index'])->name('contributors.index');
-        Route::post('/admin/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'store'])->name('contributors.store');
-        Route::put('/admin/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'update'])->name('contributors.update');
-        Route::delete('/admin/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'destroy'])->name('contributors.destroy');
-        Route::post('/admin/contributors/{id}/restore', [\App\Http\Controllers\Admin\ContributorController::class, 'restore'])->name('contributors.restore');
-        Route::delete('/admin/contributors/{id}/force', [\App\Http\Controllers\Admin\ContributorController::class, 'forceDelete'])->name('contributors.force-delete');
+        Route::get('/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'index'])->name('contributors.index');
+        Route::post('/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'store'])->name('contributors.store');
+        Route::put('/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'update'])->name('contributors.update');
+        Route::delete('/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'destroy'])->name('contributors.destroy');
+        Route::post('/contributors/{id}/restore', [\App\Http\Controllers\Admin\ContributorController::class, 'restore'])->name('contributors.restore');
+        Route::delete('/contributors/{id}/force', [\App\Http\Controllers\Admin\ContributorController::class, 'forceDelete'])->name('contributors.force-delete');
+
+        // Contact Requests
+        Route::get('/contact-requests', [\App\Http\Controllers\Admin\ContactRequestController::class, 'index'])->name('contact-requests.index');
+        Route::put('/contact-requests/{contactRequest}', [\App\Http\Controllers\Admin\ContactRequestController::class, 'update'])->name('contact-requests.update');
+        Route::post('/contact-requests/help-section', [\App\Http\Controllers\Admin\ContactRequestController::class, 'upsertHelpSection'])->name('contact-requests.help.upsert');
+        Route::delete('/contact-requests/help-section/{section}', [\App\Http\Controllers\Admin\ContactRequestController::class, 'deleteHelpSection'])->name('contact-requests.help.delete');
 
         // Rewards Management
         Route::get('/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'index'])->name('rewards.index');

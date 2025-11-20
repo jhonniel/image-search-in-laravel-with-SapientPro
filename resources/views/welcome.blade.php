@@ -44,7 +44,7 @@
     <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <div class="text-center max-w-4xl mx-auto">
             <!-- Main Heading -->
-            <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4">
+            <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4 whitespace-normal leading-tight">
                 From Lost to Found. In Just a Few Clicks.
             </h2>
 
@@ -124,29 +124,29 @@
     <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
             <!-- Lost Reports -->
-            <div class="text-center">
+            <div class="text-center" data-counter>
                 <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-purple-100 mb-4">
                     <i class="fas fa-shopping-bag text-purple-primary text-4xl"></i>
                 </div>
-                <div class="text-4xl font-bold text-purple-primary mb-2">{{ number_format($totalLostReports) }}@if($totalLostReports >= 1000) +@endif</div>
+                <div class="text-4xl font-bold text-purple-primary mb-2 counter-value" data-target="{{ $totalLostReports }}" data-plus-threshold="1000">0</div>
                 <div class="text-gray-600 text-lg">Lost&Found Reports</div>
             </div>
 
             <!-- Items Reunited -->
-            <div class="text-center">
+            <div class="text-center" data-counter>
                 <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-pink-100 mb-4">
                     <i class="fas fa-hand-holding-heart text-pink-primary text-4xl"></i>
                 </div>
-                <div class="text-4xl font-bold text-pink-primary mb-2">{{ number_format($totalItemsReunited) }}@if($totalItemsReunited >= 1000) +@endif</div>
+                <div class="text-4xl font-bold text-pink-primary mb-2 counter-value" data-target="{{ $totalItemsReunited }}" data-plus-threshold="1000">0</div>
                 <div class="text-gray-600 text-lg">Items Reunited</div>
             </div>
 
             <!-- Locations Covered -->
-            <div class="text-center">
+            <div class="text-center" data-counter>
                 <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-purple-100 mb-4">
                     <i class="fas fa-map-marker-alt text-purple-primary text-4xl"></i>
                 </div>
-                <div class="text-4xl font-bold text-purple-primary mb-2">{{ number_format($totalLocations) }}@if($totalLocations >= 100) +@endif</div>
+                <div class="text-4xl font-bold text-purple-primary mb-2 counter-value" data-target="{{ $totalLocations }}" data-plus-threshold="100">0</div>
                 <div class="text-gray-600 text-lg">Locations Covered</div>
             </div>
         </div>
@@ -401,6 +401,159 @@
     <!-- Testimonials Divider -->
     <div class="border-t border-gray-300"></div>
 
+    @if($faqs->count())
+    <!-- FAQ Section -->
+    <section id="faq" class="bg-gray-50 py-12 sm:py-16">
+        <div class="container mx-auto px-4 sm:px-6">
+            <div class="max-w-4xl mx-auto text-center mb-10">
+                <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-primary uppercase tracking-widest mb-2">Need Answers?</h2>
+                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
+                <p class="text-base sm:text-lg text-gray-600">A quick guide to how FindITFast keeps lost items moving back to their owners.</p>
+            </div>
+
+            <div class="max-w-4xl mx-auto space-y-4">
+                @foreach($faqs as $index => $faq)
+                <details class="group bg-white border border-gray-200 rounded-2xl shadow-sm transition-all">
+                    <summary class="flex items-center justify-between w-full px-5 py-4 cursor-pointer">
+                        <div class="flex items-start text-left">
+                            <span class="text-sm font-semibold text-purple-primary mr-4">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</span>
+                            <span class="text-lg font-semibold text-gray-900">{{ $faq->question }}</span>
+                        </div>
+                        <span class="ml-4 flex-shrink-0 text-purple-primary group-open:hidden">
+                            <i class="fas fa-plus"></i>
+                        </span>
+                        <span class="ml-4 flex-shrink-0 text-purple-primary hidden group-open:block">
+                            <i class="fas fa-minus"></i>
+                        </span>
+                    </summary>
+                    <div class="px-5 pb-5 text-left">
+                        <p class="text-gray-600 leading-relaxed">{{ $faq->answer }}</p>
+                    </div>
+                </details>
+                @endforeach
+            </div>
+        </div>
+    </section>
+    @endif
+
+    <!-- Contact Section -->
+    <section id="contact-us" class="py-12 sm:py-16 bg-white">
+        <div class="container mx-auto px-4 sm:px-6">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+                <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 shadow-sm border border-purple-100">
+                    <p class="text-sm uppercase tracking-widest text-purple-primary font-semibold mb-2">Contact Us</p>
+                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Need help or have feedback?</h2>
+                    <p class="text-base sm:text-lg text-gray-600 mb-6">Share your questions, partnership ideas, or product feedback. Our team reviews every request within one business day.</p>
+
+                    <div class="space-y-5">
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow">
+                                <i class="fas fa-headset text-purple-primary text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Support Hours</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ $contactSupportHours }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow">
+                                <i class="fas fa-envelope-open-text text-purple-primary text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Email</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ $contactEmail }}</p>
+                                <p class="text-sm text-gray-500">{{ $contactEmailHelpText }}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-4">
+                            <div class="w-12 h-12 rounded-2xl bg-white flex items-center justify-center shadow">
+                                <i class="fas fa-globe-asia text-purple-primary text-xl"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-500">Website</p>
+                                <p class="text-lg font-semibold text-gray-900">{{ $contactWebsite }}</p>
+                                <p class="text-sm text-gray-500">Visit our resources and guides.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if($contactHelpSections->count())
+                    <div class="mt-8 space-y-4">
+                        @foreach($contactHelpSections as $section)
+                        <div class="bg-white rounded-2xl p-5 shadow-sm border border-purple-50">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-2">{{ $section->heading }}</h3>
+                            <p class="text-gray-600 mb-3">{{ $section->body }}</p>
+                            @if($section->cta_label && $section->cta_url)
+                            <a href="{{ $section->cta_url }}" target="_blank" class="inline-flex items-center text-purple-primary font-semibold text-sm hover:text-purple-700">
+                                {{ $section->cta_label }}
+                                <i class="fas fa-arrow-up-right-from-square text-xs ml-1"></i>
+                            </a>
+                            @endif
+                        </div>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8">
+                    @if(session('contact_success'))
+                    <div class="mb-6 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center">
+                        <i class="fas fa-check-circle mr-2"></i>
+                        <span>{{ session('contact_success') }}</span>
+                    </div>
+                    @endif
+
+                    @if($errors->any())
+                    <div class="mb-6 px-4 py-3 bg-red-50 border border-red-200 text-red-700 rounded-xl">
+                        <p class="font-semibold mb-1">Please fix the following:</p>
+                        <ul class="list-disc list-inside text-sm space-y-1">
+                            @foreach($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                    @endif
+
+                    <form action="{{ route('contact.store') }}" method="POST" class="space-y-4">
+                        @csrf
+                        <div>
+                            <label for="contactName" class="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
+                            <input type="text" id="contactName" name="name" value="{{ old('name') }}" required
+                                   class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                   placeholder="Maria Santos">
+                        </div>
+
+                        <div>
+                            <label for="contactEmail" class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
+                            <input type="email" id="contactEmail" name="email" value="{{ old('email') }}" required
+                                   class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                   placeholder="you@email.com">
+                        </div>
+
+                        <div>
+                            <label for="contactSubject" class="block text-sm font-semibold text-gray-700 mb-1">Subject</label>
+                            <input type="text" id="contactSubject" name="subject" value="{{ old('subject') }}"
+                                   class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                   placeholder="Feature request, partnership...">
+                        </div>
+
+                        <div>
+                            <label for="contactMessage" class="block text-sm font-semibold text-gray-700 mb-1">Message</label>
+                            <textarea id="contactMessage" name="message" rows="5" required
+                                      class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                      placeholder="Tell us how we can help...">{{ old('message') }}</textarea>
+                        </div>
+
+                        <button type="submit" class="w-full inline-flex items-center justify-center px-6 py-3 bg-purple-primary text-white font-semibold rounded-2xl shadow-lg shadow-purple-200 hover:bg-purple-700 transition">
+                            <i class="fas fa-paper-plane mr-2"></i>
+                            Send Request
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </section>
+
     <!-- Sponsors Carousel Section -->
     @if(isset($showSponsors) && $showSponsors && $sponsors->count() > 0)
     <section class="bg-gray-50 py-12 sm:py-16">
@@ -441,84 +594,11 @@
     </section>
     @endif
 
-    <!-- Footer -->
-    <footer class="bg-purple-50 py-12 sm:py-16">
-        <div class="container mx-auto px-4 sm:px-6">
-            <div class="max-w-none grid grid-cols-1 md:grid-cols-2 gap-12 sm:gap-24 mb-8 sm:mb-10">
-                <!-- Left Side: Brand Info -->
-                <div>
-                    <h3 class="text-3xl sm:text-4xl md:text-5xl font-extrabold mb-4 sm:mb-6">
-                        <span class="text-purple-primary">FindIT</span>
-                        <span class="text-pink-primary">Fast</span>
-                    </h3>
-                    <p class="text-gray-700 text-base sm:text-lg md:text-xl mb-6 sm:mb-8">Reuniting people with their lost items—fast, easy, and smart.</p>
-
-                    <!-- Social Media Icons -->
-                    <div class="flex space-x-5 mb-8">
-                        @if(!empty($socialLinks['facebook']))
-                        <a href="{{ $socialLinks['facebook'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
-                            <i class="fab fa-facebook-f"></i>
-                        </a>
-                        @endif
-                        @if(!empty($socialLinks['instagram']))
-                        <a href="{{ $socialLinks['instagram'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
-                            <i class="fab fa-instagram"></i>
-                        </a>
-                        @endif
-                        @if(!empty($socialLinks['twitter']))
-                        <a href="{{ $socialLinks['twitter'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
-                            <i class="fab fa-twitter"></i>
-                        </a>
-                        @endif
-                        @if(!empty($socialLinks['linkedin']))
-                        <a href="{{ $socialLinks['linkedin'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
-                            <i class="fab fa-linkedin"></i>
-                        </a>
-                        @endif
-                        @if(!empty($socialLinks['youtube']))
-                        <a href="{{ $socialLinks['youtube'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
-                            <i class="fab fa-youtube"></i>
-                        </a>
-                        @endif
-                        @if(!empty($socialLinks['tiktok']))
-                        <a href="{{ $socialLinks['tiktok'] }}" target="_blank" rel="noopener noreferrer" class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-primary hover:bg-purple-primary hover:text-white transition-colors shadow-md">
-                            <i class="fab fa-tiktok"></i>
-                        </a>
-                        @endif
-                    </div>
-
-                    <!-- Contact Information -->
-                    <div class="space-y-3">
-                        <div class="flex items-center text-gray-700 text-xl">
-                            <i class="fas fa-envelope mr-3 text-purple-primary"></i>
-                            <span>support@finditfast.com</span>
-                        </div>
-                        <div class="flex items-center text-gray-700 text-xl">
-                            <i class="fas fa-globe mr-3 text-purple-primary"></i>
-                            <span>finditfast.com</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Side: Support Links -->
-                <div class="md:justify-self-end md:text-right">
-                    <h4 class="text-2xl sm:text-3xl md:text-4xl font-extrabold text-pink-primary mb-4 sm:mb-6">Support</h4>
-                    <ul class="space-y-3 sm:space-y-4">
-                        <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">FAQs</a></li>
-                        <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Contact Us</a></li>
-                        <li><a href="/contributors" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Contributors</a></li>
-                        <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Privacy Policy</a></li>
-                        <li><a href="#" class="text-lg sm:text-xl md:text-2xl text-gray-700 hover:text-purple-primary transition-colors">Terms & Condition</a></li>
-                    </ul>
-                </div>
-            </div>
-
-            <!-- Copyright Notice -->
-            <div class="max-w-6xl mx-auto border-t border-gray-300 pt-6 sm:pt-8 text-center">
-                <p class="text-gray-700 text-base sm:text-lg md:text-2xl">© 2025 FindITFast — Built with care for the city we love.</p>
-                </div>
-        </div>
-    </footer>
+    @include('components.footer', [
+        'socialLinks' => $socialLinks,
+        'contactEmail' => $contactEmail,
+        'contactWebsite' => $contactWebsite,
+    ])
 
     @if(isset($showSponsors) && $showSponsors && $sponsors->count() > 0)
     <script>
@@ -808,6 +888,66 @@
                 const div = document.createElement('div');
                 div.textContent = text;
                 return div.innerHTML;
+            }
+
+            // Animated counters (Lost & Found stats)
+            const counterCards = document.querySelectorAll('[data-counter]');
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            function animateCounter(card) {
+                const valueEl = card.querySelector('.counter-value');
+                if (!valueEl) return;
+
+                const target = parseInt(valueEl.dataset.target, 10) || 0;
+                const threshold = parseInt(valueEl.dataset.plusThreshold, 10) || null;
+
+                if (target === 0 || prefersReducedMotion) {
+                    valueEl.textContent = target.toLocaleString();
+                    if (threshold && target >= threshold) {
+                        valueEl.textContent = `${valueEl.textContent}+`;
+                    }
+                    return;
+                }
+
+                const duration = 1600;
+                const startTime = performance.now();
+
+                function update(now) {
+                    const elapsed = now - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const easedProgress = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                    const currentValue = Math.floor(easedProgress * target);
+
+                    valueEl.textContent = currentValue.toLocaleString();
+
+                    if (progress < 1) {
+                        requestAnimationFrame(update);
+                    } else if (threshold && target >= threshold) {
+                        valueEl.textContent = `${target.toLocaleString()}+`;
+                    } else {
+                        valueEl.textContent = target.toLocaleString();
+                    }
+                }
+
+                requestAnimationFrame(update);
+            }
+
+            if ('IntersectionObserver' in window) {
+                const observer = new IntersectionObserver((entries, obs) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            if (!entry.target.dataset.animated) {
+                                animateCounter(entry.target);
+                                entry.target.dataset.animated = 'true';
+                            }
+                            obs.unobserve(entry.target);
+                        }
+                    });
+                }, { threshold: 0.4 });
+
+                counterCards.forEach(card => observer.observe(card));
+            } else {
+                counterCards.forEach(card => animateCounter(card));
             }
 
             // Make restoreOriginalContent available globally

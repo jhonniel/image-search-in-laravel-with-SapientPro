@@ -21,27 +21,40 @@
 
     <form method="POST" action="{{ route('settings.update') }}">
         @csrf
+        <input type="hidden" name="active_tab" value="{{ $activeTab }}">
         
         <!-- Settings Tabs -->
         <div class="mb-6 border-b border-gray-200">
+            @php
+                $tabs = [
+                    'general' => ['icon' => 'fas fa-cog', 'label' => 'General'],
+                    'email' => ['icon' => 'fas fa-envelope', 'label' => 'Email'],
+                    'locations' => ['icon' => 'fas fa-map-marker-alt', 'label' => 'Locations'],
+                    'faqs' => ['icon' => 'fas fa-question', 'label' => 'FAQs'],
+                ];
+            @endphp
             <nav class="flex space-x-8" aria-label="Tabs">
-                <button type="button" onclick="showTab('general')" id="tab-general" class="tab-button active py-4 px-1 border-b-2 border-purple-primary font-medium text-sm text-purple-primary">
-                    <i class="fas fa-cog mr-2"></i>General
-                </button>
-                <button type="button" onclick="showTab('email')" id="tab-email" class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                    <i class="fas fa-envelope mr-2"></i>Email
-                </button>
-                <button type="button" onclick="showTab('locations')" id="tab-locations" class="tab-button py-4 px-1 border-b-2 border-transparent font-medium text-sm text-gray-500 hover:text-gray-700 hover:border-gray-300">
-                    <i class="fas fa-map-marker-alt mr-2"></i>Locations
-                </button>
+                @foreach($tabs as $key => $tab)
+                    <a href="{{ route('settings', ['tab' => $key]) }}"
+                       @class([
+                           'tab-button py-4 px-1 border-b-2 font-medium text-sm flex items-center transition-colors',
+                           'border-purple-primary text-purple-primary' => $activeTab === $key,
+                           'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' => $activeTab !== $key,
+                       ])
+                       id="tab-{{ $key }}"
+                    >
+                        <i class="{{ $tab['icon'] }} mr-2"></i>{{ $tab['label'] }}
+                    </a>
+                @endforeach
             </nav>
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <!-- Main Settings -->
             <div class="lg:col-span-2 space-y-6">
+                @if($activeTab === 'general')
                 <!-- General Tab Content -->
-                <div id="content-general" class="tab-content">
+                <div id="content-general" class="space-y-6">
                     <!-- General Settings -->
                     <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                         <div class="px-6 py-5 bg-gradient-to-r from-purple-50 to-pink-50 border-b border-gray-200">
@@ -111,6 +124,21 @@
                         <div class="p-6 space-y-5">
                             <div>
                                 <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Support Hours <span class="text-red-500">*</span>
+                                </label>
+                                <input type="text" name="contact_support_hours" value="{{ \App\Models\Setting::get('contact_support_hours', 'Mon - Sat · 8AM - 8PM PHT') }}"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Contact Email Help Text
+                                </label>
+                                <input type="text" name="contact_email_help_text" value="{{ \App\Models\Setting::get('contact_email_help_text', 'Expect a reply within 24 hours.') }}"
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
                                     <i class="fab fa-facebook-f text-blue-600 mr-2"></i>Facebook URL
                                 </label>
                                 <input type="url" name="social_facebook" 
@@ -176,11 +204,12 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
+                @endif
 
+                @if($activeTab === 'email')
                 <!-- Email Tab Content -->
-                <div id="content-email" class="tab-content hidden space-y-6">
+                <div id="content-email" class="space-y-6">
                     <!-- Email Configuration -->
                     <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                         <div class="px-6 py-5 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-gray-200">
@@ -366,9 +395,11 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
+                @if($activeTab === 'locations')
                 <!-- Locations Tab Content -->
-                <div id="content-locations" class="tab-content hidden space-y-6">
+                <div id="content-locations" class="space-y-6">
                     <!-- Field Visibility & Requirements Settings -->
                     <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                         <div class="px-6 py-5 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
@@ -708,7 +739,114 @@
                         </div>
                     </div>
                 </div>
+                @endif
+
+                @if($activeTab === 'faqs')
+                <!-- FAQs Tab Content -->
+                <div id="content-faqs" class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-5 bg-gradient-to-r from-green-50 to-emerald-50 border-b border-gray-200">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center mr-3">
+                                        <i class="fas fa-question text-white"></i>
+                                    </div>
+                                    <div>
+                                        <h2 class="text-lg font-semibold text-gray-900">Frequently Asked Questions</h2>
+                                        <p class="text-sm text-gray-600">Populate the FAQs section shown on the public landing page.</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="addFaqItem()" class="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors">
+                                    <i class="fas fa-plus mr-2"></i>Add FAQ
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-6 space-y-4" id="faqItems" data-next-index="{{ max($faqs->count(), 1) }}">
+                            @forelse($faqs as $index => $faq)
+                                <div class="faq-card border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-700">FAQ #<span class="faq-number">{{ $index + 1 }}</span></p>
+                                            <p class="text-xs text-gray-500">Update the question and answer below.</p>
+                                        </div>
+                                        <button type="button" class="text-gray-500 hover:text-red-500 text-sm font-medium" onclick="removeFaqCard(this)">
+                                            <i class="fas fa-times mr-1"></i>Remove
+                                        </button>
+                                    </div>
+                                    <input type="hidden" name="faqs[{{ $index }}][id]" value="{{ $faq->id }}">
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Question</label>
+                                        <input type="text" name="faqs[{{ $index }}][question]" value="{{ $faq->question }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Enter the frequently asked question">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Answer</label>
+                                        <textarea name="faqs[{{ $index }}][answer]" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Provide a helpful and concise answer">{{ $faq->answer }}</textarea>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                                            <input type="number" name="faqs[{{ $index }}][display_order]" value="{{ $faq->display_order }}" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" min="0">
+                                        </div>
+                                        <div class="md:col-span-2 flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-3">
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-800">Show on public page</p>
+                                                <p class="text-xs text-gray-500">Disable to hide this FAQ without deleting it.</p>
+                                            </div>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" name="faqs[{{ $index }}][is_active]" value="1" class="sr-only peer" {{ $faq->is_active ? 'checked' : '' }}>
+                                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            @empty
+                                <div class="faq-card border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
+                                    <div class="flex items-start justify-between">
+                                        <div>
+                                            <p class="text-sm font-semibold text-gray-700">FAQ #<span class="faq-number">1</span></p>
+                                            <p class="text-xs text-gray-500">Start with a helpful sample FAQ.</p>
+                                        </div>
+                                        <button type="button" class="text-gray-500 hover:text-red-500 text-sm font-medium" onclick="removeFaqCard(this)">
+                                            <i class="fas fa-times mr-1"></i>Remove
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Question</label>
+                                        <input type="text" name="faqs[0][question]" value="How does FindITFast work?" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-700 mb-1">Answer</label>
+                                        <textarea name="faqs[0][answer]" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent">Users can report lost or found items, match with potential owners, and arrange handovers with built-in messaging.</textarea>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                                            <input type="number" name="faqs[0][display_order]" value="1" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" min="0">
+                                        </div>
+                                        <div class="md:col-span-2 flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-3">
+                                            <div>
+                                                <p class="text-sm font-medium text-gray-800">Show on public page</p>
+                                                <p class="text-xs text-gray-500">Disable to hide this FAQ without deleting it.</p>
+                                            </div>
+                                            <label class="relative inline-flex items-center cursor-pointer">
+                                                <input type="checkbox" name="faqs[0][is_active]" value="1" class="sr-only peer" checked>
+                                                <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            @endforelse
+                        </div>
+                    </div>
                 </div>
+                @endif
 
                 <!-- Save Button -->
                 <div class="flex justify-end">
@@ -813,34 +951,52 @@
     </form>
 </div>
 
+@verbatim
+<template id="faq-template">
+    <div class="faq-card border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-4">
+        <div class="flex items-start justify-between">
+            <div>
+                <p class="text-sm font-semibold text-gray-700">FAQ #<span class="faq-number">__NUMBER__</span></p>
+                <p class="text-xs text-gray-500">Update the question and answer below.</p>
+            </div>
+            <button type="button" class="text-gray-500 hover:text-red-500 text-sm font-medium" onclick="removeFaqCard(this)">
+                <i class="fas fa-times mr-1"></i>Remove
+            </button>
+        </div>
+        <input type="hidden" name="faqs[__INDEX__][id]" value="">
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Question</label>
+            <input type="text" name="faqs[__INDEX__][question]" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Enter the frequently asked question">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Answer</label>
+            <textarea name="faqs[__INDEX__][answer]" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" placeholder="Provide a helpful and concise answer"></textarea>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Display Order</label>
+                <input type="number" name="faqs[__INDEX__][display_order]" value="0" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent" min="0">
+            </div>
+            <div class="md:col-span-2 flex items-center justify-between bg-white border border-gray-200 rounded-lg px-4 py-3">
+                <div>
+                    <p class="text-sm font-medium text-gray-800">Show on public page</p>
+                    <p class="text-xs text-gray-500">Disable to hide this FAQ without deleting it.</p>
+                </div>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="faqs[__INDEX__][is_active]" value="1" class="sr-only peer" checked>
+                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
+                </label>
+            </div>
+        </div>
+    </div>
+</template>
+@endverbatim
+
 <script>
 // Tab switching functionality
-function showTab(tabName) {
-    // Hide all tab contents
-    document.querySelectorAll('.tab-content').forEach(content => {
-        content.classList.add('hidden');
-    });
-    
-    // Remove active class from all tabs
-    document.querySelectorAll('.tab-button').forEach(button => {
-        button.classList.remove('active', 'border-purple-primary', 'text-purple-primary');
-        button.classList.add('border-transparent', 'text-gray-500');
-    });
-    
-    // Show selected tab content
-    const selectedContent = document.getElementById('content-' + tabName);
-    if (selectedContent) {
-        selectedContent.classList.remove('hidden');
-    }
-    
-    // Add active class to selected tab
-    const selectedTab = document.getElementById('tab-' + tabName);
-    if (selectedTab) {
-        selectedTab.classList.add('active', 'border-purple-primary', 'text-purple-primary');
-        selectedTab.classList.remove('border-transparent', 'text-gray-500');
-    }
-}
-
 // Field visibility toggle functionality
 function toggleRequiredFieldVisibility(fieldType) {
     const enableCheckbox = document.querySelector(`input[name="enable_${fieldType}_field"]`);
@@ -863,11 +1019,50 @@ function toggleRequiredFieldVisibility(fieldType) {
     }
 }
 
+function addFaqItem() {
+    const container = document.getElementById('faqItems');
+    const template = document.getElementById('faq-template');
+
+    if (!container || !template) {
+        return;
+    }
+
+    const currentIndex = parseInt(container.dataset.nextIndex || '0', 10);
+    const html = template.innerHTML
+        .replace(/__INDEX__/g, currentIndex)
+        .replace(/__NUMBER__/g, currentIndex + 1);
+
+    container.insertAdjacentHTML('beforeend', html);
+    container.dataset.nextIndex = currentIndex + 1;
+    renumberFaqs();
+}
+
+function removeFaqCard(button) {
+    const card = button.closest('.faq-card');
+    const container = document.getElementById('faqItems');
+
+    if (card) {
+        card.remove();
+        renumberFaqs();
+    }
+
+    if (container && container.children.length === 0) {
+        addFaqItem();
+    }
+}
+
+function renumberFaqs() {
+    document.querySelectorAll('#faqItems .faq-card .faq-number').forEach((element, index) => {
+        element.textContent = index + 1;
+    });
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize field visibility toggles
     const enableProvinceField = document.querySelector('input[name="enable_province_field"]');
     const enableCityField = document.querySelector('input[name="enable_city_field"]');
-    
+    renumberFaqs();
+
     if (enableProvinceField) {
         toggleRequiredFieldVisibility('province');
         enableProvinceField.addEventListener('change', function() {
