@@ -164,53 +164,53 @@
                 </div>
 
                 @if($rewards->count() > 0)
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 overflow-y-auto flex-1">
+                <div class="space-y-3 sm:space-y-4 overflow-y-auto flex-1">
                     @foreach($rewards as $reward)
-                    <div class="group relative border border-gray-200 rounded-lg p-4 hover:border-purple-300 hover:shadow-md transition-all {{ $reward->isExpired() ? 'opacity-60' : '' }}">
-                        <div class="flex items-start justify-between mb-2">
+                    <div class="group border border-gray-200 rounded-xl p-4 sm:p-5 hover:border-purple-300 hover:shadow-md transition-all {{ $reward->isExpired() ? 'opacity-60' : '' }}">
+                        <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
                             <div class="flex-1 min-w-0">
-                                <h4 class="font-semibold text-gray-900 text-sm mb-1 truncate">{{ $reward->title }}</h4>
+                                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                                    <h4 class="font-semibold text-gray-900 text-sm sm:text-base truncate">{{ $reward->title }}</h4>
+                                    <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full
+                                        {{ $reward->type === 'discount' ? 'bg-blue-100 text-blue-800' : 
+                                           ($reward->type === 'free_item' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800') }}">
+                                        {{ ucfirst(str_replace('_', ' ', $reward->type)) }}
+                                    </span>
+                                </div>
                                 @if($reward->description)
-                                <p class="text-xs text-gray-600 line-clamp-2 mb-2">{{ $reward->description }}</p>
+                                <p class="text-xs sm:text-sm text-gray-600">{{ $reward->description }}</p>
                                 @endif
                             </div>
-                            <span class="inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ml-2 flex-shrink-0
-                                {{ $reward->type === 'discount' ? 'bg-blue-100 text-blue-800' : 
-                                   ($reward->type === 'free_item' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800') }}">
-                                {{ ucfirst(str_replace('_', ' ', $reward->type)) }}
-                            </span>
-                        </div>
-                        
-                        @if($reward->value)
-                        <div class="mb-2">
-                            <span class="text-base font-bold text-purple-600">
+                            @if($reward->value)
+                            <div class="flex-shrink-0 text-base font-bold text-purple-600">
                                 @if($reward->type === 'discount')
                                     {{ $reward->value }}% OFF
                                 @else
                                     ${{ number_format($reward->value, 2) }}
                                 @endif
-                            </span>
-                        </div>
-                        @endif
-
-                        <div class="bg-gray-50 rounded-md p-2.5 mb-2">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs text-gray-500">Code:</span>
-                                <span class="font-mono font-semibold text-gray-900 text-xs">{{ $reward->code }}</span>
                             </div>
+                            @endif
                         </div>
 
-                        @if($reward->expires_at)
+                        <div class="bg-gray-50 rounded-lg p-3 flex flex-wrap items-center justify-between gap-3 mb-3">
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-gray-500">Code</p>
+                                <p class="font-mono font-semibold text-sm text-gray-900">{{ $reward->code }}</p>
+                            </div>
+                            <button type="button" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-md border border-purple-200 text-purple-700 hover:bg-purple-50 transition">
+                                <i class="fas fa-copy text-xs mr-2"></i>Copy Code
+                            </button>
+                        </div>
+
                         <div class="flex items-center text-xs text-gray-500">
-                            <i class="fas fa-clock mr-1.5"></i>
-                            <span>Expires: {{ $reward->expires_at->format('M d, Y') }}</span>
+                            @if($reward->expires_at)
+                                <i class="fas fa-clock mr-1.5"></i>
+                                <span>Expires {{ $reward->expires_at->format('M d, Y') }}</span>
+                            @else
+                                <i class="fas fa-infinity mr-1.5 text-green-500"></i>
+                                <span>Does not expire</span>
+                            @endif
                         </div>
-                        @else
-                        <div class="flex items-center text-xs text-green-600">
-                            <i class="fas fa-infinity mr-1.5"></i>
-                            <span>No expiration</span>
-                        </div>
-                        @endif
                     </div>
                     @endforeach
                 </div>

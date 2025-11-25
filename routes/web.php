@@ -113,6 +113,13 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/contact-requests/help-section', [\App\Http\Controllers\Admin\ContactRequestController::class, 'upsertHelpSection'])->name('contact-requests.help.upsert');
         Route::delete('/contact-requests/help-section/{section}', [\App\Http\Controllers\Admin\ContactRequestController::class, 'deleteHelpSection'])->name('contact-requests.help.delete');
 
+        // Review Questions Management
+        Route::get('/review-questions', [\App\Http\Controllers\Admin\ReviewQuestionController::class, 'index'])->name('review-questions.index');
+        Route::post('/review-questions', [\App\Http\Controllers\Admin\ReviewQuestionController::class, 'store'])->name('review-questions.store');
+        Route::put('/review-questions/{reviewQuestion}', [\App\Http\Controllers\Admin\ReviewQuestionController::class, 'update'])->name('review-questions.update');
+        Route::delete('/review-questions/{reviewQuestion}', [\App\Http\Controllers\Admin\ReviewQuestionController::class, 'destroy'])->name('review-questions.destroy');
+        Route::delete('/review-questions/reset-user/{userId}', [\App\Http\Controllers\Admin\ReviewQuestionController::class, 'resetUserReviews'])->name('review-questions.reset-user');
+
         // Rewards Management
         Route::get('/rewards', [\App\Http\Controllers\Admin\RewardController::class, 'index'])->name('rewards.index');
         Route::get('/rewards/create', [\App\Http\Controllers\Admin\RewardController::class, 'create'])->name('rewards.create');
@@ -148,6 +155,10 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('chat.unread-count');
     Route::post('/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('chat.mark-read');
     Route::post('/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('chat.get-user-by-email');
+
+    // Review Routes
+    Route::get('/reviews', [\App\Http\Controllers\ReviewController::class, 'create'])->name('reviews.create');
+    Route::post('/reviews', [\App\Http\Controllers\ReviewController::class, 'store'])->name('reviews.store');
 });
 
 // Guest posting routes

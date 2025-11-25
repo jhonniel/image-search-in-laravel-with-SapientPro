@@ -49,9 +49,9 @@
             </nav>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)] lg:items-start">
             <!-- Main Settings -->
-            <div class="lg:col-span-2 space-y-6">
+            <div class="space-y-6">
                 @if($activeTab === 'general')
                 <!-- General Tab Content -->
                 <div id="content-general" class="space-y-6">
@@ -858,7 +858,8 @@
             </div>
 
             <!-- Sidebar -->
-            <div class="space-y-6">
+            <div class="space-y-6 lg:sticky lg:top-24">
+                @if(!in_array($activeTab, ['locations', 'email', 'faqs']))
                 <!-- Quick Actions -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200">
                     <div class="px-6 py-4 border-b border-gray-200">
@@ -900,7 +901,9 @@
                         <div id="importResult" class="hidden mt-3 p-3 rounded-lg"></div>
                     </div>
                 </div>
+                @endif
 
+                @if(!in_array($activeTab, ['locations', 'email', 'faqs']))
                 <!-- System Info -->
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200">
                     <div class="px-6 py-4 border-b border-gray-200">
@@ -946,6 +949,7 @@
                         </a>
                     </div>
                 </div>
+                @endif
             </div>
         </div>
     </form>

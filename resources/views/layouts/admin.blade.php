@@ -233,11 +233,32 @@
                                 && !str_starts_with($currentPath, 'settings')
                                 && !str_starts_with($currentPath, 'sponsors')
                                 && !str_starts_with($currentPath, 'rewards')
-                                && !str_starts_with($currentPath, 'image-comparison');
+                                && !str_starts_with($currentPath, 'image-comparison')
+                                && !str_starts_with($currentPath, 'review-questions');
                         @endphp
                         <a href="{{ route('contact-requests.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isContactRequests ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Contact Requests' : ''">
                             <i class="fas fa-inbox w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Contact Requests</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isReviewQuestions = (str_starts_with($currentRoute, 'review-questions') || str_starts_with($currentPath, 'review-questions'))
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('review-questions.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReviewQuestions ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Review Questions' : ''">
+                            <i class="fas fa-star w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Review Questions</span>
                         </a>
                     </li>
                     <li>

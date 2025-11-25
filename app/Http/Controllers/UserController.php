@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use App\Models\ImageMetadata;
 use App\Models\User;
+use App\Models\ReviewQuestion;
 
 class UserController extends Controller
 {
@@ -56,13 +57,34 @@ class UserController extends Controller
             })
             ->values();
         
+        // Check if there are active review questions
+        $activeReviewQuestions = ReviewQuestion::where('is_active', true)->get();
+        $hasReviewQuestions = $activeReviewQuestions->isNotEmpty();
+        
+        // Check if user has already submitted reviews for all active questions
+        $hasCompletedReviews = false;
+        if ($hasReviewQuestions) {
+            $userReviewQuestionIds = \App\Models\Review::where('user_id', $user->id)
+                ->pluck('review_question_id')
+                ->unique()
+                ->toArray();
+            
+            $activeQuestionIds = $activeReviewQuestions->pluck('id')->toArray();
+            
+            // User has completed reviews if they've answered all active questions
+            $hasCompletedReviews = count($activeQuestionIds) > 0 && 
+                                   count(array_intersect($userReviewQuestionIds, $activeQuestionIds)) === count($activeQuestionIds);
+        }
+        
         return view('user.dashboard', compact(
             'totalItems',
             'lostItems',
             'foundItems',
             'claimedItems',
             'successRate',
-            'recentActivity'
+            'recentActivity',
+            'hasReviewQuestions',
+            'hasCompletedReviews'
         ));
     }
 

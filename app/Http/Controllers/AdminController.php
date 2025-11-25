@@ -77,9 +77,9 @@ class AdminController extends Controller
 
         // Lost vs Found items by month (last 9 months)
         $monthlyData = [];
-        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'];
+        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        for ($i = 8; $i >= 0; $i--) {
+        for ($i = 11; $i >= 0; $i--) {
             $monthStart = now()->subMonths($i)->startOfMonth();
             $monthEnd = now()->subMonths($i)->endOfMonth();
 
@@ -95,8 +95,13 @@ class AdminController extends Controller
                 ->distinct()
                 ->count('upload_id');
 
+            $index = (now()->month - 1 - $i);
+            if ($index < 0) {
+                $index += 12;
+            }
+
             $monthlyData[] = [
-                'month' => $months[8 - $i],
+                'month' => $months[$index],
                 'lost' => $lostCount,
                 'found' => $foundCount,
             ];

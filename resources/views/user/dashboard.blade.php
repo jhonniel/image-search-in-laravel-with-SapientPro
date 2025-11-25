@@ -41,8 +41,31 @@
         </div>
     </div>
 
+    <!-- Submit a Review Section -->
+    @if($hasReviewQuestions && !$hasCompletedReviews)
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mb-8">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-5">
+                <div class="shrink-0 w-16 h-16">
+                    <div class="w-full h-full bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-star text-purple-primary text-3xl"></i>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Submit a Review</h3>
+                    <p class="text-gray-600 text-sm">Share your feedback and help us improve FindITFast.</p>
+                </div>
+            </div>
+            <a href="{{ route('reviews.create') }}" class="inline-flex items-center justify-center px-6 py-3 bg-purple-primary text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors">
+                <i class="fas fa-star mr-2"></i>
+                Submit Review
+            </a>
+        </div>
+    </div>
+    @endif
+
     <!-- Action Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <!-- Report Lost Item Card -->
         <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
             <div class="flex flex-col h-full">
@@ -215,4 +238,67 @@
         </div>
     </div>
 </div>
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Make star ratings interactive with hover effects
+    document.querySelectorAll('input[type="radio"][name^="question_"]').forEach(function(radio) {
+        const questionId = radio.name;
+        const starContainer = radio.closest('.flex.items-center.space-x-2');
+        if (!starContainer) return;
+        
+        const stars = Array.from(starContainer.querySelectorAll('input[type="radio"]'));
+        const starIcons = Array.from(starContainer.querySelectorAll('i.fa-star'));
+        
+        stars.forEach(function(star, index) {
+            const starIcon = starIcons[index];
+            
+            // Update stars on change
+            star.addEventListener('change', function() {
+                updateStarDisplay(stars, starIcons);
+            });
+            
+            // Hover effect
+            star.addEventListener('mouseenter', function() {
+                starIcons.forEach(function(icon, i) {
+                    if (i <= index) {
+                        icon.classList.add('text-yellow-300');
+                    }
+                });
+            });
+            
+            star.addEventListener('mouseleave', function() {
+                updateStarDisplay(stars, starIcons);
+            });
+        });
+        
+        function updateStarDisplay(stars, icons) {
+            const checkedIndex = stars.findIndex(s => s.checked);
+            icons.forEach(function(icon, i) {
+                icon.classList.remove('text-yellow-300');
+                if (checkedIndex !== -1 && i <= checkedIndex) {
+                    icon.classList.remove('text-gray-300');
+                    icon.classList.add('text-yellow-400');
+                } else if (checkedIndex === -1 || i > checkedIndex) {
+                    icon.classList.remove('text-yellow-400');
+                    icon.classList.add('text-gray-300');
+                }
+            });
+        }
+        
+        // Initialize display
+        const checkedIndex = stars.findIndex(s => s.checked);
+        if (checkedIndex !== -1) {
+            starIcons.forEach(function(icon, i) {
+                if (i <= checkedIndex) {
+                    icon.classList.remove('text-gray-300');
+                    icon.classList.add('text-yellow-400');
+                }
+            });
+        }
+    });
+});
+</script>
+@endpush
 @endsection
