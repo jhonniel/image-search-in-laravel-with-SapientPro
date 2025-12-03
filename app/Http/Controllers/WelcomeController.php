@@ -100,7 +100,7 @@ class WelcomeController extends Controller
             'tiktok' => \App\Models\Setting::get('social_tiktok', ''),
         ];
 
-        $contactEmail = Setting::get('contact_email', 'support@finditfast.com');
+        $contactEmail = Setting::get('contact_email', 'fif@ifinditfast.com');
         $contactWebsite = Setting::get('contact_website', 'finditfast.com');
         $contactSupportHours = Setting::get('contact_support_hours', 'Mon - Sat · 8AM - 8PM PHT');
         $contactEmailHelpText = Setting::get('contact_email_help_text', 'Expect a reply within 24 hours.');

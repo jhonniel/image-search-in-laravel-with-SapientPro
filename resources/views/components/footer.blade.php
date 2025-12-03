@@ -1,6 +1,6 @@
 @php
     $socialLinks = $socialLinks ?? [];
-    $contactEmail = $contactEmail ?? 'support@finditfast.com';
+    $contactEmail = $contactEmail ?? 'fif@ifinditfast.com';
     $contactWebsite = $contactWebsite ?? 'finditfast.com';
 @endphp
 

@@ -93,7 +93,7 @@
             <!-- Footer Note -->
             <div class="mt-8 text-center">
                 <p class="text-xs text-gray-400">
-                    If you believe this is an error, please <a href="mailto:support@finditfast.com" class="text-purple-primary hover:underline">contact support</a>
+                    If you believe this is an error, please <a href="mailto:fif@ifinditfast.com" class="text-purple-primary hover:underline">contact support</a>
                 </p>
             </div>
         </div>

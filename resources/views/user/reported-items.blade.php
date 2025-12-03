@@ -1114,9 +1114,26 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         // Complete progress
         updateUploadProgress(100);
 
+        // Check if response is OK
+        if (!response.ok) {
+            hideUploadProgress();
+            const errorText = await response.text();
+            let errorMessage = 'Error uploading item. Please try again.';
+            try {
+                const errorData = JSON.parse(errorText);
+                errorMessage = errorData.message || errorMessage;
+            } catch (e) {
+                // If not JSON, use the text or default message
+                errorMessage = errorText || errorMessage;
+            }
+            showToast(errorMessage, 'error');
+            return;
+        }
+
         const data = await response.json();
 
         if (data.success) {
+            hideUploadProgress(); // Hide progress bar on success
             showToast('Item reported successfully!', 'success');
             setTimeout(() => {
                 toggleUploadForm();
@@ -1131,8 +1148,13 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     } catch (error) {
         console.error('Error:', error);
         hideUploadProgress();
-        showToast('Error uploading item. Please try again.', 'error');
+        let errorMessage = 'Error uploading item. Please try again.';
+        if (error.message) {
+            errorMessage = error.message;
+        }
+        showToast(errorMessage, 'error');
     } finally {
+        // Always reset form state
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonText;
         this.dataset.submitting = 'false';

@@ -17,7 +17,7 @@ class PageController extends Controller
                 'youtube' => Setting::get('social_youtube', ''),
                 'tiktok' => Setting::get('social_tiktok', ''),
             ],
-            'contactEmail' => Setting::get('contact_email', 'support@finditfast.com'),
+            'contactEmail' => Setting::get('contact_email', 'fif@ifinditfast.com'),
             'contactWebsite' => Setting::get('contact_website', 'finditfast.com'),
         ];
     }
