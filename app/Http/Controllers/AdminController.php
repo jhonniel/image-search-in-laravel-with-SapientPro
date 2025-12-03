@@ -142,7 +142,7 @@ class AdminController extends Controller
         // Top Contributors - users with most reports
         $topContributors = ImageMetadata::select('uploader_email')
             ->selectRaw('COUNT(DISTINCT upload_id) as report_count')
-            ->selectRaw('SUM(CASE WHEN COALESCE(is_claimed, 0) = 1 THEN 1 ELSE 0 END) as claimed_count')
+            ->selectRaw('SUM(CASE WHEN is_claimed THEN 1 ELSE 0 END) as claimed_count')
             ->selectRaw('MAX(created_at) as last_active')
             ->whereNotNull('uploader_email')
             ->groupBy('uploader_email')
