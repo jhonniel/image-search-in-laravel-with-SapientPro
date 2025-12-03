@@ -1120,30 +1120,52 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         
         // Create abort controller for timeout
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        const timeoutId = setTimeout(() => {
+            console.error('Upload timeout - aborting request');
+            controller.abort();
+        }, 120000); // 2 minute timeout
         
-        const response = await fetch('/api/items/upload', {
-            method: 'POST',
-            body: formData,
-            credentials: 'same-origin',
-            signal: controller.signal,
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        let response;
+        try {
+            response = await fetch('/api/items/upload', {
+                method: 'POST',
+                body: formData,
+                credentials: 'same-origin',
+                signal: controller.signal,
+                headers: {
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            stopSimulatedProgress();
+            hideUploadProgress();
+            console.error('Fetch error:', fetchError);
+            if (fetchError.name === 'AbortError') {
+                showToast('Upload timed out. The file may be too large or the server is slow. Please try again.', 'error');
+            } else {
+                showToast('Network error. Please check your connection and try again.', 'error');
             }
-        });
+            return;
+        }
 
         clearTimeout(timeoutId);
         stopSimulatedProgress(); // Stop the simulated progress
-        console.log('Response received:', response.status, response.statusText);
+        console.log('Response received:', response.status, response.statusText, response.headers.get('content-type'));
 
-        // Complete progress to 100%
+        // Complete progress to 100% immediately when response arrives
         updateUploadProgress(100);
 
         // Check if response is OK
         if (!response.ok) {
-            stopSimulatedProgress();
             hideUploadProgress();
-            const errorText = await response.text();
+            let errorText = '';
+            try {
+                errorText = await response.text();
+            } catch (e) {
+                console.error('Failed to read error response:', e);
+                errorText = 'Server returned error status ' + response.status;
+            }
             console.error('Upload failed with status:', response.status, 'Error:', errorText);
             let errorMessage = 'Error uploading item. Please try again.';
             try {
@@ -1157,10 +1179,53 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             return;
         }
 
-        const data = await response.json();
-        console.log('Upload response data:', data);
+        // Parse response JSON
+        let data;
+        try {
+            const responseText = await response.text();
+            console.log('Response text length:', responseText.length, 'First 200 chars:', responseText.substring(0, 200));
+            
+            if (!responseText || responseText.trim() === '') {
+                throw new Error('Empty response from server');
+            }
+            
+            data = JSON.parse(responseText);
+            console.log('Upload response data:', data);
+        } catch (parseError) {
+            console.error('Failed to parse response JSON:', parseError);
+            console.error('Response status:', response.status);
+            console.error('Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            // If status is 200/201, assume success even if we can't parse
+            if (response.status === 200 || response.status === 201) {
+                console.log('Assuming success based on HTTP status code');
+                hideUploadProgress();
+                showToast('Item reported successfully!', 'success');
+                this.reset();
+                resetImageUpload();
+                loadItems().then(() => {
+                    setTimeout(() => {
+                        toggleUploadForm();
+                    }, 300);
+                }).catch(err => {
+                    console.error('Error loading items:', err);
+                    setTimeout(() => {
+                        toggleUploadForm();
+                    }, 300);
+                });
+                return;
+            }
+            
+            hideUploadProgress();
+            showToast('Server returned invalid response. Item may have been uploaded. Please refresh the page.', 'error');
+            // Still reload items in case it succeeded
+            setTimeout(() => {
+                loadItems();
+            }, 1000);
+            return;
+        }
 
-        if (data.success) {
+        if (data && data.success) {
             hideUploadProgress(); // Hide progress bar on success
             showToast('Item reported successfully!', 'success');
             
@@ -1183,7 +1248,13 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         } else {
             hideUploadProgress();
             console.error('Upload returned success=false:', data);
-            showToast(data.message || 'Error uploading item. Please try again.', 'error');
+            // If status is 200 but success=false, still reload items in case it worked
+            if (response.status === 200) {
+                setTimeout(() => {
+                    loadItems();
+                }, 1000);
+            }
+            showToast(data?.message || 'Error uploading item. Please try again.', 'error');
         }
     } catch (error) {
         console.error('Upload error:', error);
