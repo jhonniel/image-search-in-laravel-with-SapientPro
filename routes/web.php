@@ -100,12 +100,12 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/sponsors/toggle-show', [\App\Http\Controllers\Admin\SponsorController::class, 'toggleShow'])->name('sponsors.toggle-show');
 
         // Contributors Management (Admin)
-        Route::get('/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'index'])->name('contributors.index');
-        Route::post('/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'store'])->name('contributors.store');
-        Route::put('/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'update'])->name('contributors.update');
-        Route::delete('/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'destroy'])->name('contributors.destroy');
-        Route::post('/contributors/{id}/restore', [\App\Http\Controllers\Admin\ContributorController::class, 'restore'])->name('contributors.restore');
-        Route::delete('/contributors/{id}/force', [\App\Http\Controllers\Admin\ContributorController::class, 'forceDelete'])->name('contributors.force-delete');
+        Route::get('/admin/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'index'])->name('contributors.index');
+        Route::post('/admin/contributors', [\App\Http\Controllers\Admin\ContributorController::class, 'store'])->name('contributors.store');
+        Route::put('/admin/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'update'])->name('contributors.update');
+        Route::delete('/admin/contributors/{contributor}', [\App\Http\Controllers\Admin\ContributorController::class, 'destroy'])->name('contributors.destroy');
+        Route::post('/admin/contributors/{id}/restore', [\App\Http\Controllers\Admin\ContributorController::class, 'restore'])->name('contributors.restore');
+        Route::delete('/admin/contributors/{id}/force', [\App\Http\Controllers\Admin\ContributorController::class, 'forceDelete'])->name('contributors.force-delete');
 
         // Contact Requests
         Route::get('/contact-requests', [\App\Http\Controllers\Admin\ContactRequestController::class, 'index'])->name('contact-requests.index');

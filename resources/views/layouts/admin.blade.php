@@ -204,7 +204,7 @@
                         @php
                             $currentRoute = request()->route()->getName() ?? '';
                             $currentPath = request()->path();
-                            $isContributors = (str_starts_with($currentRoute, 'contributors') || str_starts_with($currentPath, 'contributors')) 
+                            $isContributors = (str_starts_with($currentRoute, 'contributors') || str_starts_with($currentPath, 'admin/contributors')) 
                                 && !str_starts_with($currentPath, 'dashboard')
                                 && !str_starts_with($currentPath, 'reported-items-admin')
                                 && !str_starts_with($currentPath, 'claimed')

@@ -13,8 +13,8 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create admin user
-        User::firstOrCreate(
+        // Create or update admin user
+        User::updateOrCreate(
             ['email' => 'admin@finditfast.com'],
             [
                 'name' => 'Admin User',
@@ -22,6 +22,7 @@ class UserSeeder extends Seeder
                 'password' => Hash::make('admin123'),
                 'email_verified_at' => now(),
                 'is_verified' => true,
+                'role' => 'admin',
             ]
         );
 
