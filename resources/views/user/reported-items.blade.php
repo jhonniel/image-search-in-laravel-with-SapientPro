@@ -1102,14 +1102,24 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         // Simulate progress (since we can't track actual upload progress with fetch)
         simulateUploadProgress();
 
+        console.log('Starting upload request...');
+        
+        // Create abort controller for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+        
         const response = await fetch('/api/items/upload', {
             method: 'POST',
             body: formData,
             credentials: 'same-origin',
+            signal: controller.signal,
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
             }
         });
+
+        clearTimeout(timeoutId);
+        console.log('Response received:', response.status, response.statusText);
 
         // Complete progress
         updateUploadProgress(100);
@@ -1118,6 +1128,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         if (!response.ok) {
             hideUploadProgress();
             const errorText = await response.text();
+            console.error('Upload failed with status:', response.status, 'Error:', errorText);
             let errorMessage = 'Error uploading item. Please try again.';
             try {
                 const errorData = JSON.parse(errorText);
@@ -1131,27 +1142,44 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         }
 
         const data = await response.json();
+        console.log('Upload response data:', data);
 
         if (data.success) {
             hideUploadProgress(); // Hide progress bar on success
             showToast('Item reported successfully!', 'success');
-            setTimeout(() => {
-                toggleUploadForm();
-                this.reset();
-                resetImageUpload();
-                loadItems(); // Reload the items list
-            }, 500);
+            
+            // Reset form immediately
+            this.reset();
+            resetImageUpload();
+            
+            // Reload items and hide form
+            loadItems().then(() => {
+                setTimeout(() => {
+                    toggleUploadForm();
+                }, 300);
+            }).catch(err => {
+                console.error('Error loading items after upload:', err);
+                // Still hide the form even if loading items fails
+                setTimeout(() => {
+                    toggleUploadForm();
+                }, 300);
+            });
         } else {
             hideUploadProgress();
+            console.error('Upload returned success=false:', data);
             showToast(data.message || 'Error uploading item. Please try again.', 'error');
         }
     } catch (error) {
-        console.error('Error:', error);
+        console.error('Upload error:', error);
         hideUploadProgress();
         let errorMessage = 'Error uploading item. Please try again.';
-        if (error.message) {
+        
+        if (error.name === 'AbortError') {
+            errorMessage = 'Upload timed out. The file may be too large or the server is slow. Please try again.';
+        } else if (error.message) {
             errorMessage = error.message;
         }
+        
         showToast(errorMessage, 'error');
     } finally {
         // Always reset form state
