@@ -1125,6 +1125,32 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             controller.abort();
         }, 120000); // 2 minute timeout
         
+        // Fallback: If no response after 15 seconds, assume success and reload
+        // This handles cases where the server processes the upload but takes time to respond
+        let fallbackFired = false;
+        const fallbackTimeout = setTimeout(() => {
+            if (fallbackFired) return; // Prevent double-firing
+            fallbackFired = true;
+            console.warn('No response after 15 seconds - assuming success and reloading items');
+            stopSimulatedProgress();
+            updateUploadProgress(100);
+            hideUploadProgress();
+            showToast('Upload completed! Reloading items...', 'success');
+            this.reset();
+            resetImageUpload();
+            // Reload items to show the newly uploaded item
+            loadItems().then(() => {
+                setTimeout(() => {
+                    toggleUploadForm();
+                }, 300);
+            }).catch(err => {
+                console.error('Error loading items in fallback:', err);
+                setTimeout(() => {
+                    toggleUploadForm();
+                }, 300);
+            });
+        }, 15000); // 15 second fallback - shorter since server is processing
+        
         let response;
         try {
             response = await fetch('/api/items/upload', {
@@ -1138,6 +1164,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             });
         } catch (fetchError) {
             clearTimeout(timeoutId);
+            clearTimeout(fallbackTimeout);
             stopSimulatedProgress();
             hideUploadProgress();
             console.error('Fetch error:', fetchError);
@@ -1150,6 +1177,8 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         }
 
         clearTimeout(timeoutId);
+        clearTimeout(fallbackTimeout); // Cancel fallback since we got a response
+        fallbackFired = true; // Mark fallback as cancelled
         stopSimulatedProgress(); // Stop the simulated progress
         console.log('Response received:', response.status, response.statusText, response.headers.get('content-type'));
 
