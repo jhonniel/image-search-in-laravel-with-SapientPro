@@ -599,16 +599,30 @@ function updateUploadProgress(percentage) {
     progressText.textContent = Math.round(percentage) + '%';
 }
 
+let uploadProgressInterval = null;
+
 function simulateUploadProgress() {
     let progress = 0;
-    const interval = setInterval(() => {
-        progress += Math.random() * 15;
-        if (progress >= 90) {
-            progress = 90;
-            clearInterval(interval);
+    // Clear any existing interval
+    if (uploadProgressInterval) {
+        clearInterval(uploadProgressInterval);
+    }
+    uploadProgressInterval = setInterval(() => {
+        progress += Math.random() * 10;
+        if (progress >= 95) {
+            progress = 95; // Stop at 95% and wait for actual completion
+            clearInterval(uploadProgressInterval);
+            uploadProgressInterval = null;
         }
         updateUploadProgress(progress);
-    }, 200);
+    }, 300);
+}
+
+function stopSimulatedProgress() {
+    if (uploadProgressInterval) {
+        clearInterval(uploadProgressInterval);
+        uploadProgressInterval = null;
+    }
 }
 
 // City autocomplete functionality for create form
@@ -1119,13 +1133,15 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         });
 
         clearTimeout(timeoutId);
+        stopSimulatedProgress(); // Stop the simulated progress
         console.log('Response received:', response.status, response.statusText);
 
-        // Complete progress
+        // Complete progress to 100%
         updateUploadProgress(100);
 
         // Check if response is OK
         if (!response.ok) {
+            stopSimulatedProgress();
             hideUploadProgress();
             const errorText = await response.text();
             console.error('Upload failed with status:', response.status, 'Error:', errorText);
@@ -1171,6 +1187,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         }
     } catch (error) {
         console.error('Upload error:', error);
+        stopSimulatedProgress();
         hideUploadProgress();
         let errorMessage = 'Error uploading item. Please try again.';
         
