@@ -427,10 +427,10 @@
                                             </label>
                                             <p class="text-xs text-gray-500">Enable to display province field when users post new items</p>
                                         </div>
-                                        <label class="relative inline-flex items-center cursor-pointer">
+                                        <label class="relative inline-flex items-center cursor-pointer" for="enable_province_field_checkbox">
                                             <input type="checkbox" name="enable_province_field" value="1" 
                                                    {{ \App\Models\Setting::get('enable_province_field', true) ? 'checked' : '' }}
-                                                   class="sr-only peer">
+                                                   class="sr-only peer" id="enable_province_field_checkbox">
                                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                                         </label>
                                     </div>
@@ -441,10 +441,10 @@
                                             </label>
                                             <p class="text-xs text-gray-500">Require users to fill in province when posting items</p>
                                         </div>
-                                        <label class="relative inline-flex items-center cursor-pointer">
+                                        <label class="relative inline-flex items-center cursor-pointer" for="province_field_required_checkbox">
                                             <input type="checkbox" name="province_field_required" value="1" 
                                                    {{ \App\Models\Setting::get('province_field_required', true) ? 'checked' : '' }}
-                                                   class="sr-only peer">
+                                                   class="sr-only peer" id="province_field_required_checkbox">
                                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                                         </label>
                                     </div>
@@ -464,10 +464,10 @@
                                             </label>
                                             <p class="text-xs text-gray-500">Enable to display city field when users post new items</p>
                                         </div>
-                                        <label class="relative inline-flex items-center cursor-pointer">
+                                        <label class="relative inline-flex items-center cursor-pointer" for="enable_city_field_checkbox">
                                             <input type="checkbox" name="enable_city_field" value="1" 
                                                    {{ \App\Models\Setting::get('enable_city_field', true) ? 'checked' : '' }}
-                                                   class="sr-only peer">
+                                                   class="sr-only peer" id="enable_city_field_checkbox">
                                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                                         </label>
                                     </div>
@@ -478,10 +478,10 @@
                                             </label>
                                             <p class="text-xs text-gray-500">Require users to fill in city when posting items</p>
                                         </div>
-                                        <label class="relative inline-flex items-center cursor-pointer">
+                                        <label class="relative inline-flex items-center cursor-pointer" for="city_field_required_checkbox">
                                             <input type="checkbox" name="city_field_required" value="1" 
                                                    {{ \App\Models\Setting::get('city_field_required', true) ? 'checked' : '' }}
-                                                   class="sr-only peer">
+                                                   class="sr-only peer" id="city_field_required_checkbox">
                                             <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-500"></div>
                                         </label>
                                     </div>
@@ -1063,19 +1063,27 @@ function renumberFaqs() {
 
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize field visibility toggles
-    const enableProvinceField = document.querySelector('input[name="enable_province_field"]');
-    const enableCityField = document.querySelector('input[name="enable_city_field"]');
+    const enableProvinceField = document.getElementById('enable_province_field_checkbox');
+    const enableCityField = document.getElementById('enable_city_field_checkbox');
+    const provinceFieldRequired = document.getElementById('province_field_required_checkbox');
+    const cityFieldRequired = document.getElementById('city_field_required_checkbox');
     renumberFaqs();
 
     if (enableProvinceField) {
+        // Initialize visibility state based on current checkbox state
         toggleRequiredFieldVisibility('province');
+        
+        // Add change event listener
         enableProvinceField.addEventListener('change', function() {
             toggleRequiredFieldVisibility('province');
         });
     }
     
     if (enableCityField) {
+        // Initialize visibility state based on current checkbox state
         toggleRequiredFieldVisibility('city');
+        
+        // Add change event listener
         enableCityField.addEventListener('change', function() {
             toggleRequiredFieldVisibility('city');
         });
@@ -1086,65 +1094,68 @@ document.addEventListener('DOMContentLoaded', function() {
     const testEmailResult = document.getElementById('testEmailResult');
     const testEmailBtnText = document.getElementById('testEmailBtnText');
     
-    testEmailBtn.addEventListener('click', function() {
-        const email = testEmailInput.value.trim();
-        
-        if (!email) {
-            showResult('Please enter an email address', 'error');
-            return;
-        }
-        
-        // Validate email format
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            showResult('Please enter a valid email address', 'error');
-            return;
-        }
-        
-        // Disable button and show loading
-        testEmailBtn.disabled = true;
-        testEmailBtnText.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
-        testEmailResult.classList.add('hidden');
-        
-        // Send AJAX request
-        fetch('{{ route("settings.test-email") }}', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': '{{ csrf_token() }}'
-            },
-            body: JSON.stringify({
-                test_email: email
-            })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                showResult(data.message, 'success');
-            } else {
-                showResult(data.message, 'error');
+    if (testEmailBtn && testEmailInput && testEmailResult && testEmailBtnText) {
+        testEmailBtn.addEventListener('click', function() {
+            const email = testEmailInput.value.trim();
+            
+            if (!email) {
+                showResult('Please enter an email address', 'error');
+                return;
             }
-        })
-        .catch(error => {
-            showResult('An error occurred while sending the test email. Please try again.', 'error');
-            console.error('Error:', error);
-        })
-        .finally(() => {
-            // Re-enable button
-            testEmailBtn.disabled = false;
-            testEmailBtnText.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Test Email';
+            
+            // Validate email format
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                showResult('Please enter a valid email address', 'error');
+                return;
+            }
+            
+            // Disable button and show loading
+            testEmailBtn.disabled = true;
+            testEmailBtnText.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Sending...';
+            testEmailResult.classList.add('hidden');
+            
+            // Send AJAX request
+            fetch('{{ route("settings.test-email") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                },
+                body: JSON.stringify({
+                    test_email: email
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showResult(data.message, 'success');
+                } else {
+                    showResult(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showResult('An error occurred while sending the test email. Please try again.', 'error');
+                console.error('Error:', error);
+            })
+            .finally(() => {
+                // Re-enable button
+                testEmailBtn.disabled = false;
+                testEmailBtnText.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>Send Test Email';
+            });
         });
-    });
-    
-    function showResult(message, type) {
-        testEmailResult.classList.remove('hidden');
-        testEmailResult.className = 'mt-3 p-3 rounded-lg ' + (type === 'success' 
-            ? 'bg-green-50 border border-green-200 text-green-800' 
-            : 'bg-red-50 border border-red-200 text-red-800');
-        testEmailResult.innerHTML = '<div class="flex items-center"><i class="fas ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle') + ' mr-2"></i><span>' + message + '</span></div>';
         
-        // Scroll to result
-        testEmailResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        function showResult(message, type) {
+            if (!testEmailResult) return;
+            testEmailResult.classList.remove('hidden');
+            testEmailResult.className = 'mt-3 p-3 rounded-lg ' + (type === 'success' 
+                ? 'bg-green-50 border border-green-200 text-green-800' 
+                : 'bg-red-50 border border-red-200 text-red-800');
+            testEmailResult.innerHTML = '<div class="flex items-center"><i class="fas ' + (type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle') + ' mr-2"></i><span>' + message + '</span></div>';
+            
+            // Scroll to result
+            testEmailResult.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 });
 

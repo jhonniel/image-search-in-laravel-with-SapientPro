@@ -227,7 +227,7 @@ class AdminController extends Controller
                 'images' => $itemGroup->map(function ($item) {
                     // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
-                    
+
                     // Fallback to stored filename paths when file_path is missing
                     if (empty($filePath) && !empty($item->full_path)) {
                         $filePath = $item->full_path;
@@ -236,7 +236,7 @@ class AdminController extends Controller
                     if (empty($filePath) && !empty($item->filename)) {
                         $filePath = 'storage/reference-images/' . ltrim($item->filename, '/');
                     }
-                    
+
                     // Normalize the path - ensure it starts with /storage/
                     if (empty($filePath)) {
                         $imagePath = '';
@@ -253,7 +253,7 @@ class AdminController extends Controller
                         // Relative path, use Storage::url to generate proper path
                         $imagePath = \Illuminate\Support\Facades\Storage::url($filePath);
                     }
-                    
+
                     return [
                         'filename' => $item->filename,
                         'original_name' => $item->original_name,
@@ -595,7 +595,7 @@ class AdminController extends Controller
                 'images' => $itemGroup->map(function ($item) {
                     // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
-                    
+
                     // Normalize the path - ensure it starts with /storage/
                     if (empty($filePath)) {
                         $imagePath = '';
@@ -833,32 +833,38 @@ class AdminController extends Controller
      */
     public function updateSettings(Request $request)
     {
-        $request->validate([
-            'mail_mailer' => 'required|in:smtp,log,sendmail,mailgun,ses,postmark,array',
-            'mail_host' => 'nullable|string|max:255',
-            'mail_port' => 'nullable|integer|min:1|max:65535',
-            'mail_username' => 'nullable|string|max:255',
-            'mail_password' => 'nullable|string|max:255',
-            'mail_encryption' => 'nullable|in:tls,ssl,null',
-            'mail_from_address' => 'required|email|max:255',
-            'mail_from_name' => 'required|string|max:255',
-            'email_notifications' => 'boolean',
-            'similarity_alerts' => 'boolean',
-            'notification_email' => 'nullable|email|max:255',
-        ]);
+        // Determine which tab is being saved so we can scope validation and saving
+        $activeTab = $request->input('active_tab', 'general');
 
-        // Save email settings to database
-        Setting::set('mail_mailer', $request->mail_mailer, 'string', 'Mail driver (smtp, log, etc.)');
-        Setting::set('mail_host', $request->mail_host, 'string', 'SMTP host address');
-        Setting::set('mail_port', $request->mail_port ?? 587, 'integer', 'SMTP port number');
-        Setting::set('mail_username', $request->mail_username, 'string', 'SMTP username');
-        Setting::set('mail_password', $request->mail_password, 'string', 'SMTP password');
-        Setting::set('mail_encryption', $request->mail_encryption ?? 'tls', 'string', 'Mail encryption (tls, ssl)');
-        Setting::set('mail_from_address', $request->mail_from_address, 'string', 'Default from email address');
-        Setting::set('mail_from_name', $request->mail_from_name, 'string', 'Default from name');
-        Setting::set('email_notifications', $request->has('email_notifications'), 'boolean', 'Enable email notifications');
-        Setting::set('similarity_alerts', $request->has('similarity_alerts'), 'boolean', 'Enable similarity alerts');
-        Setting::set('notification_email', $request->notification_email, 'string', 'Notification recipient email');
+        // Only validate and save email settings when the Email tab is being updated
+        if ($activeTab === 'email') {
+            $request->validate([
+                'mail_mailer' => 'required|in:smtp,log,sendmail,mailgun,ses,postmark,array',
+                'mail_host' => 'nullable|string|max:255',
+                'mail_port' => 'nullable|integer|min:1|max:65535',
+                'mail_username' => 'nullable|string|max:255',
+                'mail_password' => 'nullable|string|max:255',
+                'mail_encryption' => 'nullable|in:tls,ssl,null',
+                'mail_from_address' => 'required|email|max:255',
+                'mail_from_name' => 'required|string|max:255',
+                'email_notifications' => 'boolean',
+                'similarity_alerts' => 'boolean',
+                'notification_email' => 'nullable|email|max:255',
+            ]);
+
+            // Save email settings to database
+            Setting::set('mail_mailer', $request->mail_mailer, 'string', 'Mail driver (smtp, log, etc.)');
+            Setting::set('mail_host', $request->mail_host, 'string', 'SMTP host address');
+            Setting::set('mail_port', $request->mail_port ?? 587, 'integer', 'SMTP port number');
+            Setting::set('mail_username', $request->mail_username, 'string', 'SMTP username');
+            Setting::set('mail_password', $request->mail_password, 'string', 'SMTP password');
+            Setting::set('mail_encryption', $request->mail_encryption ?? 'tls', 'string', 'Mail encryption (tls, ssl)');
+            Setting::set('mail_from_address', $request->mail_from_address, 'string', 'Default from email address');
+            Setting::set('mail_from_name', $request->mail_from_name, 'string', 'Default from name');
+            Setting::set('email_notifications', $request->has('email_notifications'), 'boolean', 'Enable email notifications');
+            Setting::set('similarity_alerts', $request->has('similarity_alerts'), 'boolean', 'Enable similarity alerts');
+            Setting::set('notification_email', $request->notification_email, 'string', 'Notification recipient email');
+        }
 
         // Save enabled cities
         if ($request->has('enabled_cities')) {
@@ -1130,11 +1136,12 @@ class AdminController extends Controller
             }
         }
 
-        // Save field visibility and requirement settings
-        Setting::set('enable_province_field', $request->has('enable_province_field'), 'boolean', 'Enable province field in forms');
-        Setting::set('province_field_required', $request->has('province_field_required'), 'boolean', 'Make province field required');
-        Setting::set('enable_city_field', $request->has('enable_city_field'), 'boolean', 'Enable city field in forms');
-        Setting::set('city_field_required', $request->has('city_field_required'), 'boolean', 'Make city field required');
+        // Save field visibility and requirement settings (applies regardless of tab)
+        // Use Laravel's boolean helper so checked => true, unchecked (missing) => false
+        Setting::set('enable_province_field', $request->boolean('enable_province_field'), 'boolean', 'Enable province field in forms');
+        Setting::set('province_field_required', $request->boolean('province_field_required'), 'boolean', 'Make province field required');
+        Setting::set('enable_city_field', $request->boolean('enable_city_field'), 'boolean', 'Enable city field in forms');
+        Setting::set('city_field_required', $request->boolean('city_field_required'), 'boolean', 'Make city field required');
 
         // Save social media links
         Setting::set('social_facebook', $request->input('social_facebook', ''), 'string', 'Facebook page URL');
@@ -1190,8 +1197,6 @@ class AdminController extends Controller
 
         // Clear config cache to apply new settings
         \Artisan::call('config:clear');
-
-        $activeTab = $request->input('active_tab', 'general');
 
         return redirect()->route('settings', ['tab' => $activeTab])
             ->with('success', 'Settings updated successfully!');
