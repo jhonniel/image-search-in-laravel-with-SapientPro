@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ImageMetadata;
+use App\Models\Tag;
 use App\Models\User;
 use App\Services\SimilarityNotificationService;
 use Illuminate\Support\Str;
@@ -59,7 +60,7 @@ class GuestItemController extends Controller
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
-            'tags' => 'required|string|max:255',
+            'tags' => 'required|string', // JSON array string
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
         ];
@@ -102,7 +103,6 @@ class GuestItemController extends Controller
             'location.required' => 'Location is required. Please specify where the item was lost or found.',
             'description.required' => 'Description is required. Please describe the item.',
             'tags.required' => 'Tags are required. Please add at least one tag to help others find your item.',
-            'tags.max' => 'Tags must not exceed 255 characters.',
             'province.required' => 'Please enter a province where the item was lost or found.',
             'province.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your province added.',
             'city.required' => 'Please enter a city where the item was lost or found.',
@@ -181,7 +181,7 @@ class GuestItemController extends Controller
                     'uploader_email' => $user->email,
                     'description' => $validated['description'],
                     'location' => $validated['location'] ?? null,
-                    'tags' => !empty($validated['tags']) ? array_map('trim', explode(',', $validated['tags'])) : [],
+                    'tags' => $this->processTags($validated['tags'] ?? ''),
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
                     'status' => $validated['item_type'],
@@ -233,6 +233,44 @@ class GuestItemController extends Controller
 
             return back()->withErrors(['error' => 'Failed to post item. Please try again.'])->withInput();
         }
+    }
+
+    /**
+     * Process tags from request (handles both JSON array and comma-separated string)
+     * Also increments tag usage counts
+     */
+    private function processTags($tagsInput)
+    {
+        if (empty($tagsInput)) {
+            return [];
+        }
+
+        $tagsArray = [];
+        
+        // Try to decode as JSON first
+        $decoded = json_decode($tagsInput, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $tagsArray = array_map('trim', $decoded);
+        } else {
+            // Fallback to comma-separated string
+            $tagsArray = array_map('trim', explode(',', $tagsInput));
+        }
+
+        // Filter out empty tags
+        $tagsArray = array_filter($tagsArray, function($tag) {
+            return !empty(trim($tag));
+        });
+
+        // Increment usage count for each tag
+        foreach ($tagsArray as $tagName) {
+            $tag = Tag::firstOrCreate(
+                ['name' => trim($tagName)],
+                ['usage_count' => 0]
+            );
+            $tag->incrementUsage();
+        }
+
+        return array_values($tagsArray);
     }
 }
 

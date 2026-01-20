@@ -641,6 +641,27 @@ class SimilarityNotificationService
                 // Create in-app notification for similar items found
                 $this->createSimilarItemsNotification($userEmail, $newItem, $similarItems);
                 $notificationsSent[] = $userEmail;
+                
+                // Notify the owners of matched items (both users get notified)
+                foreach ($similarItems as $similarItem) {
+                    $matchedItemOwnerEmail = $similarItem['uploader_email'] ?? null;
+                    if ($matchedItemOwnerEmail && $matchedItemOwnerEmail !== $userEmail) {
+                        // Get the matched item details
+                        $matchedItem = ImageMetadata::where('upload_id', $similarItem['upload_id'] ?? null)->first();
+                        if ($matchedItem) {
+                            // Check if it's a match (one lost, one found)
+                            $isMatch = ($newItem->status === 'lost' && $matchedItem->status === 'found') ||
+                                      ($newItem->status === 'found' && $matchedItem->status === 'lost');
+                            
+                            if ($isMatch) {
+                                // Notify the matched item owner
+                                $this->notifyMatchedItemOwner($matchedItemOwnerEmail, $matchedItem, $newItem, $similarItem);
+                                $this->createMatchedItemNotification($matchedItemOwnerEmail, $matchedItem, $newItem, $similarItem);
+                                $notificationsSent[] = $matchedItemOwnerEmail;
+                            }
+                        }
+                    }
+                }
             } else {
                 $this->sendUserUploadConfirmation($userEmail, $newItem);
                 $notificationsSent[] = $userEmail;
@@ -804,6 +825,103 @@ class SimilarityNotificationService
             ]);
         } catch (\Exception $e) {
             Log::warning('Failed to create similar items notification: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Notify the owner of a matched item about the match
+     */
+    private function notifyMatchedItemOwner(string $ownerEmail, ImageMetadata $matchedItem, ImageMetadata $newItem, array $similarityData): void
+    {
+        // Check if email notifications are enabled
+        if (!$this->areEmailNotificationsEnabled()) {
+            Log::info('Email notifications disabled - skipping matched item owner notification', [
+                'email' => $ownerEmail
+            ]);
+            return;
+        }
+        
+        try {
+            // Apply mail configuration before sending
+            $this->applyMailConfigurationFromSettings();
+            
+            $data = [
+                'notification_type' => 'item_matched',
+                'matched_item_type' => $matchedItem->status,
+                'matched_item_description' => $matchedItem->description,
+                'matched_item_location' => $matchedItem->location ?? 'Location not specified',
+                'matched_item_tags' => $matchedItem->tags,
+                'new_item_type' => $newItem->status,
+                'new_item_description' => $newItem->description,
+                'new_item_location' => $newItem->location ?? 'Location not specified',
+                'new_item_tags' => $newItem->tags,
+                'similarity_score' => round(($similarityData['similarity'] ?? 0) * 100, 2),
+                'contact_email' => $ownerEmail,
+                'user_email' => $ownerEmail,
+                'matched_item_upload_id' => $matchedItem->upload_id,
+                'new_item_upload_id' => $newItem->upload_id,
+                'matched_item_id' => $matchedItem->id,
+                'new_item_id' => $newItem->id,
+                'match_date' => now()->format('M d, Y'),
+            ];
+
+            Mail::to($ownerEmail)->send(new UserItemNotification($data));
+
+            Log::info('Matched item owner notification sent', [
+                'email' => $ownerEmail,
+                'matched_item_id' => $matchedItem->id,
+                'new_item_id' => $newItem->id,
+                'mail_driver' => config('mail.default')
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send matched item owner notification', [
+                'email' => $ownerEmail,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+
+    /**
+     * Create in-app notification for matched item owner
+     */
+    private function createMatchedItemNotification(string $ownerEmail, ImageMetadata $matchedItem, ImageMetadata $newItem, array $similarityData): void
+    {
+        try {
+            $owner = \App\Models\User::where('email', $ownerEmail)->first();
+            if (!$owner) {
+                return;
+            }
+
+            $similarityPercent = round(($similarityData['similarity'] ?? 0) * 100, 2);
+            $matchType = ($matchedItem->status === 'lost' && $newItem->status === 'found') ? 
+                        'Someone found an item that matches your lost item!' : 
+                        'Someone lost an item that matches your found item!';
+
+            \App\Models\Notification::create([
+                'user_id' => $owner->id,
+                'type' => 'item_matched',
+                'title' => 'Item Match Found!',
+                'message' => $matchType . ' (Similarity: ' . $similarityPercent . '%)',
+                'data' => [
+                    'matched_item_upload_id' => $matchedItem->upload_id,
+                    'matched_item_id' => $matchedItem->id,
+                    'matched_item_type' => $matchedItem->status,
+                    'matched_item_description' => $matchedItem->description,
+                    'matched_item_location' => $matchedItem->location,
+                    'matched_item_tags' => $matchedItem->tags,
+                    'new_item_upload_id' => $newItem->upload_id,
+                    'new_item_id' => $newItem->id,
+                    'new_item_type' => $newItem->status,
+                    'new_item_description' => $newItem->description,
+                    'new_item_location' => $newItem->location,
+                    'new_item_tags' => $newItem->tags,
+                    'similarity_score' => $similarityData['similarity'] ?? 0,
+                    'similarity_percent' => $similarityPercent,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Failed to create matched item notification: ' . $e->getMessage());
         }
     }
 }

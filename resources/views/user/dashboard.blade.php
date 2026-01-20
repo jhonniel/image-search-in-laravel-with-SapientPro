@@ -13,57 +13,6 @@
             </div>
         </div>
     @endif
-    <!-- Welcome Section -->
-    <div class="bg-purple-50 rounded-xl p-8 md:p-10 border-2 border-blue-500 mb-8">
-        <div class="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-10">
-            <div class="flex-1 text-center md:text-left">
-                <h2 class="text-5xl md:text-6xl font-bold mb-4 leading-tight">
-                    <span class="text-blue-600">Hi,</span>
-                    <span class="text-pink-500">{{ Auth::user()->name }}</span>
-                </h2>
-                <p class="text-gray-700 text-lg mb-6">Let's help find what's missing — or return what's found.</p>
-                <button class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium text-base">
-                    Learn more
-                </button>
-            </div>
-            <div class="shrink-0 w-48 sm:w-56 md:w-64 lg:w-72 h-48 sm:h-56 md:h-64 lg:h-72 flex items-center justify-center overflow-hidden">
-                <!-- Illustration - using uploaded image -->
-                @if(file_exists(public_path('images/dashboard-banner.png')))
-                    <img src="{{ asset('images/dashboard-banner.png') }}"
-                         alt="Lost and Found Illustration"
-                         class="w-full h-full object-contain">
-                @else
-                    <img src="{{ asset('images/dashboard-banner-placeholder.svg') }}"
-                         alt="Lost and Found Illustration Placeholder"
-                         class="w-full h-full object-contain">
-                @endif
-            </div>
-        </div>
-    </div>
-
-    <!-- Submit a Review Section -->
-    @if($hasReviewQuestions && !$hasCompletedReviews)
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mb-8">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-5">
-                <div class="shrink-0 w-16 h-16">
-                    <div class="w-full h-full bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-star text-purple-primary text-3xl"></i>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Submit a Review</h3>
-                    <p class="text-gray-600 text-sm">Share your feedback and help us improve FindITFast.</p>
-                </div>
-            </div>
-            <a href="{{ route('reviews.create') }}" class="inline-flex items-center justify-center px-6 py-3 bg-purple-primary text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors">
-                <i class="fas fa-star mr-2"></i>
-                Submit Review
-            </a>
-        </div>
-    </div>
-    @endif
-
     <!-- Action Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
         <!-- Report Lost Item Card -->
@@ -147,6 +96,57 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit a Review Section -->
+    @if($hasReviewQuestions && !$hasCompletedReviews)
+    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mb-8">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-5">
+                <div class="shrink-0 w-16 h-16">
+                    <div class="w-full h-full bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center">
+                        <i class="fas fa-star text-purple-primary text-3xl"></i>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Submit a Review</h3>
+                    <p class="text-gray-600 text-sm">Share your feedback and help us improve FindITFast.</p>
+                </div>
+            </div>
+            <a href="{{ route('reviews.create') }}" class="inline-flex items-center justify-center px-6 py-3 bg-purple-primary text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors">
+                <i class="fas fa-star mr-2"></i>
+                Submit Review
+            </a>
+        </div>
+    </div>
+    @endif
+
+    <!-- Welcome Section -->
+    <div class="bg-purple-50 rounded-xl p-8 md:p-10 border-2 border-blue-500 mb-8">
+        <div class="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-10">
+            <div class="flex-1 text-center md:text-left">
+                <h2 class="text-5xl md:text-6xl font-bold mb-4 leading-tight">
+                    <span class="text-blue-600">Hi,</span>
+                    <span class="text-pink-500">{{ Auth::user()->name }}</span>
+                </h2>
+                <p class="text-gray-700 text-lg mb-6">Let's help find what's missing — or return what's found.</p>
+                <button class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium text-base">
+                    Learn more
+                </button>
+            </div>
+            <div class="shrink-0 w-48 sm:w-56 md:w-64 lg:w-72 h-48 sm:h-56 md:h-64 lg:h-72 flex items-center justify-center overflow-hidden">
+                <!-- Illustration - using uploaded image -->
+                @if(file_exists(public_path('images/dashboard-banner.png')))
+                    <img src="{{ asset('images/dashboard-banner.png') }}"
+                         alt="Lost and Found Illustration"
+                         class="w-full h-full object-contain">
+                @else
+                    <img src="{{ asset('images/dashboard-banner-placeholder.svg') }}"
+                         alt="Lost and Found Illustration Placeholder"
+                         class="w-full h-full object-contain">
+                @endif
             </div>
         </div>
     </div>

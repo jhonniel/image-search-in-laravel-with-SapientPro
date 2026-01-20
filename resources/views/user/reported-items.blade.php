@@ -3,21 +3,17 @@
 @section('title', 'Your Reported Items')
 
 @section('content')
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-md p-6 border border-purple-100">
-        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-                <h2 class="text-3xl font-bold text-gray-900 mb-2">Reported Items</h2>
-                <p class="text-gray-600 text-lg">Upload and manage your lost or found items</p>
-            </div>
-            <button onclick="toggleUploadForm()" class="bg-gradient-to-r from-purple-primary to-pink-primary text-white px-8 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center font-medium">
-                <i class="fas fa-plus mr-2"></i>
-                Report New Item
-            </button>
-        </div>
-    </div>
+@csrf
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""/>
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""></script>
 
+<div class="space-y-6">
     <!-- Upload Form -->
     <div id="upload-form" class="bg-white rounded-xl shadow-lg border border-gray-200 hidden overflow-hidden">
         <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b border-gray-200">
@@ -115,9 +111,44 @@
             <!-- Location -->
             <div>
                 <label for="location" class="block text-sm font-medium text-gray-700 mb-2">Location <span class="text-red-500">*</span></label>
-                <input type="text" id="location" name="location" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
+                <div class="flex gap-2 mb-2 relative">
+                    <div class="flex-1 relative">
+                        <input type="text" id="location" name="location" required autocomplete="off"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
+                        <!-- Location autocomplete dropdown -->
+                        <div id="location-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-purple-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                            <!-- Suggestions will be inserted here -->
+                        </div>
+                    </div>
+                    <button type="button" onclick="useCurrentLocation('location')" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium whitespace-nowrap">
+                        <i class="fas fa-crosshairs mr-1"></i> Current Location
+                    </button>
+                </div>
+                <!-- Hidden fields for coordinates -->
+                <input type="hidden" id="location-lat" name="location_lat">
+                <input type="hidden" id="location-lon" name="location_lon">
+                <!-- Map container -->
+                <div class="mt-3">
+                    <div id="location-map" class="w-full h-64 rounded-lg border border-gray-300 relative" style="display: none;">
+                        <!-- Location autocomplete overlay on map -->
+                        <div id="location-autocomplete-map" class="hidden absolute top-2 left-2 right-2 z-[1000] bg-white border-2 border-purple-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                            <!-- Suggestions will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                        <button type="button" onclick="toggleLocationMap('location')" 
+                                class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium">
+                            <i class="fas fa-map-marker-alt mr-1"></i> Pin on Map
+                        </button>
+                        <button type="button" onclick="clearLocationMap('location')" 
+                                class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium" 
+                                style="display: none;" id="clear-location-btn">
+                            <i class="fas fa-times mr-1"></i> Clear Map
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Description -->
@@ -131,10 +162,53 @@
             <!-- Tags -->
             <div>
                 <label for="tags" class="block text-sm font-medium text-gray-700 mb-2">Tags <span class="text-red-500">*</span></label>
-                <input type="text" id="tags" name="tags" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Enter tags separated by commas (e.g., phone, black, case)">
-                <p class="text-xs text-gray-500 mt-1">Tags help others find your item more easily</p>
+                
+                <!-- Tag Dropdown -->
+                <div class="relative mb-2">
+                    <select id="tags-dropdown" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">Select a tag...</option>
+                        <!-- Options will be loaded dynamically -->
+                    </select>
+                </div>
+                
+                <!-- Add New Tag Button -->
+                <div class="mb-2">
+                    <button type="button" 
+                            onclick="toggleNewTagInput()" 
+                            class="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
+                        <i class="fas fa-plus text-xs"></i>
+                        Add another tag
+                    </button>
+                </div>
+                
+                <!-- Add New Tag Input (Hidden by default) -->
+                <div id="new-tag-input-container" class="flex gap-2 mb-2 hidden">
+                    <input type="text" 
+                           id="new-tag-input" 
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="Type a new tag">
+                    <button type="button" 
+                            onclick="addTagFromInput()" 
+                            class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button type="button" 
+                            onclick="toggleNewTagInput()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Selected Tags Display -->
+                <div id="selected-tags-container" class="flex flex-wrap gap-2 mt-2 min-h-[20px]">
+                    <!-- Selected tags will appear here -->
+                </div>
+                
+                <!-- Hidden input to store selected tags as JSON -->
+                <input type="hidden" id="tags" name="tags" required>
+                
+                <p class="text-xs text-gray-500 mt-1">Select tags from the dropdown or add new ones. Tags help others find your item more easily.</p>
             </div>
 
             <!-- Images Upload Section -->
@@ -214,15 +288,26 @@
 
 <!-- Image Modal -->
 <div id="image-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-    <div class="bg-white rounded-lg max-w-4xl max-h-full overflow-hidden">
+    <div class="bg-white rounded-lg max-w-4xl max-h-full overflow-hidden relative">
         <div class="flex items-center justify-between p-4 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-900">Image Preview</h3>
             <button onclick="closeImageModal()" class="text-gray-400 hover:text-gray-600">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        <div class="p-4">
+        <div class="p-4 relative">
             <img id="modal-image" src="" alt="Preview" class="max-w-full max-h-96 object-contain mx-auto">
+            <div id="modal-image-nav" class="hidden absolute inset-0 flex items-center justify-between p-4">
+                <button id="prev-image-btn" onclick="changeModalImage(-1)" class="bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <button id="next-image-btn" onclick="changeModalImage(1)" class="bg-black bg-opacity-50 text-white p-2 rounded-full hover:bg-opacity-70">
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+            <div id="modal-image-counter" class="hidden absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black bg-opacity-50 text-white px-3 py-1 rounded text-sm">
+                <span id="current-image-num">1</span> / <span id="total-images-num">1</span>
+            </div>
         </div>
     </div>
 </div>
@@ -321,9 +406,44 @@
             <!-- Location -->
             <div>
                 <label for="edit-location" class="block text-sm font-medium text-gray-700 mb-2">Location</label>
-                <input type="text" id="edit-location" name="location" required
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
+                <div class="flex gap-2 mb-2 relative">
+                    <div class="flex-1 relative">
+                        <input type="text" id="edit-location" name="location" required autocomplete="off"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
+                        <!-- Location autocomplete dropdown -->
+                        <div id="edit-location-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-purple-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                            <!-- Suggestions will be inserted here -->
+                        </div>
+                    </div>
+                    <button type="button" onclick="useCurrentLocation('edit-location')" 
+                            class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium whitespace-nowrap">
+                        <i class="fas fa-crosshairs mr-1"></i> Current Location
+                    </button>
+                </div>
+                <!-- Hidden fields for coordinates -->
+                <input type="hidden" id="edit-location-lat" name="location_lat">
+                <input type="hidden" id="edit-location-lon" name="location_lon">
+                <!-- Map container -->
+                <div class="mt-3">
+                    <div id="edit-location-map" class="w-full h-64 rounded-lg border border-gray-300 relative" style="display: none;">
+                        <!-- Location autocomplete overlay on map -->
+                        <div id="edit-location-autocomplete-map" class="hidden absolute top-2 left-2 right-2 z-[1000] bg-white border-2 border-purple-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                            <!-- Suggestions will be inserted here -->
+                        </div>
+                    </div>
+                    <div class="mt-2 flex gap-2">
+                        <button type="button" onclick="toggleLocationMap('edit-location')" 
+                                class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors text-sm font-medium">
+                            <i class="fas fa-map-marker-alt mr-1"></i> Pin on Map
+                        </button>
+                        <button type="button" onclick="clearLocationMap('edit-location')" 
+                                class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium" 
+                                style="display: none;" id="clear-edit-location-btn">
+                            <i class="fas fa-times mr-1"></i> Clear Map
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <!-- Description -->
@@ -337,10 +457,53 @@
             <!-- Tags -->
             <div>
                 <label for="edit-tags" class="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-                <input type="text" id="edit-tags" name="tags"
-                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                       placeholder="Enter tags separated by commas (e.g., phone, black, case)">
-                <p class="text-xs text-gray-500 mt-1">Tags help others find your item more easily</p>
+                
+                <!-- Tag Dropdown -->
+                <div class="relative mb-2">
+                    <select id="edit-tags-dropdown" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                        <option value="">Select a tag...</option>
+                        <!-- Options will be loaded dynamically -->
+                    </select>
+                </div>
+                
+                <!-- Add New Tag Button -->
+                <div class="mb-2">
+                    <button type="button" 
+                            onclick="toggleEditNewTagInput()" 
+                            class="text-sm text-purple-600 hover:text-purple-800 font-medium flex items-center gap-1">
+                        <i class="fas fa-plus text-xs"></i>
+                        Add another tag
+                    </button>
+                </div>
+                
+                <!-- Add New Tag Input (Hidden by default) -->
+                <div id="edit-new-tag-input-container" class="flex gap-2 mb-2 hidden">
+                    <input type="text" 
+                           id="edit-new-tag-input" 
+                           class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           placeholder="Type a new tag">
+                    <button type="button" 
+                            onclick="addEditTagFromInput()" 
+                            class="px-4 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600 transition-colors">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <button type="button" 
+                            onclick="toggleEditNewTagInput()" 
+                            class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Selected Tags Display -->
+                <div id="edit-selected-tags-container" class="flex flex-wrap gap-2 mt-2 min-h-[20px]">
+                    <!-- Selected tags will appear here -->
+                </div>
+                
+                <!-- Hidden input to store selected tags as JSON -->
+                <input type="hidden" id="edit-tags" name="tags">
+                
+                <p class="text-xs text-gray-500 mt-1">Select tags from the dropdown or add new ones. Tags help others find your item more easily.</p>
             </div>
 
             <!-- Existing Images -->
@@ -971,7 +1134,9 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     const province = provinceElement ? provinceElement.value.trim() : '';
     const location = document.getElementById('location').value.trim();
     const description = document.getElementById('description').value.trim();
-    const tags = document.getElementById('tags').value.trim();
+    // Get tags from selected tags array
+    const tagsInput = document.getElementById('tags');
+    const tags = tagsInput ? JSON.parse(tagsInput.value || '[]').join(', ') : '';
 
     // Client-side validation
     if (!itemType) {
@@ -1062,8 +1227,8 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         return;
     }
 
-    if (!tags) {
-        showToast('Please enter tags', 'error');
+    if (!tags || tags.trim() === '') {
+        showToast('Please select or add at least one tag', 'error');
         this.dataset.submitting = 'false';
         return;
     }
@@ -1091,7 +1256,9 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     
     formData.append('location', location);
     formData.append('description', description);
-    formData.append('tags', tags);
+    // Append tags as JSON array
+    const tagsArray = JSON.parse(document.getElementById('tags').value || '[]');
+    formData.append('tags', JSON.stringify(tagsArray));
 
     // Add files (deduplicate on client side)
     const uniqueFiles = new Map();
@@ -1382,152 +1549,101 @@ function displayUserItems(items) {
 
         itemsContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            ${items.map(item => `
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <!-- Item Header -->
-                    <div class="p-6 border-b border-gray-200">
-                        <div class="flex items-start justify-between mb-4">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-full flex items-center justify-center ${item.item_type === 'lost' ? 'bg-red-100' : 'bg-green-100'}">
-                                    <i class="fas ${item.item_type === 'lost' ? 'fa-search text-red-600' : 'fa-hand-holding text-green-600'}"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">${item.item_type === 'lost' ? 'Lost Item' : 'Found Item'}</h3>
-                                    <p class="text-sm text-gray-500">Reported ${new Date(item.created_at).toLocaleDateString()}</p>
-                                </div>
+            ${items.map(item => {
+                // Get first image for display
+                const firstImage = item.images && item.images.length > 0 ? item.images[0] : null;
+                const imageUrl = firstImage ? (firstImage.path || firstImage.file_path || `/storage/${firstImage.filename || firstImage.path}`) : null;
+                const allImageUrls = item.images && item.images.length > 0 ? 
+                    item.images.map(img => img.path || img.file_path || `/storage/${img.filename || img.path}`) : [];
+                const allImageUrlsJson = JSON.stringify(allImageUrls).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                
+                return `
+                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                    ${imageUrl ? `
+                    <!-- Item Image -->
+                    <div class="relative w-full h-48 bg-gray-100 overflow-hidden">
+                        <img src="${imageUrl}" 
+                             alt="${(item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" 
+                             class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                             onclick="openImageModal('${imageUrl.replace(/'/g, "\\'")}', ${allImageUrlsJson})">
+                        ${item.images && item.images.length > 1 ? `
+                            <div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
+                                <i class="fas fa-images mr-1"></i>${item.images.length} images
                             </div>
-                            <div class="flex flex-col items-end space-y-2">
-                                <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                                    ${item.item_type === 'lost' ? 'Lost' : 'Found'}
-                                </span>
-                                <span class="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                    <i class="fas fa-user mr-1"></i>
-                                    Your Item
-                                </span>
-                            </div>
-                        </div>
-
-                        <div class="mb-4">
-                            <p class="text-gray-700 mb-2"><strong>Description:</strong> ${item.description || 'No description provided'}</p>
-                            <p class="text-gray-700 mb-2"><strong>Location:</strong> ${item.location || 'No location specified'}</p>
-                            ${item.tags && item.tags.length > 0 ? `
-                                <div class="flex flex-wrap gap-2 mb-2">
-                                    <strong class="text-gray-700">Tags:</strong>
-                                    ${item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
-                                </div>
-                            ` : ''}
-                        </div>
-
-                        <div class="text-sm text-gray-500">
-                            <i class="fas fa-clock mr-1"></i>
-                            Reported ${new Date(item.created_at).toLocaleDateString()}
+                        ` : ''}
+                        <div class="absolute top-2 left-2">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                                ${item.item_type === 'lost' ? 'Lost' : 'Found'}
+                            </span>
                         </div>
                     </div>
-
-                    <!-- Images Carousel -->
+                    ` : `
+                    <!-- No Image Placeholder -->
+                    <div class="relative w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                        <div class="text-center">
+                            <i class="fas fa-image text-gray-400 text-4xl mb-2"></i>
+                            <p class="text-xs text-gray-500">No image</p>
+                        </div>
+                        <div class="absolute top-2 left-2">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                                ${item.item_type === 'lost' ? 'Lost' : 'Found'}
+                            </span>
+                        </div>
+                    </div>
+                    `}
+                    
+                    <!-- Item Header -->
                     <div class="p-6">
-                        <div class="relative">
-                            <div class="carousel-container overflow-hidden rounded-lg">
-                                <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-${item.upload_id}">
-                                    ${item.images && item.images.length > 0 ? item.images.map((image, index) => {
-                                        const imgPath = image.path || image.file_path || '';
-                                        console.log('Rendering image:', imgPath, 'for item:', item.upload_id);
-                                        return `
-                                        <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6;">
-                                            <div class="relative group" style="background-color: #f3f4f6;">
-                                                <img src="${imgPath}" 
-                                                     alt="${image.original_name || 'Item image'}" 
-                                                     class="w-full h-48 object-cover rounded-lg border border-gray-200"
-                                                     style="background-color: #f3f4f6; min-height: 192px; display: block; width: 100%; height: 192px; position: relative; z-index: 1;"
-                                                     onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                                     onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
-                                                     loading="lazy">
-                                                <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                                                    <div class="text-center text-gray-400">
-                                                        <i class="fas fa-image text-4xl mb-2"></i>
-                                                        <p class="text-sm">Image not available</p>
-                                                    </div>
-                                                </div>
-                                                <div class="absolute inset-0 transition-all duration-200 rounded-lg flex items-center justify-center pointer-events-none" style="background-color: transparent;">
-                                                    <button onclick="viewImage('${imgPath}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 pointer-events-auto z-10 shadow-lg">
-                                                        <i class="fas fa-eye mr-1"></i>
-                                                        View
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                                    }).join('') : `
-                                        <div class="carousel-slide flex-shrink-0 w-full">
-                                            <div class="relative group">
-                                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                                                    <div class="text-center text-gray-400">
-                                                        <i class="fas fa-image text-4xl mb-2"></i>
-                                                        <p class="text-sm">No image available</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `}
-                                </div>
-                            </div>
-
-                            ${item.images && item.images.length > 1 ? `
-                                <!-- Carousel Navigation -->
-                                <div class="flex items-center justify-between mt-4">
-                                    <button onclick="previousSlide('${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                                        <i class="fas fa-chevron-left text-gray-600"></i>
-                                    </button>
-
-                                    <div class="flex items-center space-x-2">
-                                        <div class="flex space-x-1">
-                                            ${item.images.map((_, index) => `
-                                                <button onclick="goToSlide('${item.upload_id}', ${index})"
-                                                        class="carousel-dot w-2 h-2 rounded-full bg-gray-300 transition-colors"
-                                                        id="dot-${item.upload_id}-${index}"></button>
-                                            `).join('')}
-                                        </div>
-                                        <span class="carousel-counter text-sm text-gray-500 ml-2" id="counter-${item.upload_id}">1 / ${item.images.length}</span>
-                                    </div>
-
-                                    <button onclick="nextSlide('${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                                        <i class="fas fa-chevron-right text-gray-600"></i>
-                                    </button>
+                        <div class="mb-4">
+                            <h3 class="text-lg font-semibold text-gray-900 mb-2 truncate">${item.description ? (item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description) : (item.item_type === 'lost' ? 'Lost Item' : 'Found Item')}</h3>
+                            <p class="text-sm text-gray-500 mb-3">
+                                <i class="fas fa-map-marker-alt mr-1"></i>
+                                ${item.location ? (item.location.length > 40 ? item.location.substring(0, 40) + '...' : item.location) : 'No location'}
+                            </p>
+                            ${item.tags && item.tags.length > 0 ? `
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    ${item.tags.slice(0, 3).map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
+                                    ${item.tags.length > 3 ? `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">+${item.tags.length - 3} more</span>` : ''}
                                 </div>
                             ` : ''}
+                            <div class="text-xs text-gray-400">
+                                <i class="fas fa-clock mr-1"></i>
+                                ${new Date(item.created_at).toLocaleDateString()}
+                            </div>
                         </div>
                     </div>
 
                     <!-- Actions -->
-                    <div class="p-6 border-t border-gray-200 bg-gray-50">
-                        <div class="flex items-center justify-between flex-wrap gap-2">
-                            <button onclick="viewItemDetails('${item.upload_id}')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium">
-                                <i class="fas fa-info-circle mr-1"></i>
+                    <div class="px-6 pb-8 pt-0 mb-4">
+                        <div class="flex items-center gap-3 flex-wrap">
+                            <button onclick="viewItemDetails('${item.upload_id}')" class="flex-1 min-w-[120px] px-4 py-2.5 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md flex items-center justify-center">
+                                <i class="fas fa-info-circle mr-2"></i>
                                 View Details
                             </button>
-                            <div class="flex items-center gap-2">
-                                <button onclick="editItem('${item.upload_id}')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium">
-                                    <i class="fas fa-edit mr-1"></i>
-                                    Edit Item
-                                </button>
-                                <button onclick="deleteItem('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
-                                    <i class="fas fa-trash mr-1"></i>
-                                    Delete Item
-                                </button>
-                            </div>
+                            <button onclick="editItem('${item.upload_id}')" class="flex-1 min-w-[100px] px-4 py-2.5 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md flex items-center justify-center">
+                                <i class="fas fa-edit mr-2"></i>
+                                Edit
+                            </button>
+                            <button onclick="deleteItem('${item.upload_id}')" class="flex-1 min-w-[100px] px-4 py-2.5 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md flex items-center justify-center">
+                                <i class="fas fa-trash mr-2"></i>
+                                Delete
+                            </button>
                         </div>
                     </div>
                 </div>
-            `).join('')}
+            `;
+            }).join('')}
         </div>
         `;
 
-        // Initialize carousels
-        items.forEach(item => {
-            if (item.images && item.images.length > 1) {
-                initializeCarousel(item.upload_id, item.images.length);
-            }
-        });
+        // Initialize maps for all items
+        setTimeout(() => {
+            items.forEach(item => {
+                if (item.location) {
+                    initializeMap(`map-${item.upload_id}`, item.location);
+                }
+            });
+        }, 100);
     } catch (error) {
         console.error('Error displaying items:', error);
         showErrorState('Error displaying items: ' + error.message);
@@ -1720,14 +1836,89 @@ function updateCarouselCounter(carouselId) {
     }
 }
 
-// Image modal functions
+// Image modal state
+let modalImages = [];
+let currentModalImageIndex = 0;
+
+function openImageModal(imageUrl, images = []) {
+    const modal = document.getElementById('image-modal');
+    const modalImage = document.getElementById('modal-image');
+    const navDiv = document.getElementById('modal-image-nav');
+    const counterDiv = document.getElementById('modal-image-counter');
+    const currentNum = document.getElementById('current-image-num');
+    const totalNum = document.getElementById('total-images-num');
+    
+    if (!modal || !modalImage) return;
+    
+    // Set images array - handle both string and array inputs
+    if (Array.isArray(images) && images.length > 0) {
+        modalImages = images;
+    } else if (typeof images === 'string') {
+        try {
+            modalImages = JSON.parse(images.replace(/&quot;/g, '"'));
+        } catch (e) {
+            modalImages = [imageUrl];
+        }
+    } else {
+        modalImages = [imageUrl];
+    }
+    
+    // Find current image index
+    currentModalImageIndex = modalImages.findIndex(img => img === imageUrl);
+    if (currentModalImageIndex === -1) {
+        currentModalImageIndex = 0;
+    }
+    
+    // Display current image
+    modalImage.src = modalImages[currentModalImageIndex];
+    
+    // Show/hide navigation
+    if (modalImages.length > 1) {
+        if (navDiv) navDiv.classList.remove('hidden');
+        if (counterDiv) counterDiv.classList.remove('hidden');
+        if (currentNum) currentNum.textContent = currentModalImageIndex + 1;
+        if (totalNum) totalNum.textContent = modalImages.length;
+    } else {
+        if (navDiv) navDiv.classList.add('hidden');
+        if (counterDiv) counterDiv.classList.add('hidden');
+    }
+    
+    modal.classList.remove('hidden');
+}
+
+function changeModalImage(direction) {
+    if (modalImages.length <= 1) return;
+    
+    currentModalImageIndex += direction;
+    
+    if (currentModalImageIndex < 0) {
+        currentModalImageIndex = modalImages.length - 1;
+    } else if (currentModalImageIndex >= modalImages.length) {
+        currentModalImageIndex = 0;
+    }
+    
+    const modalImage = document.getElementById('modal-image');
+    const currentNum = document.getElementById('current-image-num');
+    
+    if (modalImage) {
+        modalImage.src = modalImages[currentModalImageIndex];
+    }
+    if (currentNum) {
+        currentNum.textContent = currentModalImageIndex + 1;
+    }
+}
+
 function viewImage(imagePath) {
-    document.getElementById('modal-image').src = imagePath;
-    document.getElementById('image-modal').classList.remove('hidden');
+    openImageModal(imagePath, [imagePath]);
 }
 
 function closeImageModal() {
-    document.getElementById('image-modal').classList.add('hidden');
+    const modal = document.getElementById('image-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modalImages = [];
+        currentModalImageIndex = 0;
+    }
 }
 
 // Item details function
@@ -1746,8 +1937,11 @@ function viewItemDetails(uploadId) {
                 <p class="text-gray-600">${item.description || 'No description provided'}</p>
             </div>
             <div>
-                <h4 class="font-semibold text-gray-900">Location</h4>
-                <p class="text-gray-600">${item.location || 'No location specified'}</p>
+                <h4 class="font-semibold text-gray-900 mb-2">Location</h4>
+                <p class="text-gray-600 mb-2">${item.location || 'No location specified'}</p>
+                ${item.location ? `
+                    <div id="map-detail-${item.upload_id}" class="w-full h-64 rounded-lg border border-gray-200 mt-2" style="z-index: 1;"></div>
+                ` : ''}
             </div>
             <div>
                 <h4 class="font-semibold text-gray-900">Date Posted</h4>
@@ -1780,6 +1974,13 @@ function viewItemDetails(uploadId) {
         </div>
     `;
     document.body.appendChild(modal);
+    
+    // Initialize map in modal after it's added to DOM
+    setTimeout(() => {
+        if (item.location) {
+            initializeMap(`map-detail-${item.upload_id}`, item.location);
+        }
+    }, 100);
 }
 
 // Edit item function
@@ -1801,8 +2002,28 @@ function editItem(uploadId) {
         editProvinceInput.value = item.province || '';
     }
     document.getElementById('edit-location').value = item.location || '';
+    
+    // If location exists, try to show it on map
+    if (item.location) {
+        setTimeout(() => {
+            const mapId = 'edit-location-map';
+            const mapElement = document.getElementById(mapId);
+            if (mapElement && !locationMaps[mapId]) {
+                initializeLocationMap(mapId, 'edit-location');
+            }
+            if (locationMaps[mapId]) {
+                geocodeAndShowOnMap(item.location, locationMaps[mapId], 'edit-location');
+            }
+        }, 100);
+    }
     document.getElementById('edit-description').value = item.description || '';
-    document.getElementById('edit-tags').value = item.tags ? (Array.isArray(item.tags) ? item.tags.join(', ') : item.tags) : '';
+    // Load tags into edit form
+    if (item.tags) {
+        const tagsArray = Array.isArray(item.tags) ? item.tags : (typeof item.tags === 'string' ? item.tags.split(',').map(t => t.trim()) : []);
+        loadTagsIntoEditForm(tagsArray);
+    } else {
+        loadTagsIntoEditForm([]);
+    }
     
     // Set item type radio button
     if (item.item_type === 'lost') {
@@ -2188,7 +2409,9 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
 
     // Get tags (optional)
     if (tags) {
-        formData.append('tags', tags);
+        // Append tags as JSON array
+    const tagsArray = JSON.parse(document.getElementById('tags').value || '[]');
+    formData.append('tags', JSON.stringify(tagsArray));
     }
 
     // Get removed images
@@ -2281,6 +2504,1218 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonText;
         this.dataset.submitting = 'false';
+    }
+});
+
+// Map initialization function using Leaflet and OpenStreetMap
+async function initializeMap(mapId, locationText) {
+    const mapElement = document.getElementById(mapId);
+    if (!mapElement || !locationText) return;
+
+    try {
+        // Geocode location using Nominatim (free OpenStreetMap geocoding)
+        const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationText)}&limit=1`;
+        
+        const response = await fetch(geocodeUrl, {
+            headers: {
+                'User-Agent': 'FindITFast Lost and Found App'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            
+            // Initialize map
+            const map = L.map(mapId).setView([lat, lon], 13);
+            
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Add marker with custom icon
+            const icon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+            
+            L.marker([lat, lon], {icon: icon})
+                .addTo(map)
+                .bindPopup(`<strong>${locationText}</strong>`)
+                .openPopup();
+        } else {
+            // If geocoding fails, show a default map centered on a general location
+            // Default to Philippines center, adjust coordinates as needed
+            const defaultLat = 14.5995;
+            const defaultLon = 120.9842;
+            
+            const map = L.map(mapId).setView([defaultLat, defaultLon], 6);
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+            
+            // Show message that location couldn't be found
+            mapElement.innerHTML = `
+                <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
+                    <div class="text-center text-gray-500 p-4">
+                        <i class="fas fa-map-marker-alt text-2xl mb-2"></i>
+                        <p class="text-sm">Location: ${locationText}</p>
+                        <p class="text-xs mt-1">Unable to pinpoint exact location</p>
+                    </div>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error initializing map:', error);
+        // Show error message
+        mapElement.innerHTML = `
+            <div class="w-full h-full flex items-center justify-center bg-gray-100 rounded-lg">
+                <div class="text-center text-gray-500 p-4">
+                    <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                    <p class="text-sm">Unable to load map</p>
+                    <p class="text-xs mt-1">Location: ${locationText}</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
+// Location map instances
+const locationMaps = {};
+
+// Use current location
+async function useCurrentLocation(inputId) {
+    const locationInput = document.getElementById(inputId);
+    const latInput = document.getElementById(`${inputId}-lat`);
+    const lonInput = document.getElementById(`${inputId}-lon`);
+    
+    if (!navigator.geolocation) {
+        showToast('Geolocation is not supported by your browser', 'error');
+        return;
+    }
+    
+    locationInput.disabled = true;
+    locationInput.value = 'Getting your location...';
+    
+    navigator.geolocation.getCurrentPosition(
+        async (position) => {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            
+            // Store coordinates
+            if (latInput) latInput.value = lat;
+            if (lonInput) lonInput.value = lon;
+            
+            // Reverse geocode to get address
+            try {
+                const address = await reverseGeocode(lat, lon);
+                locationInput.value = address;
+                showToast('Location set successfully!', 'success');
+                
+                // Show map with marker
+                const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
+                showLocationMap(mapId, lat, lon, address);
+            } catch (error) {
+                locationInput.value = `${lat}, ${lon}`;
+                showToast('Location set, but could not get address', 'warning');
+            }
+            
+            locationInput.disabled = false;
+        },
+        (error) => {
+            locationInput.disabled = false;
+            locationInput.value = '';
+            let errorMsg = 'Unable to get your location. ';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMsg += 'Please allow location access.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMsg += 'Location information unavailable.';
+                    break;
+                case error.TIMEOUT:
+                    errorMsg += 'Location request timed out.';
+                    break;
+            }
+            showToast(errorMsg, 'error');
+        }
+    );
+}
+
+// Toggle location map
+function toggleLocationMap(inputId) {
+    const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
+    const mapElement = document.getElementById(mapId);
+    const clearBtn = inputId === 'location' ? 'clear-location-btn' : 'clear-edit-location-btn';
+    const clearBtnElement = document.getElementById(clearBtn);
+    
+    const regularAutocompleteId = inputId === 'location' ? 'location-autocomplete' : 'edit-location-autocomplete';
+    const mapAutocompleteId = inputId === 'location' ? 'location-autocomplete-map' : 'edit-location-autocomplete-map';
+    const regularAutocomplete = document.getElementById(regularAutocompleteId);
+    const mapAutocomplete = document.getElementById(mapAutocompleteId);
+    
+    if (mapElement.style.display === 'none' || !mapElement.style.display) {
+        mapElement.style.display = 'block';
+        clearBtnElement.style.display = 'inline-block';
+        
+        // If autocomplete is showing, move it to map overlay
+        if (regularAutocomplete && !regularAutocomplete.classList.contains('hidden')) {
+            const suggestions = regularAutocomplete.innerHTML;
+            if (suggestions && mapAutocomplete) {
+                mapAutocomplete.innerHTML = suggestions;
+                mapAutocomplete.classList.remove('hidden');
+                regularAutocomplete.classList.add('hidden');
+            }
+        }
+        
+        // Initialize map if not already initialized
+        if (!locationMaps[mapId]) {
+            initializeLocationMap(mapId, inputId);
+        }
+    } else {
+        mapElement.style.display = 'none';
+        clearBtnElement.style.display = 'none';
+        
+        // If autocomplete is showing on map, move it back to input field
+        if (mapAutocomplete && !mapAutocomplete.classList.contains('hidden')) {
+            const suggestions = mapAutocomplete.innerHTML;
+            if (suggestions && regularAutocomplete) {
+                regularAutocomplete.innerHTML = suggestions;
+                regularAutocomplete.classList.remove('hidden');
+                mapAutocomplete.classList.add('hidden');
+            }
+        }
+    }
+}
+
+// Clear location map
+function clearLocationMap(inputId) {
+    const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
+    const mapElement = document.getElementById(mapId);
+    const locationInput = document.getElementById(inputId);
+    const latInput = document.getElementById(`${inputId}-lat`);
+    const lonInput = document.getElementById(`${inputId}-lon`);
+    const clearBtn = inputId === 'location' ? 'clear-location-btn' : 'clear-edit-location-btn';
+    const clearBtnElement = document.getElementById(clearBtn);
+    
+    // Clear inputs
+    locationInput.value = '';
+    if (latInput) latInput.value = '';
+    if (lonInput) lonInput.value = '';
+    
+    // Remove map
+    if (locationMaps[mapId]) {
+        locationMaps[mapId].remove();
+        delete locationMaps[mapId];
+    }
+    
+    mapElement.style.display = 'none';
+    clearBtnElement.style.display = 'none';
+}
+
+// Initialize location selection map
+function initializeLocationMap(mapId, inputId) {
+    const mapElement = document.getElementById(mapId);
+    if (!mapElement) return;
+    
+    // Default center (adjust to your region)
+    const defaultLat = 14.5995;
+    const defaultLon = 120.9842;
+    const defaultZoom = 13;
+    
+    // Initialize map
+    const map = L.map(mapId).setView([defaultLat, defaultLon], defaultZoom);
+    locationMaps[mapId] = map;
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
+    }).addTo(map);
+    
+    let marker = null;
+    
+    // Handle map click
+    map.on('click', async function(e) {
+        const lat = e.latlng.lat;
+        const lon = e.latlng.lng;
+        
+        // Store coordinates
+        const latInput = document.getElementById(`${inputId}-lat`);
+        const lonInput = document.getElementById(`${inputId}-lon`);
+        const locationInput = document.getElementById(inputId);
+        
+        if (latInput) latInput.value = lat;
+        if (lonInput) lonInput.value = lon;
+        
+        // Remove existing marker
+        if (marker) {
+            map.removeLayer(marker);
+        }
+        
+        // Add new marker
+        const icon = L.icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+        
+        marker = L.marker([lat, lon], {icon: icon, draggable: true}).addTo(map);
+        
+        // Reverse geocode to get address
+        locationInput.value = 'Getting address...';
+        locationInput.disabled = true;
+        
+        try {
+            const address = await reverseGeocode(lat, lon);
+            locationInput.value = address;
+            marker.bindPopup(`<strong>${address}</strong>`).openPopup();
+            showToast('Location pinned!', 'success');
+        } catch (error) {
+            locationInput.value = `${lat}, ${lon}`;
+            marker.bindPopup(`<strong>${lat.toFixed(6)}, ${lon.toFixed(6)}</strong>`).openPopup();
+            showToast('Location pinned!', 'success');
+        }
+        
+        locationInput.disabled = false;
+        
+        // Handle marker drag
+        marker.on('dragend', async function(e) {
+            const newLat = e.target.getLatLng().lat;
+            const newLon = e.target.getLatLng().lng;
+            
+            if (latInput) latInput.value = newLat;
+            if (lonInput) lonInput.value = newLon;
+            
+            locationInput.value = 'Getting address...';
+            locationInput.disabled = true;
+            
+            try {
+                const address = await reverseGeocode(newLat, newLon);
+                locationInput.value = address;
+                marker.setPopupContent(`<strong>${address}</strong>`).openPopup();
+            } catch (error) {
+                locationInput.value = `${newLat}, ${newLon}`;
+                marker.setPopupContent(`<strong>${newLat.toFixed(6)}, ${newLon.toFixed(6)}</strong>`).openPopup();
+            }
+            
+            locationInput.disabled = false;
+        });
+    });
+    
+    // Don't auto-geocode existing location text - let user select from suggestions
+    // Only pin when user explicitly selects a suggestion or clicks on map
+}
+
+// Show location on map with marker
+function showLocationMap(mapId, lat, lon, address) {
+    const mapElement = document.getElementById(mapId);
+    if (!mapElement) return;
+    
+    mapElement.style.display = 'block';
+    const clearBtn = mapId === 'location-map' ? 'clear-location-btn' : 'clear-edit-location-btn';
+    const clearBtnElement = document.getElementById(clearBtn);
+    if (clearBtnElement) clearBtnElement.style.display = 'inline-block';
+    
+    // Initialize map if not already initialized
+    if (!locationMaps[mapId]) {
+        const inputId = mapId === 'location-map' ? 'location' : 'edit-location';
+        initializeLocationMap(mapId, inputId);
+    }
+    
+    const map = locationMaps[mapId];
+    map.setView([lat, lon], 15);
+    
+    // Remove existing markers
+    map.eachLayer((layer) => {
+        if (layer instanceof L.Marker) {
+            map.removeLayer(layer);
+        }
+    });
+    
+    // Add marker
+    const icon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+    });
+    
+    L.marker([lat, lon], {icon: icon})
+        .addTo(map)
+        .bindPopup(`<strong>${address || `${lat}, ${lon}`}</strong>`)
+        .openPopup();
+}
+
+// Reverse geocode coordinates to address
+async function reverseGeocode(lat, lon) {
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+            {
+                headers: {
+                    'User-Agent': 'FindITFast Lost and Found App'
+                }
+            }
+        );
+        
+        const data = await response.json();
+        
+        if (data && data.address) {
+            const addr = data.address;
+            const parts = [];
+            
+            if (addr.road) parts.push(addr.road);
+            if (addr.house_number) parts.unshift(addr.house_number);
+            if (addr.suburb) parts.push(addr.suburb);
+            if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village);
+            if (addr.state) parts.push(addr.state);
+            if (addr.country) parts.push(addr.country);
+            
+            return parts.length > 0 ? parts.join(', ') : data.display_name;
+        }
+        
+        return data.display_name || `${lat}, ${lon}`;
+    } catch (error) {
+        console.error('Reverse geocoding error:', error);
+        throw error;
+    }
+}
+
+// Geocode address and show on map
+async function geocodeAndShowOnMap(address, map, inputId) {
+    if (!address || !map) return;
+    
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1`,
+            {
+                headers: {
+                    'User-Agent': 'FindITFast Lost and Found App'
+                }
+            }
+        );
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+            const lat = parseFloat(data[0].lat);
+            const lon = parseFloat(data[0].lon);
+            
+            const latInput = document.getElementById(`${inputId}-lat`);
+            const lonInput = document.getElementById(`${inputId}-lon`);
+            
+            if (latInput) latInput.value = lat;
+            if (lonInput) lonInput.value = lon;
+            
+            map.setView([lat, lon], 15);
+            
+            // Remove existing markers
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            const icon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+            
+            L.marker([lat, lon], {icon: icon})
+                .addTo(map)
+                .bindPopup(`<strong>${address}</strong>`)
+                .openPopup();
+        }
+    } catch (error) {
+        console.error('Geocoding error:', error);
+    }
+}
+
+// Location autocomplete functionality
+let locationAutocompleteTimeout = {};
+let selectedSuggestionIndex = -1;
+let isSettingLocationProgrammatically = false; // Flag to track programmatic value setting
+
+// Fetch location suggestions
+async function fetchLocationSuggestions(query, inputId) {
+    if (!query || query.length < 2) {
+        hideLocationAutocomplete(inputId);
+        return;
+    }
+    
+    try {
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`,
+            {
+                headers: {
+                    'User-Agent': 'FindITFast Lost and Found App'
+                }
+            }
+        );
+        
+        const data = await response.json();
+        displayLocationSuggestions(data, inputId);
+    } catch (error) {
+        console.error('Error fetching location suggestions:', error);
+        hideLocationAutocomplete(inputId);
+    }
+}
+
+// Display location suggestions
+function displayLocationSuggestions(suggestions, inputId) {
+    if (!suggestions || suggestions.length === 0) {
+        hideLocationAutocomplete(inputId);
+        return;
+    }
+    
+    // Check if map is visible
+    const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
+    const mapElement = document.getElementById(mapId);
+    const isMapVisible = mapElement && mapElement.style.display !== 'none';
+    
+    // Choose which autocomplete div to use
+    let autocompleteDiv;
+    if (isMapVisible) {
+        // Show on top of map
+        autocompleteDiv = document.getElementById(inputId === 'location' ? 'location-autocomplete-map' : 'edit-location-autocomplete-map');
+        // Hide the regular autocomplete
+        const regularAutocomplete = document.getElementById(inputId === 'location' ? 'location-autocomplete' : 'edit-location-autocomplete');
+        if (regularAutocomplete) regularAutocomplete.classList.add('hidden');
+    } else {
+        // Show below input field
+        autocompleteDiv = document.getElementById(inputId === 'location' ? 'location-autocomplete' : 'edit-location-autocomplete');
+        // Hide the map autocomplete
+        const mapAutocomplete = document.getElementById(inputId === 'location' ? 'location-autocomplete-map' : 'edit-location-autocomplete-map');
+        if (mapAutocomplete) mapAutocomplete.classList.add('hidden');
+    }
+    
+    if (!autocompleteDiv) return;
+    
+    // Add header
+    const header = `
+        <div class="px-4 py-2 bg-purple-50 border-b border-purple-200 sticky top-0">
+            <div class="flex items-center gap-2">
+                <i class="fas fa-map-marker-alt text-purple-600"></i>
+                <span class="text-xs font-semibold text-purple-900">Suggested Locations</span>
+                <span class="text-xs text-purple-600 ml-auto">${suggestions.length} result${suggestions.length !== 1 ? 's' : ''}</span>
+            </div>
+        </div>
+    `;
+    
+    autocompleteDiv.innerHTML = header + suggestions.map((suggestion, index) => {
+        const displayName = suggestion.display_name;
+        const lat = suggestion.lat;
+        const lon = suggestion.lon;
+        
+        // Format address nicely
+        let formattedAddress = '';
+        if (suggestion.address) {
+            const addr = suggestion.address;
+            const parts = [];
+            
+            // Build address from most specific to least specific
+            if (addr.house_number) parts.push(addr.house_number);
+            if (addr.road) parts.push(addr.road);
+            if (addr.neighbourhood || addr.suburb) parts.push(addr.neighbourhood || addr.suburb);
+            if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village);
+            if (addr.state) parts.push(addr.state);
+            if (addr.country) parts.push(addr.country);
+            
+            formattedAddress = parts.join(', ');
+        }
+        
+        // Use formatted address if available, otherwise use display_name
+        const primaryText = formattedAddress || displayName;
+        const secondaryText = formattedAddress ? displayName : '';
+        
+        return `
+            <div class="location-suggestion px-4 py-3 hover:bg-purple-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors" 
+                 data-index="${index}"
+                 data-lat="${lat}"
+                 data-lon="${lon}"
+                 data-name="${displayName.replace(/"/g, '&quot;')}"
+                 onclick="selectLocationSuggestion('${inputId}', '${lat}', '${lon}', '${displayName.replace(/'/g, "\\'")}')"
+                 onmouseenter="highlightLocationSuggestion('${inputId}', ${index})">
+                <div class="flex items-start gap-3">
+                    <div class="shrink-0 mt-0.5">
+                        <i class="fas fa-map-marker-alt text-purple-500 text-lg"></i>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-semibold text-gray-900 leading-tight">${primaryText}</div>
+                        ${secondaryText ? `
+                            <div class="text-xs text-gray-500 mt-1 leading-tight truncate">${secondaryText}</div>
+                        ` : ''}
+                    </div>
+                    <div class="shrink-0 mt-0.5">
+                        <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    autocompleteDiv.classList.remove('hidden');
+    selectedSuggestionIndex = -1;
+}
+
+// Hide location autocomplete
+function hideLocationAutocomplete(inputId) {
+    // Hide both regular and map autocomplete
+    const regularAutocompleteId = inputId === 'location' ? 'location-autocomplete' : 'edit-location-autocomplete';
+    const mapAutocompleteId = inputId === 'location' ? 'location-autocomplete-map' : 'edit-location-autocomplete-map';
+    
+    const regularAutocomplete = document.getElementById(regularAutocompleteId);
+    const mapAutocomplete = document.getElementById(mapAutocompleteId);
+    
+    if (regularAutocomplete) {
+        regularAutocomplete.classList.add('hidden');
+    }
+    if (mapAutocomplete) {
+        mapAutocomplete.classList.add('hidden');
+    }
+    selectedSuggestionIndex = -1;
+}
+
+// Select location suggestion
+function selectLocationSuggestion(inputId, lat, lon, name) {
+    const locationInput = document.getElementById(inputId);
+    const latInput = document.getElementById(`${inputId}-lat`);
+    const lonInput = document.getElementById(`${inputId}-lon`);
+    
+    // Set flag to prevent autocomplete from showing
+    isSettingLocationProgrammatically = true;
+    
+    if (locationInput) {
+        locationInput.value = name;
+        // Clear any pending autocomplete timeout to prevent suggestions from showing immediately
+        if (locationAutocompleteTimeout[inputId]) {
+            clearTimeout(locationAutocompleteTimeout[inputId]);
+            delete locationAutocompleteTimeout[inputId];
+        }
+    }
+    
+    // Reset flag after a short delay
+    setTimeout(() => {
+        isSettingLocationProgrammatically = false;
+    }, 100);
+    
+    if (latInput) latInput.value = lat;
+    if (lonInput) lonInput.value = lon;
+    
+    // Hide suggestions immediately
+    hideLocationAutocomplete(inputId);
+    
+    // Get map ID and element
+    const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
+    const mapElement = document.getElementById(mapId);
+    const latNum = parseFloat(lat);
+    const lonNum = parseFloat(lon);
+    
+    // Show map if it's hidden
+    if (mapElement && (mapElement.style.display === 'none' || !mapElement.style.display)) {
+        toggleLocationMap(inputId);
+    }
+    
+    // Initialize map if not already initialized, then pin the location
+    const pinLocationOnMap = () => {
+        // Initialize map if needed
+        if (!locationMaps[mapId]) {
+            initializeLocationMap(mapId, inputId);
+            // Wait for map to initialize
+            setTimeout(() => {
+                pinMarkerOnMap();
+            }, 300);
+        } else {
+            pinMarkerOnMap();
+        }
+    };
+    
+    const pinMarkerOnMap = () => {
+        const map = locationMaps[mapId];
+        if (map) {
+            // Center map on selected location with animation
+            map.setView([latNum, lonNum], 15, {
+                animate: true,
+                duration: 0.5
+            });
+            
+            // Remove existing markers
+            map.eachLayer((layer) => {
+                if (layer instanceof L.Marker) {
+                    map.removeLayer(layer);
+                }
+            });
+            
+            // Create custom icon
+            const icon = L.icon({
+                iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+                shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                shadowSize: [41, 41]
+            });
+            
+            // Add marker and pin it on the map
+            const marker = L.marker([latNum, lonNum], {icon: icon})
+                .addTo(map)
+                .bindPopup(`<strong>${name}</strong>`)
+                .openPopup();
+        }
+    };
+    
+    // Pin location on map
+    pinLocationOnMap();
+    
+    showToast('Location selected and pinned on map!', 'success');
+}
+
+// Highlight suggestion on hover
+function highlightLocationSuggestion(inputId, index) {
+    // Check both autocomplete divs
+    const regularAutocompleteId = inputId === 'location' ? 'location-autocomplete' : 'edit-location-autocomplete';
+    const mapAutocompleteId = inputId === 'location' ? 'location-autocomplete-map' : 'edit-location-autocomplete-map';
+    
+    const regularAutocomplete = document.getElementById(regularAutocompleteId);
+    const mapAutocomplete = document.getElementById(mapAutocompleteId);
+    
+    const autocompleteDiv = regularAutocomplete && !regularAutocomplete.classList.contains('hidden') 
+        ? regularAutocomplete 
+        : (mapAutocomplete && !mapAutocomplete.classList.contains('hidden') ? mapAutocomplete : null);
+    
+    if (autocompleteDiv) {
+        const suggestions = autocompleteDiv.querySelectorAll('.location-suggestion');
+        suggestions.forEach((suggestion, i) => {
+            if (i === index) {
+                suggestion.classList.add('bg-purple-50');
+            } else {
+                suggestion.classList.remove('bg-purple-50');
+            }
+        });
+    }
+    selectedSuggestionIndex = index;
+}
+
+// Handle keyboard navigation in autocomplete
+function handleLocationAutocompleteKeydown(event, inputId) {
+    const regularAutocompleteId = inputId === 'location' ? 'location-autocomplete' : 'edit-location-autocomplete';
+    const mapAutocompleteId = inputId === 'location' ? 'location-autocomplete-map' : 'edit-location-autocomplete-map';
+    
+    const regularAutocomplete = document.getElementById(regularAutocompleteId);
+    const mapAutocomplete = document.getElementById(mapAutocompleteId);
+    
+    // Find which autocomplete is visible
+    const autocompleteDiv = regularAutocomplete && !regularAutocomplete.classList.contains('hidden') 
+        ? regularAutocomplete 
+        : (mapAutocomplete && !mapAutocomplete.classList.contains('hidden') ? mapAutocomplete : null);
+    
+    if (!autocompleteDiv || autocompleteDiv.classList.contains('hidden')) {
+        return;
+    }
+    
+    const suggestions = autocompleteDiv.querySelectorAll('.location-suggestion');
+    
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.length - 1);
+        suggestions[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+        highlightLocationSuggestion(inputId, selectedSuggestionIndex);
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+        if (selectedSuggestionIndex >= 0) {
+            suggestions[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+            highlightLocationSuggestion(inputId, selectedSuggestionIndex);
+        }
+    } else if (event.key === 'Enter' && selectedSuggestionIndex >= 0) {
+        event.preventDefault();
+        const selectedSuggestion = suggestions[selectedSuggestionIndex];
+        const lat = selectedSuggestion.dataset.lat;
+        const lon = selectedSuggestion.dataset.lon;
+        const name = selectedSuggestion.dataset.name;
+        selectLocationSuggestion(inputId, lat, lon, name);
+    } else if (event.key === 'Escape') {
+        hideLocationAutocomplete(inputId);
+    }
+}
+
+// Add event listeners for location input changes
+document.addEventListener('DOMContentLoaded', function() {
+    // For new item form
+    const locationInput = document.getElementById('location');
+    if (locationInput) {
+        let geocodeTimeout;
+        locationInput.addEventListener('input', function() {
+            // Don't show suggestions if value was set programmatically
+            if (isSettingLocationProgrammatically) {
+                return;
+            }
+            
+            const address = this.value.trim();
+            
+            clearTimeout(geocodeTimeout);
+            clearTimeout(locationAutocompleteTimeout['location']);
+            
+            // Show autocomplete suggestions only if user is typing
+            if (address.length >= 2) {
+                locationAutocompleteTimeout['location'] = setTimeout(() => {
+                    fetchLocationSuggestions(address, 'location');
+                }, 300); // Wait 300ms after user stops typing
+            } else {
+                hideLocationAutocomplete('location');
+            }
+            
+            // Don't auto-pin on map while typing - only pin when user selects a suggestion
+        });
+        
+        // Handle keyboard navigation
+        locationInput.addEventListener('keydown', function(e) {
+            handleLocationAutocompleteKeydown(e, 'location');
+        });
+        
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            const autocompleteDiv = document.getElementById('location-autocomplete');
+            if (!locationInput.contains(e.target) && (!autocompleteDiv || !autocompleteDiv.contains(e.target))) {
+                hideLocationAutocomplete('location');
+            }
+        });
+    }
+    
+    // For edit form
+    const editLocationInput = document.getElementById('edit-location');
+    if (editLocationInput) {
+        let geocodeTimeout;
+        
+        editLocationInput.addEventListener('input', function() {
+            // Don't show suggestions if value was set programmatically
+            if (isSettingLocationProgrammatically) {
+                return;
+            }
+            
+            const address = this.value.trim();
+            
+            clearTimeout(geocodeTimeout);
+            clearTimeout(locationAutocompleteTimeout['edit-location']);
+            
+            // Show autocomplete suggestions only if user is typing
+            if (address.length >= 2) {
+                locationAutocompleteTimeout['edit-location'] = setTimeout(() => {
+                    fetchLocationSuggestions(address, 'edit-location');
+                }, 300); // Wait 300ms after user stops typing
+            } else {
+                hideLocationAutocomplete('edit-location');
+            }
+            
+            // Don't auto-pin on map while typing - only pin when user selects a suggestion
+        });
+        
+        // Handle keyboard navigation
+        editLocationInput.addEventListener('keydown', function(e) {
+            handleLocationAutocompleteKeydown(e, 'edit-location');
+        });
+        
+        // Hide autocomplete when clicking outside
+        document.addEventListener('click', function(e) {
+            const autocompleteDiv = document.getElementById('edit-location-autocomplete');
+            if (!editLocationInput.contains(e.target) && (!autocompleteDiv || !autocompleteDiv.contains(e.target))) {
+                hideLocationAutocomplete('edit-location');
+            }
+        });
+    }
+    
+    // Load tags from API
+    loadTags();
+});
+
+// Tag management functionality
+let availableTags = [];
+let selectedTags = [];
+let editSelectedTags = [];
+
+// Load tags from API
+async function loadTags() {
+    try {
+        const response = await fetch('/api/tags');
+        const data = await response.json();
+        availableTags = data;
+        
+        // Populate dropdowns
+        populateTagDropdown('tags-dropdown', availableTags);
+        populateTagDropdown('edit-tags-dropdown', availableTags);
+    } catch (error) {
+        console.error('Error loading tags:', error);
+    }
+}
+
+// Populate tag dropdown
+function populateTagDropdown(dropdownId, tags) {
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) return;
+    
+    // Clear existing options except the first one
+    dropdown.innerHTML = '<option value="">Select a tag...</option>';
+    
+    tags.forEach(tag => {
+        const option = document.createElement('option');
+        option.value = tag.name;
+        option.textContent = `${tag.name} (${tag.usage_count} uses)`;
+        option.dataset.tagId = tag.id;
+        dropdown.appendChild(option);
+    });
+}
+
+// Add tag from dropdown
+function addTagFromDropdown() {
+    const dropdown = document.getElementById('tags-dropdown');
+    if (!dropdown || !dropdown.value) return;
+    
+    const tagName = dropdown.value.trim();
+    if (tagName && !selectedTags.includes(tagName)) {
+        selectedTags.push(tagName);
+        updateSelectedTagsDisplay('selected-tags-container', selectedTags, 'tags');
+        dropdown.value = ''; // Reset dropdown
+    }
+}
+
+// Toggle new tag input field
+function toggleNewTagInput() {
+    const container = document.getElementById('new-tag-input-container');
+    if (container) {
+        container.classList.toggle('hidden');
+        const input = document.getElementById('new-tag-input');
+        if (input && !container.classList.contains('hidden')) {
+            input.focus();
+        }
+    }
+}
+
+// Add tag from input field
+function addTagFromInput() {
+    const input = document.getElementById('new-tag-input');
+    if (!input) return;
+    
+    const tagName = input.value.trim();
+    if (tagName && !selectedTags.includes(tagName)) {
+        selectedTags.push(tagName);
+        updateSelectedTagsDisplay('selected-tags-container', selectedTags, 'tags');
+        input.value = ''; // Clear input
+        // Hide the input field after adding
+        toggleNewTagInput();
+    }
+}
+
+// Add tag for edit form from dropdown
+function addEditTagFromDropdown() {
+    const dropdown = document.getElementById('edit-tags-dropdown');
+    if (!dropdown || !dropdown.value) return;
+    
+    const tagName = dropdown.value.trim();
+    if (tagName && !editSelectedTags.includes(tagName)) {
+        editSelectedTags.push(tagName);
+        updateSelectedTagsDisplay('edit-selected-tags-container', editSelectedTags, 'edit-tags');
+        dropdown.value = ''; // Reset dropdown
+    }
+}
+
+// Toggle edit new tag input field
+function toggleEditNewTagInput() {
+    const container = document.getElementById('edit-new-tag-input-container');
+    if (container) {
+        container.classList.toggle('hidden');
+        const input = document.getElementById('edit-new-tag-input');
+        if (input && !container.classList.contains('hidden')) {
+            input.focus();
+        }
+    }
+}
+
+// Add tag for edit form from input field
+function addEditTagFromInput() {
+    const input = document.getElementById('edit-new-tag-input');
+    if (!input) return;
+    
+    const tagName = input.value.trim();
+    if (tagName && !editSelectedTags.includes(tagName)) {
+        editSelectedTags.push(tagName);
+        updateSelectedTagsDisplay('edit-selected-tags-container', editSelectedTags, 'edit-tags');
+        input.value = ''; // Clear input
+        // Hide the input field after adding
+        toggleEditNewTagInput();
+    }
+}
+
+// Update selected tags display
+function updateSelectedTagsDisplay(containerId, tagsArray, hiddenInputId) {
+    const container = document.getElementById(containerId);
+    const hiddenInput = document.getElementById(hiddenInputId);
+    
+    if (!container || !hiddenInput) return;
+    
+    // Update hidden input with JSON array
+    hiddenInput.value = JSON.stringify(tagsArray);
+    
+    // Update display - only show tags if there are any
+    if (tagsArray.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+    } else {
+        container.style.display = 'flex';
+        container.innerHTML = tagsArray.map((tag, index) => `
+            <span class="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                ${tag}
+                <button type="button" 
+                        onclick="removeTag('${tag}', '${containerId}', '${hiddenInputId}')" 
+                        class="ml-1 text-purple-600 hover:text-purple-800">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </span>
+        `).join('');
+    }
+}
+
+// Remove tag
+function removeTag(tagName, containerId, hiddenInputId) {
+    if (containerId === 'selected-tags-container') {
+        selectedTags = selectedTags.filter(t => t !== tagName);
+        updateSelectedTagsDisplay(containerId, selectedTags, hiddenInputId);
+    } else if (containerId === 'edit-selected-tags-container') {
+        editSelectedTags = editSelectedTags.filter(t => t !== tagName);
+        updateSelectedTagsDisplay(containerId, editSelectedTags, hiddenInputId);
+    }
+}
+
+// Load tags into edit form
+function loadTagsIntoEditForm(tagsArray) {
+    editSelectedTags = tagsArray;
+    updateSelectedTagsDisplay('edit-selected-tags-container', editSelectedTags, 'edit-tags');
+}
+
+// Save new tag to database if it doesn't exist
+async function saveNewTagIfNotExists(tagName) {
+    // Check if tag already exists in available tags
+    const exists = availableTags.some(tag => tag.name.toLowerCase() === tagName.toLowerCase());
+    
+    if (!exists) {
+        try {
+            const response = await fetch('/admin/tags', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || document.querySelector('input[name="_token"]')?.value
+                },
+                body: JSON.stringify({ name: tagName })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                // Reload tags to include the new one
+                loadTags();
+            }
+        } catch (error) {
+            console.error('Error saving new tag:', error);
+            // Tag will still work, just won't be in the dropdown until admin adds it
+        }
+    }
+}
+
+// Add event listeners for dropdowns
+document.addEventListener('DOMContentLoaded', function() {
+    const tagsDropdown = document.getElementById('tags-dropdown');
+    if (tagsDropdown) {
+        tagsDropdown.addEventListener('change', function() {
+            if (this.value) {
+                addTagFromDropdown();
+            }
+        });
+    }
+    
+    const editTagsDropdown = document.getElementById('edit-tags-dropdown');
+    if (editTagsDropdown) {
+        editTagsDropdown.addEventListener('change', function() {
+            if (this.value) {
+                addEditTagFromDropdown();
+            }
+        });
+    }
+    
+    // Load tags from API
+    loadTags();
+});
+
+// Toggle new tag input field
+function toggleNewTagInput() {
+    const container = document.getElementById('new-tag-input-container');
+    if (container) {
+        container.classList.toggle('hidden');
+        const input = document.getElementById('new-tag-input');
+        if (input && !container.classList.contains('hidden')) {
+            input.focus();
+        }
+    }
+}
+
+// Add tag from input field
+function addTagFromInput() {
+    const input = document.getElementById('new-tag-input');
+    if (!input) return;
+    
+    const tagName = input.value.trim();
+    if (tagName && !selectedTags.includes(tagName)) {
+        selectedTags.push(tagName);
+        updateSelectedTagsDisplay('selected-tags-container', selectedTags, 'tags');
+        input.value = ''; // Clear input
+        // Hide the input field after adding
+        toggleNewTagInput();
+    }
+}
+
+// Add tag for edit form from dropdown
+function addEditTagFromDropdown() {
+    const dropdown = document.getElementById('edit-tags-dropdown');
+    if (!dropdown || !dropdown.value) return;
+    
+    const tagName = dropdown.value.trim();
+    if (tagName && !editSelectedTags.includes(tagName)) {
+        editSelectedTags.push(tagName);
+        updateSelectedTagsDisplay('edit-selected-tags-container', editSelectedTags, 'edit-tags');
+        dropdown.value = ''; // Reset dropdown
+    }
+}
+
+// Toggle edit new tag input field
+function toggleEditNewTagInput() {
+    const container = document.getElementById('edit-new-tag-input-container');
+    if (container) {
+        container.classList.toggle('hidden');
+        const input = document.getElementById('edit-new-tag-input');
+        if (input && !container.classList.contains('hidden')) {
+            input.focus();
+        }
+    }
+}
+
+// Add tag for edit form from input field
+function addEditTagFromInput() {
+    const input = document.getElementById('edit-new-tag-input');
+    if (!input) return;
+    
+    const tagName = input.value.trim();
+    if (tagName && !editSelectedTags.includes(tagName)) {
+        editSelectedTags.push(tagName);
+        updateSelectedTagsDisplay('edit-selected-tags-container', editSelectedTags, 'edit-tags');
+        input.value = ''; // Clear input
+        // Hide the input field after adding
+        toggleEditNewTagInput();
+    }
+}
+
+// Update selected tags display
+function updateSelectedTagsDisplay(containerId, tagsArray, hiddenInputId) {
+    const container = document.getElementById(containerId);
+    const hiddenInput = document.getElementById(hiddenInputId);
+    
+    if (!container || !hiddenInput) return;
+    
+    // Update hidden input with JSON array
+    hiddenInput.value = JSON.stringify(tagsArray);
+    
+    // Update display - only show tags if there are any
+    if (tagsArray.length === 0) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+    } else {
+        container.style.display = 'flex';
+        container.innerHTML = tagsArray.map((tag, index) => `
+            <span class="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                ${tag}
+                <button type="button" 
+                        onclick="removeTag('${tag}', '${containerId}', '${hiddenInputId}')" 
+                        class="ml-1 text-purple-600 hover:text-purple-800">
+                    <i class="fas fa-times text-xs"></i>
+                </button>
+            </span>
+        `).join('');
+    }
+}
+
+// Remove tag
+function removeTag(tagName, containerId, hiddenInputId) {
+    if (containerId === 'selected-tags-container') {
+        selectedTags = selectedTags.filter(t => t !== tagName);
+        updateSelectedTagsDisplay(containerId, selectedTags, hiddenInputId);
+    } else if (containerId === 'edit-selected-tags-container') {
+        editSelectedTags = editSelectedTags.filter(t => t !== tagName);
+        updateSelectedTagsDisplay(containerId, editSelectedTags, hiddenInputId);
+    }
+}
+
+// Load tags into edit form
+function loadTagsIntoEditForm(tagsArray) {
+    editSelectedTags = tagsArray;
+    updateSelectedTagsDisplay('edit-selected-tags-container', editSelectedTags, 'edit-tags');
+}
+
+
+// Add event listeners for dropdowns and inputs
+document.addEventListener('DOMContentLoaded', function() {
+    const tagsDropdown = document.getElementById('tags-dropdown');
+    if (tagsDropdown) {
+        tagsDropdown.addEventListener('change', function() {
+            if (this.value) {
+                addTagFromDropdown();
+            }
+        });
+    }
+    
+    const editTagsDropdown = document.getElementById('edit-tags-dropdown');
+    if (editTagsDropdown) {
+        editTagsDropdown.addEventListener('change', function() {
+            if (this.value) {
+                addEditTagFromDropdown();
+            }
+        });
+    }
+    
+    // Handle Enter key in new tag input
+    const newTagInput = document.getElementById('new-tag-input');
+    if (newTagInput) {
+        newTagInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addTagFromInput();
+            }
+        });
+    }
+    
+    const editNewTagInput = document.getElementById('edit-new-tag-input');
+    if (editNewTagInput) {
+        editNewTagInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                addEditTagFromInput();
+            }
+        });
     }
 });
 </script>

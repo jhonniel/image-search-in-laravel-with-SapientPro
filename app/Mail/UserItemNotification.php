@@ -30,6 +30,8 @@ class UserItemNotification extends Mailable
         $subject = 'FindITFast - ';
         if ($this->data['notification_type'] === 'similar_item_found') {
             $subject .= 'Similar Item Found - We found a match for your ' . $this->data['item_type'] . ' item!';
+        } elseif ($this->data['notification_type'] === 'item_matched') {
+            $subject .= 'Item Match Found! - Someone has a matching ' . ($this->data['new_item_type'] ?? 'item') . ' item!';
         } elseif ($this->data['notification_type'] === 'new_item_uploaded') {
             $subject .= 'Item Uploaded Successfully - Your ' . $this->data['item_type'] . ' item has been added!';
         } elseif ($this->data['notification_type'] === 'item_claimed') {

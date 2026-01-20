@@ -193,11 +193,32 @@
                                 && !str_starts_with($currentPath, 'insights')
                                 && !str_starts_with($currentPath, 'settings')
                                 && !str_starts_with($currentPath, 'rewards')
-                                && !str_starts_with($currentPath, 'image-comparison');
+                                && !str_starts_with($currentPath, 'image-comparison')
+                                && !str_starts_with($currentPath, 'admin/tags');
                         @endphp
                         <a href="{{ route('sponsors.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isSponsors ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Sponsors' : ''">
                             <i class="fas fa-handshake w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Sponsors</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isTags = (str_starts_with($currentRoute, 'tags') || str_starts_with($currentPath, 'admin/tags')) 
+                                && !str_starts_with($currentPath, 'dashboard')
+                                && !str_starts_with($currentPath, 'reported-items-admin')
+                                && !str_starts_with($currentPath, 'claimed')
+                                && !str_starts_with($currentPath, 'users')
+                                && !str_starts_with($currentPath, 'insights')
+                                && !str_starts_with($currentPath, 'settings')
+                                && !str_starts_with($currentPath, 'sponsors')
+                                && !str_starts_with($currentPath, 'rewards')
+                                && !str_starts_with($currentPath, 'image-comparison');
+                        @endphp
+                        <a href="{{ route('tags.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isTags ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Tags' : ''">
+                            <i class="fas fa-tags w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Tags</span>
                         </a>
                     </li>
                     <li>

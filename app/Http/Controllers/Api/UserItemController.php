@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Models\ImageMetadata;
+use App\Models\Tag;
 use App\Services\SimilarityNotificationService;
 use App\Mail\SimilarImageNotification;
 use Illuminate\Support\Str;
@@ -64,7 +65,7 @@ class UserItemController extends Controller
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
             'description' => 'required|string|max:1000',
-            'tags' => 'required|string|max:255',
+            'tags' => 'required|string', // JSON array string
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max per image
         ];
@@ -115,7 +116,6 @@ class UserItemController extends Controller
             'description.required' => 'Description is required',
             'description.max' => 'Description must not exceed 1000 characters',
             'tags.required' => 'Tags are required. Please add at least one tag to help others find your item.',
-            'tags.max' => 'Tags must not exceed 255 characters',
             'images.required' => 'At least one image is required',
             'images.array' => 'Images must be an array',
             'images.min' => 'At least one image is required',
@@ -208,7 +208,7 @@ class UserItemController extends Controller
                     'uploader_email' => $user->email, // Use authenticated user's email
                     'description' => $request->description,
                     'location' => $request->location, // Save location field
-                    'tags' => $request->tags ? explode(',', $request->tags) : [],
+                    'tags' => $this->processTags($request->tags),
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
                     'status' => $request->item_type, // 'lost' or 'found'
@@ -265,7 +265,7 @@ class UserItemController extends Controller
                     'item_type' => $request->item_type,
                     'location' => $request->location,
                     'description' => $request->description,
-                    'tags' => $request->tags ? explode(',', $request->tags) : [],
+                    'tags' => $this->processTags($request->tags),
                     'contact_email' => $request->contact_email,
                     'contact_phone' => $request->contact_phone,
                     'images' => $uploadedImages,
@@ -427,7 +427,7 @@ class UserItemController extends Controller
                 'item_type' => 'sometimes|required|in:lost,found',
                 'location' => 'required|string|max:255',
                 'description' => 'required|string|max:1000',
-                'tags' => 'nullable|string|max:255',
+                'tags' => 'nullable|string', // JSON array string
                 'images' => 'nullable|array|max:5',
                 'images.*' => 'nullable|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
                 'remove_images' => 'nullable|array',
@@ -480,7 +480,6 @@ class UserItemController extends Controller
                 'city.in' => 'Please select a valid city from the list.',
                 'description.required' => 'Description is required',
                 'description.max' => 'Description must not exceed 1000 characters',
-                'tags.max' => 'Tags must not exceed 255 characters',
                 'images.array' => 'Images must be an array',
                 'images.max' => 'Maximum 5 images allowed',
                 'images.*.file' => 'Each file must be a valid file',
@@ -557,7 +556,7 @@ class UserItemController extends Controller
             if ($request->has('tags')) {
                 $tagsValue = $request->input('tags');
                 if ($tagsValue !== null) {
-                    $updateData['tags'] = !empty(trim($tagsValue)) ? explode(',', trim($tagsValue)) : [];
+                    $updateData['tags'] = $this->processTags($tagsValue);
                 }
             }
 
@@ -897,16 +896,31 @@ class UserItemController extends Controller
     }
     
     /**
-     * Get items from other users (not current user)
+     * Get items from other users (not current user) that match user's reported items
      */
     public function getOtherUsersItems(Request $request)
     {
         $user = Auth::user();
 
         try {
+            // First, get user's reported items
+            $userItems = ImageMetadata::where('uploader_email', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('upload_id');
+            
+            // If user has no reported items, return empty array
+            if ($userItems->isEmpty()) {
+                return response()->json([
+                    'success' => true,
+                    'items' => [],
+                    'message' => 'No items to match. Report a lost or found item first to see matching items.'
+                ]);
+            }
+            
             // Get items from other users, grouped by upload_id
             // Include items that are unclaimed, rejected, OR have a pending claim by the current user
-            $items = ImageMetadata::where('uploader_email', '!=', $user->email)
+            $allOtherItems = ImageMetadata::where('uploader_email', '!=', $user->email)
                 ->where(function($query) use ($user) {
                     $query->where(function($q) {
                         // Not claimed (including NULL) and no pending claim
@@ -935,8 +949,104 @@ class UserItemController extends Controller
                 })
                 ->orderBy('created_at', 'desc')
                 ->get()
-                ->groupBy('upload_id')
-                ->map(function ($group) use ($user) {
+                ->groupBy('upload_id');
+            
+            // Filter items to only show those that match user's reported items
+            $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
+            $matchedItems = [];
+            $matchedUploadIds = [];
+            
+            foreach ($userItems as $uploadId => $userItemGroup) {
+                $userItem = $userItemGroup->first();
+                $userItemType = $userItem->status; // 'lost' or 'found'
+                
+                // Find matching items (opposite type: if user has 'lost', find 'found' items)
+                $oppositeType = $userItemType === 'lost' ? 'found' : 'lost';
+                
+                foreach ($allOtherItems as $otherUploadId => $otherItemGroup) {
+                    // Skip if already matched
+                    if (in_array($otherUploadId, $matchedUploadIds)) {
+                        continue;
+                    }
+                    
+                    $otherItem = $otherItemGroup->first();
+                    
+                    // Only check items of opposite type
+                    if ($otherItem->status !== $oppositeType) {
+                        continue;
+                    }
+                    
+                    // Calculate similarity
+                    try {
+                        $userItemPath = $this->getItemFilePath($userItem);
+                        $otherItemPath = $this->getItemFilePath($otherItem);
+                        
+                        if (!$userItemPath || !$otherItemPath) {
+                            continue;
+                        }
+                        
+                        // Calculate similarity
+                        $visualSimilarity = $this->calculateImageSimilarity($userItemPath, $otherItemPath);
+                        
+                        // Calculate text similarity
+                        $userTags = is_array($userItem->tags) ? $userItem->tags : (is_string($userItem->tags) ? json_decode($userItem->tags, true) : []);
+                        $otherTags = is_array($otherItem->tags) ? $otherItem->tags : (is_string($otherItem->tags) ? json_decode($otherItem->tags, true) : []);
+                        
+                        // Check for tag overlap
+                        $tagOverlap = 0;
+                        if (!empty($userTags) && !empty($otherTags)) {
+                            $commonTags = array_intersect($userTags, $otherTags);
+                            $tagOverlap = count($commonTags) / max(count($userTags), count($otherTags));
+                        }
+                        
+                        // Check description similarity (simple word overlap)
+                        $userDescWords = str_word_count(strtolower($userItem->description ?? ''), 1);
+                        $otherDescWords = str_word_count(strtolower($otherItem->description ?? ''), 1);
+                        $descOverlap = 0;
+                        if (!empty($userDescWords) && !empty($otherDescWords)) {
+                            $commonWords = array_intersect($userDescWords, $otherDescWords);
+                            $descOverlap = count($commonWords) / max(count($userDescWords), count($otherDescWords));
+                        }
+                        
+                        // Calculate overall similarity (weighted average)
+                        $textSimilarity = ($tagOverlap * 0.4) + ($descOverlap * 0.6);
+                        $overallSimilarity = ($textSimilarity * 0.3) + ($visualSimilarity * 0.7);
+                        
+                        $visualThreshold = config('similarity.thresholds.visual', 0.5); // Lower threshold for matching
+                        
+                        // If similarity meets threshold, add to matched items
+                        if ($overallSimilarity >= $visualThreshold) {
+                            $matchedUploadIds[] = $otherUploadId;
+                            $matchedItems[$otherUploadId] = [
+                                'item' => $otherItemGroup,
+                                'similarity' => $overallSimilarity,
+                                'matched_with' => $userItem->upload_id
+                            ];
+                        }
+                    } catch (\Exception $e) {
+                        Log::warning('Error calculating similarity for matching items', [
+                            'user_item' => $userItem->upload_id,
+                            'other_item' => $otherItem->upload_id,
+                            'error' => $e->getMessage()
+                        ]);
+                        continue;
+                    }
+                }
+            }
+            
+            // If no matches found, return empty array
+            if (empty($matchedItems)) {
+                return response()->json([
+                    'success' => true,
+                    'items' => [],
+                    'message' => 'No matching items found. Keep checking back as new items are posted!'
+                ]);
+            }
+            
+            // Format matched items
+            $items = collect($matchedItems)
+                ->map(function ($matchData) use ($user) {
+                    $group = $matchData['item'];
                     $firstItem = $group->first();
                     $tags = $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [];
 
@@ -962,7 +1072,9 @@ class UserItemController extends Controller
                         'created_at' => $firstItem->created_at,
                         'user_has_claimed' => $userHasClaimed,
                         'claim_status' => $firstItem->claim_verification_status,
-                        'claimed_by_email' => $firstItem->claimed_by_email, // Added for checking who claimed
+                        'claimed_by_email' => $firstItem->claimed_by_email,
+                        'similarity_score' => round($matchData['similarity'] * 100, 2),
+                        'matched_with_upload_id' => $matchData['matched_with'],
                         'images' => $group->map(function ($item) {
                             // Handle file path - ensure it's a valid URL
                             $filePath = $item->file_path;
@@ -991,19 +1103,55 @@ class UserItemController extends Controller
                         })->toArray()
                     ];
                 })
+                ->sortByDesc('similarity_score')
                 ->values()
                 ->toArray();
-
+            
             return response()->json([
                 'success' => true,
-                'items' => $items
+                'items' => $items,
+                'message' => count($items) . ' matching item(s) found based on your reported items.'
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Error fetching matching items: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch other users items: ' . $e->getMessage()
+                'message' => 'Failed to fetch matching items: ' . $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Get file path for an item
+     */
+    private function getItemFilePath(ImageMetadata $item): ?string
+    {
+        // Check if it's a user item or reference image
+        if (str_contains($item->file_path, 'user-items')) {
+            $filename = basename($item->file_path);
+            $path = storage_path('app/public/user-items/' . $filename);
+        } else {
+            $path = storage_path('app/public/reference-images/' . $item->filename);
+        }
+
+        return file_exists($path) ? $path : null;
+    }
+    
+    /**
+     * Calculate image similarity using ImageComparator
+     */
+    private function calculateImageSimilarity(string $image1Path, string $image2Path): float
+    {
+        try {
+            $imageComparator = app(ImageComparator::class);
+            $similarity = $imageComparator->compare($image1Path, $image2Path);
+            return $similarity > 1 ? $similarity / 100 : $similarity;
+        } catch (\Exception $e) {
+            Log::warning('Could not compare images: ' . $e->getMessage());
+            return 0.0;
         }
     }
 
@@ -1371,5 +1519,43 @@ class UserItemController extends Controller
         } catch (\Exception $e) {
             Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Process tags from request (handles both JSON array and comma-separated string)
+     * Also increments tag usage counts
+     */
+    private function processTags($tagsInput)
+    {
+        if (empty($tagsInput)) {
+            return [];
+        }
+
+        $tagsArray = [];
+        
+        // Try to decode as JSON first
+        $decoded = json_decode($tagsInput, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            $tagsArray = array_map('trim', $decoded);
+        } else {
+            // Fallback to comma-separated string
+            $tagsArray = array_map('trim', explode(',', $tagsInput));
+        }
+
+        // Filter out empty tags
+        $tagsArray = array_filter($tagsArray, function($tag) {
+            return !empty(trim($tag));
+        });
+
+        // Increment usage count for each tag
+        foreach ($tagsArray as $tagName) {
+            $tag = Tag::firstOrCreate(
+                ['name' => trim($tagName)],
+                ['usage_count' => 0]
+            );
+            $tag->incrementUsage();
+        }
+
+        return array_values($tagsArray);
     }
 }

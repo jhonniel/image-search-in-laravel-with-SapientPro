@@ -285,13 +285,67 @@
                         if (data.notifications && data.notifications.length > 0) {
                             data.notifications.forEach(n => {
                                 const div = document.createElement('div');
-                                div.className = 'px-4 py-3 hover:bg-gray-50 border-b border-gray-100 cursor-pointer' + (n.is_read ? '' : ' bg-blue-50');
-                                div.onclick = () => markNotificationRead(n.id);
+                                div.className = 'px-4 py-3 hover:bg-gray-50 border-b border-gray-100' + (n.is_read ? '' : ' bg-blue-50');
                                 
                                 const icon = n.type === 'item_uploaded' ? 'fa-check-circle text-green-500' : 
                                             n.type === 'item_match' ? 'fa-search text-blue-500' : 
+                                            n.type === 'item_matched' ? 'fa-link text-purple-500' :
                                             n.type === 'item_claimed' ? 'fa-hand-holding text-purple-500' : 
                                             'fa-bell text-gray-500';
+                                
+                                // Get notification data
+                                const notifData = n.data || {};
+                                let itemDetails = '';
+                                let viewButton = '';
+                                let itemUrl = null;
+                                
+                                // Determine item URL based on notification type
+                                if (n.type === 'item_matched' && notifData.new_item_upload_id) {
+                                    itemUrl = `/item/${notifData.new_item_upload_id}`;
+                                    const similarityPercent = notifData.similarity_percent || notifData.similarity_score ? 
+                                        (notifData.similarity_percent || (notifData.similarity_score * 100).toFixed(2)) : 'N/A';
+                                    itemDetails = `
+                                        <div class="mt-2 p-2 bg-purple-50 rounded border border-purple-200">
+                                            <div class="text-xs font-semibold text-purple-700 mb-1">Matched Item Details:</div>
+                                            <div class="text-xs text-gray-700">
+                                                <div><strong>Type:</strong> ${notifData.new_item_type || 'N/A'}</div>
+                                                <div><strong>Description:</strong> ${(notifData.new_item_description || '').substring(0, 50)}${(notifData.new_item_description || '').length > 50 ? '...' : ''}</div>
+                                                <div><strong>Location:</strong> ${notifData.new_item_location || 'N/A'}</div>
+                                                <div><strong>Similarity:</strong> ${similarityPercent}%</div>
+                                            </div>
+                                        </div>
+                                    `;
+                                    viewButton = `
+                                        <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
+                                                class="mt-2 px-3 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 transition-colors">
+                                            View Matched Item
+                                        </button>
+                                    `;
+                                } else if (n.type === 'item_match' && notifData.similar_items && notifData.similar_items.length > 0) {
+                                    // For item_match notifications, show similar items
+                                    const firstItem = notifData.similar_items[0];
+                                    if (firstItem.upload_id) {
+                                        itemUrl = `/item/${firstItem.upload_id}`;
+                                        viewButton = `
+                                            <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
+                                                    class="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
+                                                View Similar Item
+                                            </button>
+                                        `;
+                                    }
+                                } else if (n.type === 'item_match' && notifData.upload_id) {
+                                    // Fallback for item_match with upload_id in data
+                                    itemUrl = `/item/${notifData.upload_id}`;
+                                } else if (n.type === 'item_uploaded' && notifData.upload_id) {
+                                    itemUrl = `/item/${notifData.upload_id}`;
+                                } else if (n.type === 'item_claimed' && notifData.upload_id) {
+                                    itemUrl = `/item/${notifData.upload_id}`;
+                                }
+                                
+                                // For item_matched, also allow viewing the matched item (user's own item)
+                                if (n.type === 'item_matched' && notifData.matched_item_upload_id && !itemUrl) {
+                                    itemUrl = `/item/${notifData.matched_item_upload_id}`;
+                                }
                                 
                                 div.innerHTML = `
                                     <div class="flex items-start gap-3">
@@ -301,11 +355,35 @@
                                         <div class="flex-1 min-w-0">
                                             <div class="text-sm font-medium text-gray-900">${n.title || 'Notification'}</div>
                                             <div class="text-xs text-gray-500 mt-1">${n.message || ''}</div>
-                                            <div class="text-xs text-gray-400 mt-1">${new Date(n.created_at).toLocaleString()}</div>
+                                            ${itemDetails}
+                                            ${viewButton}
+                                            <div class="text-xs text-gray-400 mt-2">${new Date(n.created_at).toLocaleString()}</div>
                                         </div>
                                         ${!n.is_read ? '<div class="flex-shrink-0 w-2 h-2 bg-blue-500 rounded-full mt-2"></div>' : ''}
                                     </div>
                                 `;
+                                
+                                // Make the notification clickable - navigate to item if URL exists, otherwise just mark as read
+                                div.onclick = (e) => {
+                                    // Don't navigate if clicking on the view button (it handles its own navigation)
+                                    if (e.target.closest('button')) {
+                                        return;
+                                    }
+                                    
+                                    if (itemUrl) {
+                                        markNotificationRead(n.id);
+                                        window.location.href = itemUrl;
+                                    } else {
+                                        markNotificationRead(n.id);
+                                    }
+                                };
+                                
+                                // Add cursor pointer if there's a link
+                                if (itemUrl) {
+                                    div.style.cursor = 'pointer';
+                                    div.classList.add('hover:bg-gray-100');
+                                }
+                                
                                 list.appendChild(div);
                             });
                         } else {

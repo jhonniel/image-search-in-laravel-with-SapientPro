@@ -155,6 +155,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/chat/unread-count', [\App\Http\Controllers\ChatController::class, 'getUnreadCount'])->name('chat.unread-count');
     Route::post('/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('chat.mark-read');
     Route::post('/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('chat.get-user-by-email');
+    Route::post('/chat/image-view/{messageId}', [\App\Http\Controllers\ChatController::class, 'recordImageView'])->name('chat.image-view');
 
     // Review Routes
     Route::get('/reviews', [\App\Http\Controllers\ReviewController::class, 'create'])->name('reviews.create');
@@ -173,8 +174,17 @@ Route::post('/api/compare-urls', [ImageComparisonController::class, 'compareUrls
 Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
 Route::post('/api/notifications/mark-read', [\App\Http\Controllers\NotificationController::class, 'markRead']);
 
+// Tags API (public - for dropdown)
+Route::get('/api/tags', [\App\Http\Controllers\Admin\TagController::class, 'getAllTags'])->name('api.tags');
+
 // Admin routes (admin only)
 Route::middleware(['auth','admin'])->group(function () {
     Route::get('/notifications/create', [\App\Http\Controllers\Admin\NotificationController::class, 'create'])->name('notifications.create');
     Route::post('/notifications/send', [\App\Http\Controllers\Admin\NotificationController::class, 'send'])->name('notifications.send');
+    
+    // Tags management (admin only)
+    Route::get('/admin/tags', [\App\Http\Controllers\Admin\TagController::class, 'index'])->name('tags.index');
+    Route::post('/admin/tags', [\App\Http\Controllers\Admin\TagController::class, 'store'])->name('tags.store');
+    Route::put('/admin/tags/{tag}', [\App\Http\Controllers\Admin\TagController::class, 'update'])->name('tags.update');
+    Route::delete('/admin/tags/{tag}', [\App\Http\Controllers\Admin\TagController::class, 'destroy'])->name('tags.destroy');
 });

@@ -277,27 +277,15 @@
 
                 @forelse($freshReports as $report)
                 <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                    <!-- Image Section -->
-                    <div class="relative h-48 bg-gray-100">
-                        @if($report['image_path'])
-                            <img src="{{ $report['image_path'] }}"
-                                 alt="{{ $report['title'] }}"
-                                 class="w-full h-full object-cover"
-                                 onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'%3E%3Crect fill=\'%23e5e7eb\' width=\'400\' height=\'300\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'20\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3ENo Image%3C/text%3E%3C/svg%3E';">
-                        @else
-                            <div class="w-full h-full flex items-center justify-center bg-gray-100">
-                                <i class="fas fa-image text-gray-400 text-4xl"></i>
-                            </div>
-                        @endif
-                        <!-- Status Badge Overlay -->
-                        <span class="absolute top-3 right-3 px-3 py-1 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-xs font-semibold uppercase shadow-md">
-                            {{ ucfirst($report['type']) }}
-                        </span>
-                    </div>
-
                     <!-- Content Section -->
                     <div class="p-6">
-                        <h3 class="text-lg font-bold text-gray-900 mb-4 line-clamp-2">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
+                        <div class="flex items-center justify-between mb-3">
+                            <h3 class="text-lg font-bold text-gray-900 line-clamp-2">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
+                            <!-- Status Badge -->
+                            <span class="px-3 py-1 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-xs font-semibold uppercase shadow-md shrink-0 ml-2">
+                                {{ ucfirst($report['type']) }}
+                            </span>
+                        </div>
                         <div class="space-y-2 text-sm text-gray-600 mb-4">
                             <div class="flex items-center">
                                 <i class="fas fa-map-marker-alt text-purple-primary mr-2"></i>

@@ -127,6 +127,28 @@
 
             <!-- Message Input -->
             <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden">
+                <!-- Privacy Warning -->
+                <div id="privacy-warning" class="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 text-lg"></i>
+                        </div>
+                        <div class="ml-3 flex-1">
+                            <p class="text-sm font-medium text-yellow-800">
+                                <strong>Privacy Notice:</strong> Please do not share personal information such as phone numbers, addresses, email addresses, or financial details in your messages. Keep your conversations focused on the items you're discussing.
+                            </p>
+                        </div>
+                        <div class="ml-3 flex-shrink-0">
+                            <button type="button" 
+                                    onclick="hidePrivacyWarning()" 
+                                    class="text-yellow-600 hover:text-yellow-800 transition-colors p-1 rounded-full hover:bg-yellow-100"
+                                    title="Hide this notice">
+                                <i class="fas fa-times text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Item Context Message -->
                 <div id="item-context-message" class="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl shadow-sm hidden">
                     <div class="flex items-center justify-between mb-2">
@@ -142,7 +164,36 @@
                     </div>
                 </div>
 
-                <form id="message-form" class="flex items-end gap-3">
+                <!-- Image Upload Preview (Hidden by default) -->
+                <div id="image-preview-container" class="mb-4 hidden">
+                    <div class="relative inline-block">
+                        <img id="image-preview" src="" alt="Preview" class="max-w-xs max-h-48 rounded-lg border-2 border-purple-300">
+                        <button type="button" onclick="removeImagePreview()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    </div>
+                    <!-- View Option Selection -->
+                    <div class="mt-2">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Image View Option:</label>
+                        <div class="flex gap-3">
+                            <label class="flex items-center">
+                                <input type="radio" name="view_option" value="once" class="mr-2" checked>
+                                <span class="text-sm">View Once</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="view_option" value="twice" class="mr-2">
+                                <span class="text-sm">View Twice</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="view_option" value="keep" class="mr-2">
+                                <span class="text-sm">Keep in Chat</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="message-form" class="flex items-end gap-3" enctype="multipart/form-data">
+                    <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
                     <div class="flex-1 relative">
                         <textarea id="message-input" 
                                   placeholder="Type a message..."
@@ -152,6 +203,9 @@
                                   style="min-height: 48px; max-height: 120px;"></textarea>
                         <div class="absolute bottom-2 right-2 flex items-center gap-2">
                             <span id="char-count" class="text-xs text-gray-400 hidden">0/1000</span>
+                            <button type="button" onclick="document.getElementById('image-input').click()" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 rounded-full hover:bg-purple-50" title="Upload image">
+                                <i class="fas fa-image text-lg"></i>
+                            </button>
                             <button type="button" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 rounded-full hover:bg-purple-50" title="Add emoji">
                                 <i class="fas fa-smile text-lg"></i>
                             </button>
@@ -181,56 +235,131 @@
 let currentUserId = null;
 let messageInterval = null;
 
-// User search functionality
-document.getElementById('user-search').addEventListener('input', function(e) {
-    const searchTerm = e.target.value.toLowerCase();
-    const userItems = document.querySelectorAll('.user-item');
+// Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', function() {
+    // User search functionality
+    const userSearchInput = document.getElementById('user-search');
+    if (userSearchInput) {
+        userSearchInput.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const userItems = document.querySelectorAll('.user-item');
 
-    userItems.forEach(item => {
-        const userName = item.querySelector('p.font-medium').textContent.toLowerCase();
-        const lastMessage = item.querySelector('p.text-gray-500:not(.text-xs)');
-        const lastMessageText = lastMessage ? lastMessage.textContent.toLowerCase() : '';
+            userItems.forEach(item => {
+                const userNameEl = item.querySelector('p.font-medium');
+                const lastMessage = item.querySelector('p.text-gray-500:not(.text-xs)');
+                const userName = userNameEl ? userNameEl.textContent.toLowerCase() : '';
+                const lastMessageText = lastMessage ? lastMessage.textContent.toLowerCase() : '';
 
-        if (userName.includes(searchTerm) || lastMessageText.includes(searchTerm)) {
-            item.style.display = 'flex';
-        } else {
-            item.style.display = 'none';
-        }
-    });
-});
-
-// User selection
-document.addEventListener('click', function(e) {
-    const userItem = e.target.closest('.user-item');
-    if (userItem) {
-        const userId = userItem.dataset.userId;
-        selectUser(userId);
+                if (userName.includes(searchTerm) || lastMessageText.includes(searchTerm)) {
+                    item.style.display = 'flex';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
     }
 });
 
+// User selection - attach after DOM is ready
+function initializeUserSelection() {
+    // Attach click handlers to all user items
+    document.querySelectorAll('.user-item').forEach(userItem => {
+        userItem.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const userId = this.dataset.userId || this.getAttribute('data-user-id');
+            if (userId) {
+                console.log('User item clicked, opening conversation with user:', userId);
+                selectUser(parseInt(userId));
+            } else {
+                console.error('No user ID found on clicked item:', this);
+            }
+        });
+    });
+    console.log('User selection handlers attached to', document.querySelectorAll('.user-item').length, 'items');
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeUserSelection);
+} else {
+    // DOM is already ready
+    initializeUserSelection();
+}
+
 // Select user and load messages
 function selectUser(userId) {
+    if (!userId) {
+        console.error('selectUser called without userId');
+        return;
+    }
+    
+    console.log('selectUser called with userId:', userId);
     currentUserId = userId;
 
-    // Update UI
-    document.getElementById('empty-state').classList.add('hidden');
-    document.getElementById('chat-header').classList.remove('hidden');
-    document.getElementById('messages-container').classList.remove('hidden');
-    document.getElementById('message-input-container').classList.remove('hidden');
+    try {
+        // Update UI
+        const emptyState = document.getElementById('empty-state');
+        const chatHeader = document.getElementById('chat-header');
+        const messagesContainer = document.getElementById('messages-container');
+        const messageInputContainer = document.getElementById('message-input-container');
+        
+        console.log('UI Elements found:', {
+            emptyState: !!emptyState,
+            chatHeader: !!chatHeader,
+            messagesContainer: !!messagesContainer,
+            messageInputContainer: !!messageInputContainer
+        });
+        
+        if (emptyState) {
+            emptyState.classList.add('hidden');
+            emptyState.style.display = 'none';
+            console.log('Hidden empty state');
+        }
+        if (chatHeader) {
+            chatHeader.classList.remove('hidden');
+            chatHeader.style.display = '';
+            console.log('Showed chat header');
+        }
+        if (messagesContainer) {
+            messagesContainer.classList.remove('hidden');
+            messagesContainer.style.display = '';
+            console.log('Showed messages container');
+        }
+        if (messageInputContainer) {
+            messageInputContainer.classList.remove('hidden');
+            messageInputContainer.style.display = '';
+            console.log('Showed message input container');
+        }
+        
+        // Show privacy warning when opening conversation
+        if (typeof showPrivacyWarning === 'function') {
+            showPrivacyWarning();
+        } else {
+            console.warn('showPrivacyWarning function not found');
+        }
 
-    // Update active user in sidebar
-    document.querySelectorAll('.user-item').forEach(item => {
-        item.classList.remove('bg-purple-50', 'border-purple-200');
-    });
-    document.querySelector(`[data-user-id="${userId}"]`).classList.add('bg-purple-50', 'border-purple-200');
+        // Update active user in sidebar
+        document.querySelectorAll('.user-item').forEach(item => {
+            item.classList.remove('bg-purple-50', 'border-purple-200');
+        });
+        
+        const selectedUserItem = document.querySelector(`[data-user-id="${userId}"]`);
+        if (selectedUserItem) {
+            selectedUserItem.classList.add('bg-purple-50', 'border-purple-200');
+        } else {
+            console.warn('Could not find user item with data-user-id:', userId);
+        }
 
-    // Load messages
-    loadMessages(userId);
+        // Load messages
+        loadMessages(userId);
 
-    // Stop polling since we're using WebSocket now
-    if (messageInterval) {
-        clearInterval(messageInterval);
-        messageInterval = null;
+        // Stop polling since we're using WebSocket now
+        if (messageInterval) {
+            clearInterval(messageInterval);
+            messageInterval = null;
+        }
+    } catch (error) {
+        console.error('Error in selectUser:', error);
     }
 }
 
@@ -247,11 +376,30 @@ async function loadMessages(userId) {
             }
         });
 
+        if (!response.ok) {
+            console.error('Failed to load messages:', response.status, response.statusText);
+            const messagesList = document.getElementById('messages-list');
+            if (messagesList) {
+                messagesList.innerHTML = '<div class="text-center text-red-500 py-8">Failed to load messages. Please try again.</div>';
+            }
+            return;
+        }
+
         const data = await response.json();
+        console.log('API Response:', data);
 
         if (data.success) {
             updateChatHeader(data.other_user);
-            displayMessages(data.messages);
+            console.log('Messages received:', data.messages);
+            if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
+                displayMessages(data.messages);
+            } else {
+                console.log('No messages to display');
+                const messagesList = document.getElementById('messages-list');
+                if (messagesList) {
+                    messagesList.innerHTML = '<div class="text-center text-gray-500 py-8">No messages yet. Start the conversation!</div>';
+                }
+            }
 
             // Update item context if provided by server (this ensures both users see it)
             // BUT only if item is not verified
@@ -309,11 +457,35 @@ function updateChatHeader(user) {
 // Display messages
 function displayMessages(messages) {
     const messagesList = document.getElementById('messages-list');
+    const messagesContainer = document.getElementById('messages-container');
+    
+    if (!messagesList) {
+        console.error('Messages list element not found');
+        return;
+    }
+    
+    // Ensure messages container is visible
+    if (messagesContainer) {
+        messagesContainer.classList.remove('hidden');
+    }
+    
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        messagesList.innerHTML = '<div class="text-center text-gray-500 py-8">No messages yet. Start the conversation!</div>';
+        return;
+    }
+    
+    console.log('Displaying', messages.length, 'messages');
     messagesList.innerHTML = '';
 
     // Group messages by date
     let currentDate = null;
     messages.forEach((message, index) => {
+        if (!message) {
+            console.warn('Invalid message at index', index);
+            return;
+        }
+        
+        try {
         // Check if we need to show a date separator
         const messageDate = new Date(message.created_at);
         const messageDateStr = messageDate.toDateString();
@@ -344,17 +516,25 @@ function displayMessages(messages) {
         }
 
         const messageElement = createMessageElement(message);
-        messagesList.appendChild(messageElement);
+        if (messageElement) {
+            messagesList.appendChild(messageElement);
+        } else {
+            console.error('Failed to create message element for message:', message);
+        }
+        } catch (error) {
+            console.error('Error processing message at index', index, ':', error, message);
+        }
     });
 
     // Scroll to bottom smoothly
-    const messagesContainer = document.getElementById('messages-container');
-    setTimeout(() => {
-        messagesContainer.scrollTo({
-            top: messagesContainer.scrollHeight,
-            behavior: 'smooth'
-        });
-    }, 100);
+    if (messagesContainer) {
+        setTimeout(() => {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        }, 100);
+    }
 }
 
 // Create message element with messenger-style speech bubbles
@@ -453,13 +633,48 @@ function createMessageElement(message) {
         ? 'bg-gradient-to-br from-[#0a7bff] to-[#1d8dff] text-white rounded-2xl rounded-tr-sm shadow-md' 
         : 'bg-[#e9e9eb] text-gray-900 rounded-2xl rounded-tl-sm shadow-sm border border-gray-200';
     
+    // Image HTML
+    let imageHtml = '';
+    if (message.image_path) {
+        const canView = message.can_view_image !== false;
+        const isExpired = message.is_expired === true;
+        const viewOption = message.view_option || 'keep';
+        const viewCount = message.view_count || 0;
+        
+        if (isExpired || !canView) {
+            imageHtml = `
+                <div class="mb-2 p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-center">
+                    <i class="fas fa-image text-gray-400 text-2xl mb-2"></i>
+                    <p class="text-xs text-gray-500">This image has expired</p>
+                </div>
+            `;
+        } else {
+            imageHtml = `
+                <div class="mb-2 relative">
+                    <img src="${message.image_path}" 
+                         alt="Shared image" 
+                         class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                         onclick="viewImage(${message.id}, '${message.image_path}')"
+                         data-message-id="${message.id}">
+                    ${viewOption !== 'keep' ? `
+                        <div class="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
+                            ${viewOption === 'once' ? 'View Once' : 'View Twice'} (${viewCount}/${viewOption === 'once' ? '1' : '2'})
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+    }
+    
     messageDiv.innerHTML = `
         ${avatarHtml}
         <div class="flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[70%] sm:max-w-[65%] lg:max-w-[55%]">
             ${!isOwnMessage ? `<span class="text-xs text-gray-500 mb-1 px-2">${escapeHtml(senderName)}</span>` : ''}
             <div class="${bubbleClass} px-4 py-2.5 relative group">
-                <p class="text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(message.message)}</p>
+                ${imageHtml}
+                ${message.message && message.message.trim() ? `<p class="text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(message.message)}</p>` : ''}
                 ${itemContextHtml}
+                ${!imageHtml && !message.message && !itemContextHtml ? '<p class="text-sm opacity-70">Message</p>' : ''}
                 <div class="flex items-center justify-end gap-1.5 mt-1.5">
                     <span class="text-[10px] ${isOwnMessage ? 'text-white/70' : 'text-gray-400'}">
                         ${timeString}
@@ -502,31 +717,128 @@ if (messageInput) {
     });
 }
 
+// Handle image selection
+let selectedImage = null;
+function handleImageSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+    }
+    
+    if (file.size > 10 * 1024 * 1024) {
+        alert('Image size must be less than 10MB');
+        return;
+    }
+    
+    selectedImage = file;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('image-preview').src = e.target.result;
+        document.getElementById('image-preview-container').classList.remove('hidden');
+    };
+    reader.readAsDataURL(file);
+}
+
+// Remove image preview
+function removeImagePreview() {
+    selectedImage = null;
+    document.getElementById('image-input').value = '';
+    document.getElementById('image-preview-container').classList.add('hidden');
+}
+
+// View image and record view
+async function viewImage(messageId, imagePath) {
+    // Record the view
+    try {
+        const response = await fetch(`/chat/image-view/${messageId}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            }
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            // Update the message element if view limit reached
+            if (data.is_expired || !data.can_view_image) {
+                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+                if (messageElement) {
+                    const img = messageElement.querySelector('img[data-message-id]');
+                    if (img) {
+                        img.parentElement.innerHTML = `
+                            <div class="mb-2 p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-center">
+                                <i class="fas fa-image text-gray-400 text-2xl mb-2"></i>
+                                <p class="text-xs text-gray-500">This image has expired</p>
+                            </div>
+                        `;
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Error recording image view:', error);
+    }
+    
+    // Show image in modal/lightbox
+    showImageModal(imagePath);
+}
+
+// Show image in modal
+function showImageModal(imagePath) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="relative max-w-4xl max-h-full">
+            <img src="${imagePath}" alt="Image" class="max-w-full max-h-[90vh] rounded-lg">
+            <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+    `;
+    modal.onclick = function(e) {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    };
+    document.body.appendChild(modal);
+}
+
 // Send message
 document.getElementById('message-form').addEventListener('submit', async function(e) {
     e.preventDefault();
 
     const messageInput = document.getElementById('message-input');
     const message = messageInput.value.trim();
+    const imageInput = document.getElementById('image-input');
+    const viewOption = document.querySelector('input[name="view_option"]:checked')?.value || null;
 
-    if (!message || !currentUserId) return;
+    if ((!message && !selectedImage) || !currentUserId) return;
     
     // Reset textarea height
     messageInput.style.height = 'auto';
 
     try {
+        const formData = new FormData();
+        formData.append('receiver_id', currentUserId);
+        formData.append('message', message || '');
+        if (selectedImage) {
+            formData.append('image', selectedImage);
+            formData.append('view_option', viewOption || 'keep');
+        }
+        if (itemContext) {
+            formData.append('item_upload_id', itemContext.uploadId || '');
+            formData.append('item_context', JSON.stringify(itemContext));
+        }
+
         const response = await fetch('/chat/send', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
             },
-            body: JSON.stringify({
-                receiver_id: currentUserId,
-                message: message,
-                item_upload_id: itemContext ? itemContext.uploadId : null,
-                item_context: itemContext ? JSON.stringify(itemContext) : null
-            })
+            body: formData
         });
 
         const data = await response.json();
@@ -536,6 +848,9 @@ document.getElementById('message-form').addEventListener('submit', async functio
             const messageText = messageInput.value.trim();
             messageInput.value = '';
             messageInput.style.height = 'auto';
+            
+            // Clear image preview if any
+            removeImagePreview();
             
             // Hide character count
             const charCount = document.getElementById('char-count');
@@ -808,15 +1123,24 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     }
+    
+    // Show privacy warning when conversation opens
+    showPrivacyWarning();
 
     // Initialize Laravel Echo for real-time messaging
-    if (typeof window.Echo !== 'undefined') {
-        const currentUser = @json(Auth::user());
-        
-        console.log('Initializing Laravel Echo for user:', currentUser.id);
-        
-        // Listen for new messages on the current user's private channel
-        const channel = window.Echo.private(`user.${currentUser.id}`);
+    if (typeof window.Echo !== 'undefined' && window.Echo) {
+        try {
+            const currentUser = @json(Auth::user());
+            
+            if (!currentUser || !currentUser.id) {
+                console.error('Current user not available for Echo initialization');
+                return;
+            }
+            
+            console.log('Initializing Laravel Echo for user:', currentUser.id);
+            
+            // Listen for new messages on the current user's private channel
+            const channel = window.Echo.private(`user.${currentUser.id}`);
         
         channel.listen('.message.sent', (e) => {
             console.log('Received message event:', e);
@@ -931,8 +1255,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('This item has been deleted. Item context removed from chat.', 'info');
             }
         });
+        } catch (error) {
+            console.error('Error initializing Laravel Echo:', error);
+            console.warn('Real-time messaging will not work. Make sure Pusher credentials are configured in your .env file (VITE_PUSHER_APP_KEY, VITE_PUSHER_APP_CLUSTER, etc.)');
+        }
     } else {
-        console.error('Laravel Echo is not available. Real-time messaging will not work. Make sure to include the app.js script and that Pusher credentials are configured.');
+        console.warn('Laravel Echo is not available. Real-time messaging will not work. Make sure to include the app.js script and that Pusher credentials are configured in your .env file.');
     }
 });
 
@@ -1022,6 +1350,22 @@ function showItemContext() {
     if (messageInput) {
         messageInput.placeholder = `Type your message about this ${itemType} item...`;
         messageInput.focus();
+    }
+}
+
+// Hide privacy warning (temporary, will show again on next conversation)
+function hidePrivacyWarning() {
+    const privacyWarning = document.getElementById('privacy-warning');
+    if (privacyWarning) {
+        privacyWarning.classList.add('hidden');
+    }
+}
+
+// Show privacy warning when conversation opens
+function showPrivacyWarning() {
+    const privacyWarning = document.getElementById('privacy-warning');
+    if (privacyWarning) {
+        privacyWarning.classList.remove('hidden');
     }
 }
 

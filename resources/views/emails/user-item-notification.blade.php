@@ -239,6 +239,71 @@
                     </p>
                 </div>
 
+            @elseif ($data['notification_type'] === 'item_matched')
+                <h2>🎯 Item Match Found!</h2>
+                <p>Hello {{ explode('@', $data['user_email'] ?? 'User')[0] }},</p>
+                @if($data['matched_item_type'] === 'lost' && $data['new_item_type'] === 'found')
+                    <p>Great news! Someone found an item that matches your <strong>lost</strong> item!</p>
+                @else
+                    <p>Great news! Someone lost an item that matches your <strong>found</strong> item!</p>
+                @endif
+
+                <div class="highlight" style="background-color: #e6f2ff; border-left-color: #8B5CF6;">
+                    <p><strong>📊 Match Details:</strong></p>
+                    <p><strong>Similarity Score:</strong> {{ $data['similarity_score'] ?? 'N/A' }}%</p>
+                    <p>This is a potential match! Review the details below and contact the other user if you believe this is your item.</p>
+                </div>
+
+                <div class="item-details">
+                    <h3>Your {{ ucfirst($data['matched_item_type']) }} Item:</h3>
+                    <p><strong>Description:</strong> {{ $data['matched_item_description'] ?? 'N/A' }}</p>
+                    <p><strong>Location:</strong> {{ $data['matched_item_location'] ?? 'N/A' }}</p>
+                    <p><strong>Tags:</strong>
+                        @if(isset($data['matched_item_tags']) && is_array($data['matched_item_tags']))
+                            @foreach($data['matched_item_tags'] as $tag)
+                                <span class="tag">{{ $tag }}</span>
+                            @endforeach
+                        @else
+                            N/A
+                        @endif
+                    </p>
+                </div>
+
+                <div class="item-details" style="background-color: #fff3cd; border-color: #ffc107;">
+                    <h3>Matched {{ ucfirst($data['new_item_type']) }} Item:</h3>
+                    <p><strong>Description:</strong> {{ $data['new_item_description'] ?? 'N/A' }}</p>
+                    <p><strong>Location:</strong> {{ $data['new_item_location'] ?? 'N/A' }}</p>
+                    <p><strong>Tags:</strong>
+                        @if(isset($data['new_item_tags']) && is_array($data['new_item_tags']))
+                            @foreach($data['new_item_tags'] as $tag)
+                                <span class="tag">{{ $tag }}</span>
+                            @endforeach
+                        @else
+                            N/A
+                        @endif
+                    </p>
+                    <p><strong>Match Date:</strong> {{ $data['match_date'] ?? now()->format('M d, Y') }}</p>
+                </div>
+
+                <div class="highlight">
+                    <p><strong>Next Steps:</strong></p>
+                    <p>1. Review the matched item details above</p>
+                    <p>2. Click the button below to view the full item details and images</p>
+                    <p>3. Contact the other user through our messaging system if you believe this is a match</p>
+                    <p>4. Verify the item details before claiming</p>
+                </div>
+
+                <div class="button-container">
+                    <a href="{{ url('/item/' . ($data['new_item_upload_id'] ?? '')) }}" class="button">View Matched Item Details</a>
+                    @if(isset($data['new_item_upload_id']))
+                    <a href="{{ url('/chat') }}?item={{ $data['new_item_upload_id'] }}" 
+                       class="button" 
+                       style="margin-left: 10px; background-color: #EC4899;">
+                        Message Item Owner
+                    </a>
+                    @endif
+                </div>
+
             @elseif ($data['notification_type'] === 'item_claimed')
                 <h2>🎯 Someone Wants to Claim Your Item!</h2>
                 <p>Hello {{ $data['owner_name'] ?? explode('@', $data['user_email'] ?? 'User')[0] }},</p>

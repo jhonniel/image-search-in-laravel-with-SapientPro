@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Message;
+use App\Models\MessageImageView;
 use App\Models\User;
 use App\Events\MessageSent as MessageSentEvent;
 
@@ -92,6 +94,14 @@ class ChatController extends Controller
         ->with(['sender', 'receiver'])
         ->orderBy('created_at', 'asc')
         ->get();
+        
+        // Map messages to include image data
+        $messages = $messages->map(function ($message) use ($currentUser) {
+            $messageArray = $message->toArray();
+            $messageArray['image_path'] = $message->image_path ? Storage::url($message->image_path) : null;
+            $messageArray['can_view_image'] = $message->canViewImage($currentUser->id);
+            return $messageArray;
+        })->values();
 
         // Mark messages as read
         Message::where('sender_id', $otherUser->id)
@@ -106,12 +116,12 @@ class ChatController extends Controller
         // BUT only if the item is not verified/claimed
         $itemContext = null;
         $firstMessageWithContext = $messages->where('item_upload_id', '!=', null)->whereNotNull('item_context')->first();
-        if ($firstMessageWithContext && $firstMessageWithContext->item_context) {
-            $decodedContext = json_decode($firstMessageWithContext->item_context, true);
+        if ($firstMessageWithContext && isset($firstMessageWithContext['item_context']) && $firstMessageWithContext['item_context']) {
+            $decodedContext = json_decode($firstMessageWithContext['item_context'], true);
             
             // If decoding failed, try to get from database
-            if (!$decodedContext && $firstMessageWithContext->item_upload_id) {
-                $itemId = $firstMessageWithContext->item_upload_id;
+            if (!$decodedContext && isset($firstMessageWithContext['item_upload_id']) && $firstMessageWithContext['item_upload_id']) {
+                $itemId = $firstMessageWithContext['item_upload_id'];
                 $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
                 if ($items->count() > 0) {
                     $firstItem = $items->first();
@@ -251,9 +261,11 @@ class ChatController extends Controller
     {
         $request->validate([
             'receiver_id' => 'required|exists:users,id',
-            'message' => 'required|string|max:1000',
+            'message' => 'nullable|string|max:1000',
             'item_upload_id' => 'nullable|string',
             'item_context' => 'nullable|string',
+            'image' => 'nullable|image|mimes:jpeg,jpg,png,gif,webp|max:10240',
+            'view_option' => 'nullable|in:once,twice,keep',
         ]);
 
         $currentUser = Auth::user();
@@ -266,13 +278,32 @@ class ChatController extends Controller
             ], 422);
         }
 
+        // Require either message or image
+        if (!$request->has('message') && !$request->hasFile('image')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Either message text or image is required'
+            ], 422);
+        }
+
         try {
+            $imagePath = null;
+            if ($request->hasFile('image')) {
+                $image = $request->file('image');
+                $filename = time() . '_' . uniqid() . '_' . $image->getClientOriginalName();
+                $imagePath = $image->storeAs('chat-images', $filename, 'public');
+            }
+
             $message = Message::create([
                 'sender_id' => $currentUser->id,
                 'receiver_id' => $request->receiver_id,
-                'message' => $request->message,
+                'message' => $request->message ?? '',
                 'item_upload_id' => $request->item_upload_id,
                 'item_context' => $request->item_context,
+                'image_path' => $imagePath,
+                'view_option' => $request->view_option ?? null,
+                'view_count' => 0,
+                'is_expired' => false,
             ]);
 
             $message->load(['sender', 'receiver']);
@@ -290,6 +321,11 @@ class ChatController extends Controller
                     'message' => $message->message,
                     'item_upload_id' => $message->item_upload_id,
                     'item_context' => $message->item_context,
+                    'image_path' => $message->image_path ? Storage::url($message->image_path) : null,
+                    'view_option' => $message->view_option,
+                    'view_count' => $message->view_count,
+                    'is_expired' => $message->is_expired,
+                    'can_view_image' => $message->canViewImage($currentUser->id),
                     'is_read' => $message->is_read,
                     'read_at' => $message->read_at ? $message->read_at->toIso8601String() : null,
                     'created_at' => $message->created_at->toIso8601String(),
@@ -425,6 +461,33 @@ class ChatController extends Controller
                 'email' => $user->email,
                 'profile_picture' => $user->profile_picture
             ]
+        ]);
+    }
+
+    /**
+     * Record image view
+     */
+    public function recordImageView(Request $request, $messageId)
+    {
+        $currentUser = Auth::user();
+        $message = Message::findOrFail($messageId);
+
+        // Check if user can view the image
+        if (!$message->canViewImage($currentUser->id)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Image view limit reached or image expired'
+            ], 403);
+        }
+
+        // Record the view
+        $message->recordImageView($currentUser->id);
+
+        return response()->json([
+            'success' => true,
+            'view_count' => $message->fresh()->view_count,
+            'is_expired' => $message->fresh()->is_expired,
+            'can_view_image' => $message->fresh()->canViewImage($currentUser->id)
         ]);
     }
 }

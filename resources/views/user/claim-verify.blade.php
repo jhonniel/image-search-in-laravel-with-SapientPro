@@ -52,7 +52,7 @@
     <div class="bg-white rounded-lg shadow-sm border border-gray-200">
         <div class="p-6 border-b border-gray-200">
             <h3 class="text-lg font-semibold text-gray-900">Available Items</h3>
-            <p class="text-sm text-gray-500 mt-1">Items posted by other users that you can claim</p>
+            <p class="text-sm text-gray-500 mt-1">Items that match your reported items (based on similarity)</p>
         </div>
 
         <div class="p-6">
@@ -187,6 +187,16 @@ function displayOtherUsersItems(items) {
                         </div>
 
                         <div class="mb-4">
+                            ${item.similarity_score ? `
+                                <div class="mb-3 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                                    <div class="flex items-center justify-between">
+                                        <span class="text-sm font-semibold text-purple-700">
+                                            <i class="fas fa-percentage mr-1"></i>Match Score
+                                        </span>
+                                        <span class="text-lg font-bold text-purple-600">${item.similarity_score}%</span>
+                                    </div>
+                                </div>
+                            ` : ''}
                             <p class="text-gray-700 mb-2"><strong>Description:</strong> ${item.description || 'No description provided'}</p>
                             <p class="text-gray-700 mb-2"><strong>Location:</strong> ${item.location || 'No location specified'}</p>
                             ${item.tags && item.tags.length > 0 ? `

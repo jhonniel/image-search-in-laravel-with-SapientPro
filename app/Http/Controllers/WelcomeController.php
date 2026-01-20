@@ -259,8 +259,9 @@ class WelcomeController extends Controller
         
         // Get image path - file_path should already be in format /storage/user-items/filename.jpg
         // Storage::url() returns paths like /storage/path
-        if ($firstImage->file_path) {
-            $imagePath = $firstImage->file_path;
+        // Always try to get a valid image path for public display
+        if ($firstImage->file_path && trim($firstImage->file_path) !== '') {
+            $imagePath = trim($firstImage->file_path);
             // Ensure it starts with /storage/ (Storage::url() should already return this)
             if (!str_starts_with($imagePath, '/storage/') && !str_starts_with($imagePath, 'http')) {
                 // If path doesn't start with /storage/, add it
@@ -273,9 +274,30 @@ class WelcomeController extends Controller
                     $imagePath = '/storage/user-items/' . basename($imagePath);
                 }
             }
-        } elseif ($firstImage->filename) {
+        } elseif ($firstImage->filename && trim($firstImage->filename) !== '') {
             // Fallback: construct path from filename
-            $imagePath = '/storage/user-items/' . $firstImage->filename;
+            $imagePath = '/storage/user-items/' . trim($firstImage->filename);
+        }
+        
+        // Final fallback: if still no path, try to construct from any available data
+        if (!$imagePath && $firstImage->id) {
+            // Last resort: try to find any image in the group with a valid path
+            foreach ($itemGroup as $item) {
+                if ($item->file_path && trim($item->file_path) !== '') {
+                    $imagePath = trim($item->file_path);
+                    if (!str_starts_with($imagePath, '/storage/') && !str_starts_with($imagePath, 'http')) {
+                        if (str_starts_with($imagePath, 'storage/')) {
+                            $imagePath = '/' . $imagePath;
+                        } else {
+                            $imagePath = '/storage/user-items/' . basename($imagePath);
+                        }
+                    }
+                    break;
+                } elseif ($item->filename && trim($item->filename) !== '') {
+                    $imagePath = '/storage/user-items/' . trim($item->filename);
+                    break;
+                }
+            }
         }
         
         // Use location from database, or extract from description as fallback
