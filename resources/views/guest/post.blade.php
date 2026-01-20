@@ -22,8 +22,8 @@
         </h1>
     </div>
 
-    <div class="container mx-auto px-4 sm:px-6 py-6 sm:py-8 md:py-12 min-h-[80vh] flex items-center">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-14 md:gap-20 items-start mx-auto w-full max-w-7xl">
+    <div class="container mx-auto px-3 sm:px-4 md:px-6 py-4 sm:py-6 md:py-8 lg:py-12 min-h-[80vh] flex items-center">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 md:gap-8 lg:gap-14 xl:gap-20 items-start mx-auto w-full max-w-7xl">
             <!-- Illustration -->
             <div class="hidden md:block">
                 <img src="{{ $illustration }}" alt="Illustration" class="w-full h-auto object-contain scale-105">
@@ -40,13 +40,14 @@
                     @endauth
                 </div>
 
-                <form class="space-y-6" method="POST" action="{{ route('guest.post.submit') }}" enctype="multipart/form-data">
+                <form id="post-item-form" class="space-y-4 sm:space-y-5 md:space-y-6" method="POST" action="{{ route('guest.post.submit') }}" enctype="multipart/form-data">
                     @csrf
                     <input type="hidden" name="item_type" value="{{ $itemType }}">
 
                     @if($enableProvinceField ?? true)
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label class="block text-sm sm:text-base font-semibold text-gray-800 mb-2.5">
+                            <i class="fas fa-map mr-1.5" style="color: #EC4899;"></i>
                             Province 
                             @if($provinceFieldRequired ?? true)
                                 <span class="text-red-500">*</span>
@@ -59,7 +60,10 @@
                                    @if($provinceFieldRequired ?? true) required @endif
                                    autocomplete="off"
                                    value="{{ old('province') }}"
-                                   class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                   class="w-full px-4 sm:px-5 py-3 sm:py-3.5 md:py-4 text-sm sm:text-base md:text-lg bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none transition-all duration-200 shadow-sm hover:shadow-md hover:border-gray-300"
+                                   style="--focus-border: #EC4899; --focus-ring: rgba(236, 72, 153, 0.2);"
+                                   onfocus="this.style.borderColor='#EC4899'; this.style.boxShadow='0 0 0 2px rgba(236, 72, 153, 0.2)';"
+                                   onblur="this.style.borderColor='rgb(229, 231, 235)'; this.style.boxShadow='';"
                                    placeholder="Enter your province name">
                             <!-- Autocomplete dropdown -->
                             <div id="province-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -77,7 +81,8 @@
                     @endif
                     @if($enableCityField ?? true)
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                        <label class="block text-sm sm:text-base font-semibold text-gray-800 mb-2.5">
+                            <i class="fas fa-city mr-1.5" style="color: #EC4899;"></i>
                             City 
                             @if($cityFieldRequired ?? true)
                                 <span class="text-red-500">*</span>
@@ -90,7 +95,10 @@
                                    @if($cityFieldRequired ?? true) required @endif
                                    autocomplete="off"
                                    value="{{ old('city') }}"
-                                   class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                   class="w-full px-4 sm:px-5 py-3 sm:py-3.5 md:py-4 text-sm sm:text-base md:text-lg bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none transition-all duration-200 shadow-sm hover:shadow-md hover:border-gray-300"
+                                   style="--focus-border: #EC4899; --focus-ring: rgba(236, 72, 153, 0.2);"
+                                   onfocus="this.style.borderColor='#EC4899'; this.style.boxShadow='0 0 0 2px rgba(236, 72, 153, 0.2)';"
+                                   onblur="this.style.borderColor='rgb(229, 231, 235)'; this.style.boxShadow='';"
                                    placeholder="Enter your city name">
                             <!-- Autocomplete dropdown -->
                             <div id="city-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -107,21 +115,30 @@
                     </div>
                     @endif
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Location <span class="text-red-500">*</span></label>
-                        <div class="flex gap-2 mb-2 relative">
+                        <label class="block text-sm sm:text-base font-semibold text-gray-800 mb-2.5">
+                            <i class="fas fa-map-marker-alt mr-1.5" style="color: #EC4899;"></i>
+                            Location <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-2 relative">
                             <div class="flex-1 relative">
                                 <input type="text" id="location" name="location" required autocomplete="off"
-                                       class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400"
+                                       class="w-full px-4 py-3 sm:py-3.5 md:py-4 text-sm sm:text-base md:text-lg bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none transition-all duration-200 shadow-sm hover:shadow-md hover:border-gray-300"
+                                       style="padding-right: 2.75rem; --focus-border: #EC4899; --focus-ring: rgba(236, 72, 153, 0.2);"
+                                       onfocus="this.style.borderColor='#EC4899'; this.style.boxShadow='0 0 0 2px rgba(236, 72, 153, 0.2)';"
+                                       onblur="this.style.borderColor='rgb(229, 231, 235)'; this.style.boxShadow='';"
                                        placeholder="Where was it lost/found? (e.g., Street name, Building, etc.)" 
                                        value="{{ old('location') }}">
+                                <i class="fas fa-search absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm pointer-events-none z-10"></i>
                                 <!-- Location autocomplete dropdown -->
-                                <div id="location-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-pink-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                                <div id="location-autocomplete" class="hidden absolute z-50 w-full mt-2 bg-white rounded-xl shadow-2xl max-h-48 sm:max-h-56 md:max-h-60 overflow-y-auto"
+                                     style="border: 2px solid #EC4899;">
                                     <!-- Suggestions will be inserted here -->
                                 </div>
                             </div>
                             <button type="button" onclick="useCurrentLocation('location')" 
-                                    class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium whitespace-nowrap">
-                                <i class="fas fa-crosshairs mr-1"></i> Current Location
+                                    class="w-auto px-3 sm:px-4 md:px-5 py-3 sm:py-3.5 md:py-4 bg-blue-500 text-white rounded-xl sm:rounded-2xl hover:bg-blue-600 active:bg-blue-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 border border-blue-400"
+                                    title="Use Current Location">
+                                <i class="fas fa-crosshairs text-base sm:text-lg md:text-xl"></i>
                             </button>
                         </div>
                         <!-- Hidden fields for coordinates -->
@@ -129,29 +146,40 @@
                         <input type="hidden" id="location-lon" name="location_lon">
                         <!-- Map container -->
                         <div class="mt-3">
-                            <div id="location-map" class="w-full h-64 rounded-lg border border-gray-300 relative" style="display: none;">
+                            <div id="location-map" class="w-full h-48 sm:h-56 md:h-64 lg:h-72 rounded-lg sm:rounded-xl border border-gray-300 relative" style="display: none;">
                                 <!-- Location autocomplete overlay on map -->
-                                <div id="location-autocomplete-map" class="hidden absolute top-2 left-2 right-2 z-[1000] bg-white border-2 border-pink-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
+                                <div id="location-autocomplete-map" class="hidden absolute top-2 left-2 right-2 z-[1000] bg-white border-2 border-pink-300 rounded-lg shadow-2xl max-h-48 sm:max-h-56 md:max-h-60 overflow-y-auto">
                                     <!-- Suggestions will be inserted here -->
                                 </div>
                             </div>
-                            <div class="mt-2 flex gap-2">
+                            <div class="mt-2 flex flex-col sm:flex-row gap-2.5 sm:gap-3">
                                 <button type="button" onclick="toggleLocationMap('location')" 
-                                        class="px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition-colors text-sm font-medium">
-                                    <i class="fas fa-map-marker-alt mr-1"></i> Pin on Map
+                                        class="w-full sm:w-auto px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 md:py-3.5 text-white font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm md:text-base shadow-md hover:shadow-lg border flex items-center justify-center sm:justify-start gap-2 transform hover:-translate-y-0.5 active:translate-y-0"
+                                        style="background-color: #EC4899; border-color: #EC4899;"
+                                        onmouseover="this.style.backgroundColor='#db2777'; this.style.borderColor='#db2777';"
+                                        onmouseout="this.style.backgroundColor='#EC4899'; this.style.borderColor='#EC4899';">
+                                    <i class="fas fa-map-marker-alt text-sm sm:text-base"></i> 
+                                    <span>Pin on Map</span>
                                 </button>
                                 <button type="button" onclick="clearLocationMap('location')" 
-                                        class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors text-sm font-medium" 
-                                        style="display: none;" id="clear-location-btn">
-                                    <i class="fas fa-times mr-1"></i> Clear Map
+                                        class="w-full sm:w-auto px-4 sm:px-5 md:px-6 py-2.5 sm:py-3 md:py-3.5 text-white font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 text-xs sm:text-sm md:text-base shadow-md hover:shadow-lg border flex items-center justify-center sm:justify-start gap-2 transform hover:-translate-y-0.5 active:translate-y-0" 
+                                        style="display: none; background-color: #6B7280; border-color: #6B7280;"
+                                        onmouseover="this.style.backgroundColor='#4B5563'; this.style.borderColor='#4B5563';"
+                                        onmouseout="this.style.backgroundColor='#6B7280'; this.style.borderColor='#6B7280';"
+                                        id="clear-location-btn">
+                                    <i class="fas fa-times text-sm sm:text-base"></i> 
+                                    <span>Clear Map</span>
                                 </button>
                             </div>
                         </div>
                         @error('location')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Description <span class="text-red-500">*</span></label>
-                        <textarea name="description" rows="4" required class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400" placeholder="Describe the item and key details">{{ old('description', !empty($searchQuery) ? 'Looking for: ' . $searchQuery : '') }}</textarea>
+                        <label class="block text-sm sm:text-base font-semibold text-gray-800 mb-2.5">
+                            <i class="fas fa-align-left mr-1.5" style="color: #EC4899;"></i>
+                            Description <span class="text-red-500">*</span>
+                        </label>
+                        <textarea name="description" rows="4" required class="w-full px-4 sm:px-5 py-3 sm:py-3.5 md:py-4 text-sm sm:text-base md:text-lg bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none transition-all duration-200 shadow-sm hover:shadow-md hover:border-gray-300 resize-y" style="--focus-border: #EC4899; --focus-ring: rgba(236, 72, 153, 0.2);" onfocus="this.style.borderColor='#EC4899'; this.style.boxShadow='0 0 0 2px rgba(236, 72, 153, 0.2)';" onblur="this.style.borderColor='rgb(229, 231, 235)'; this.style.boxShadow='';" placeholder="Describe the item and key details...">{{ old('description', !empty($searchQuery) ? 'Looking for: ' . $searchQuery : '') }}</textarea>
                         @error('description')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
                         @if(!empty($searchQuery))
                             <p class="text-xs sm:text-sm text-gray-500 mt-1">
@@ -161,24 +189,34 @@
                         @endif
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Tags <span class="text-red-500">*</span></label>
+                        <label class="block text-sm sm:text-base font-semibold text-gray-800 mb-2.5">
+                            <i class="fas fa-tags mr-1.5" style="color: #EC4899;"></i>
+                            Tags <span class="text-red-500">*</span>
+                        </label>
                         
                         <!-- Tag Dropdown -->
                         <div class="relative mb-2">
                             <select id="tags-dropdown" 
-                                    class="w-full px-3 sm:px-4 py-3 sm:py-4 text-base sm:text-lg bg-white border border-gray-300 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400">
+                                    class="w-full px-4 sm:px-5 py-3 sm:py-3.5 md:py-4 pr-10 sm:pr-12 text-sm sm:text-base md:text-lg bg-white border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none transition-all duration-200 shadow-sm hover:shadow-md hover:border-gray-300 cursor-pointer"
+                                    style="appearance: none; -webkit-appearance: none; -moz-appearance: none; --focus-border: #EC4899; --focus-ring: rgba(236, 72, 153, 0.2);"
+                                    onfocus="this.style.borderColor='#EC4899'; this.style.boxShadow='0 0 0 2px rgba(236, 72, 153, 0.2)';"
+                                    onblur="this.style.borderColor='rgb(229, 231, 235)'; this.style.boxShadow='';">
                                 <option value="">Select a tag...</option>
                                 <!-- Options will be loaded dynamically -->
                             </select>
+                            <i class="fas fa-chevron-down absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none z-10"></i>
                         </div>
                         
                         <!-- Add New Tag Button -->
                         <div class="mb-2">
                             <button type="button" 
                                     onclick="toggleNewTagInput()" 
-                                    class="text-sm text-pink-600 hover:text-pink-800 font-medium flex items-center gap-1">
-                                <i class="fas fa-plus text-xs"></i>
-                                Add another tag
+                                    class="inline-flex items-center gap-1.5 px-4 py-2 sm:px-5 sm:py-2.5 text-sm sm:text-base text-white font-semibold rounded-xl sm:rounded-2xl transition-all duration-200 border shadow-md hover:shadow-lg"
+                                    style="background-color: #EC4899; border-color: #EC4899;"
+                                    onmouseover="this.style.backgroundColor='#db2777'; this.style.borderColor='#db2777';"
+                                    onmouseout="this.style.backgroundColor='#EC4899'; this.style.borderColor='#EC4899';">
+                                <i class="fas fa-plus text-xs sm:text-sm"></i>
+                                <span>Add another tag</span>
                             </button>
                         </div>
                         
@@ -212,28 +250,37 @@
                         @error('tags')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-3">Images <span class="text-red-500">*</span></label>
+                        <label class="block text-sm sm:text-base font-semibold text-gray-800 mb-2.5 sm:mb-3">
+                            <i class="fas fa-images mr-1.5" style="color: #EC4899;"></i>
+                            Images <span class="text-red-500">*</span>
+                        </label>
                         
                         <!-- Drag and Drop Zone -->
-                        <div id="drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-pink-400 hover:bg-pink-50 cursor-pointer">
+                        <div id="drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-xl sm:rounded-2xl p-6 sm:p-8 md:p-10 text-center transition-all duration-300 cursor-pointer shadow-sm hover:shadow-lg"
+                             onmouseenter="this.style.borderColor='#EC4899'; this.style.backgroundColor='rgba(236, 72, 153, 0.05)';"
+                             onmouseleave="this.style.borderColor='rgb(209, 213, 219)'; this.style.backgroundColor='';">
                             <input type="file" id="item-images" name="images[]" multiple accept="image/*" class="hidden" required>
                             
-                            <div id="drop-zone-content" class="space-y-4">
+                            <div id="drop-zone-content" class="space-y-4 sm:space-y-5">
                                 <div class="flex justify-center">
-                                    <div class="w-16 h-16 bg-pink-100 rounded-full flex items-center justify-center">
-                                        <i class="fas fa-cloud-upload-alt text-pink-600 text-2xl"></i>
+                                    <div class="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center shadow-md"
+                                         style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.1), rgba(236, 72, 153, 0.2));">
+                                        <i class="fas fa-cloud-upload-alt text-2xl sm:text-3xl md:text-4xl" style="color: #EC4899;"></i>
                                     </div>
                                 </div>
                                 <div>
-                                    <p class="text-lg font-medium text-gray-700 mb-1">
-                                        <span class="text-pink-600">Click to upload</span> or drag and drop
+                                    <p class="text-base sm:text-lg md:text-xl font-semibold text-gray-800 mb-2">
+                                        <span style="color: #EC4899;">Click to upload</span> <span class="hidden sm:inline text-gray-600">or drag and drop</span>
                                     </p>
-                                    <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB each (Max 5 images)</p>
+                                    <p class="text-xs sm:text-sm text-gray-500">PNG, JPG, GIF up to 10MB each (Max 5 images)</p>
                                 </div>
                                 <button type="button" onclick="document.getElementById('item-images').click()" 
-                                        class="inline-flex items-center px-4 py-2 bg-pink-primary text-white rounded-lg hover:bg-pink-600 transition-colors text-sm font-medium">
-                                    <i class="fas fa-folder-open mr-2"></i>
-                                    Browse Files
+                                        class="inline-flex items-center px-5 sm:px-6 md:px-8 py-2.5 sm:py-3 text-white rounded-xl sm:rounded-2xl transition-all duration-200 text-sm sm:text-base font-semibold shadow-md hover:shadow-lg transform hover:-translate-y-0.5 active:translate-y-0 border"
+                                        style="background-color: #EC4899; border-color: #EC4899;"
+                                        onmouseover="this.style.backgroundColor='#db2777'; this.style.borderColor='#db2777';"
+                                        onmouseout="this.style.backgroundColor='#EC4899'; this.style.borderColor='#EC4899';">
+                                    <i class="fas fa-folder-open mr-2 text-base sm:text-lg"></i>
+                                    <span>Browse Files</span>
                                 </button>
                             </div>
                         </div>
@@ -257,8 +304,49 @@
                         @error('images')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
                         @error('images.*')<p class="text-red-600 text-sm mt-1">{{ $message }}</p>@enderror
                     </div>
-                    <button type="submit" class="w-full bg-pink-primary text-white font-semibold py-3 sm:py-4 rounded-lg sm:rounded-xl hover:bg-pink-600 focus:outline-none focus:ring-2 focus:ring-pink-300 text-base sm:text-lg">Continue</button>
+                    <button type="submit" id="submit-btn" class="w-full text-white font-semibold py-3.5 sm:py-4 md:py-5 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-300 text-base sm:text-lg md:text-xl shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 active:translate-y-0 border"
+                            style="background-color: #EC4899; border-color: #EC4899;"
+                            onmouseover="this.style.backgroundColor='#db2777'; this.style.borderColor='#db2777';"
+                            onmouseout="this.style.backgroundColor='#EC4899'; this.style.borderColor='#EC4899';">
+                        <span id="submit-btn-text" class="flex items-center justify-center">
+                            <i class="fas fa-arrow-right mr-2"></i>
+                            Continue
+                        </span>
+                        <span id="submit-btn-spinner" class="hidden flex items-center justify-center">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>
+                            Processing...
+                        </span>
+                    </button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Processing Overlay -->
+    <div id="processing-overlay" class="fixed inset-0 bg-white bg-opacity-30 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 max-w-md w-full mx-2 sm:mx-4">
+            <div class="text-center">
+                <!-- Spinner -->
+                <div class="mb-4 sm:mb-6">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 border-b-4 border-pink-600"></div>
+                </div>
+                
+                <!-- Progress Percentage -->
+                <h3 class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-3 sm:mb-4" id="processing-title">Processing Your Item</h3>
+                
+                <!-- Progress Bar -->
+                <div class="mb-4 sm:mb-6">
+                    <div class="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+                        <div id="progress-bar" class="bg-gradient-to-r from-pink-500 to-pink-600 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
+                    </div>
+                    <div class="mt-2 sm:mt-3 flex items-center justify-center">
+                        <span id="progress-percentage" class="text-2xl sm:text-3xl md:text-4xl font-bold text-pink-600">0%</span>
+                    </div>
+                </div>
+                
+                <p class="text-xs sm:text-sm text-gray-500" id="processing-message">
+                    Uploading and processing your item...
+                </p>
             </div>
         </div>
     </div>
@@ -801,6 +889,161 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// Form submission with processing indicator
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('post-item-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitBtnText = document.getElementById('submit-btn-text');
+    const submitBtnSpinner = document.getElementById('submit-btn-spinner');
+    const processingOverlay = document.getElementById('processing-overlay');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
+    
+    function updateProgress(percent) {
+        const clampedPercent = Math.min(100, Math.max(0, percent));
+        progressBar.style.width = clampedPercent + '%';
+        progressPercentage.textContent = Math.round(clampedPercent) + '%';
+    }
+    const processingTitle = document.getElementById('processing-title');
+    const processingMessage = document.getElementById('processing-message');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
+            
+            // Validate form first
+            if (!form.checkValidity()) {
+                return; // Let browser show validation errors
+            }
+            
+            // Prevent double submission
+            if (submitBtn.disabled) {
+                return;
+            }
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtnText.classList.add('hidden');
+            submitBtnSpinner.classList.remove('hidden');
+            
+            // Show processing overlay
+            processingOverlay.classList.remove('hidden');
+            updateProgress(0);
+            processingTitle.textContent = 'Processing Your Item';
+            processingMessage.textContent = 'Uploading and processing your item...';
+            
+            // Create FormData from form
+            const formData = new FormData(form);
+            
+            // Create XMLHttpRequest for progress tracking
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    // Upload progress: 0-90% (leaving 10% for server processing)
+                    const uploadPercent = (e.loaded / e.total) * 90;
+                    updateProgress(uploadPercent);
+                }
+            });
+            
+            // Handle completion
+            xhr.addEventListener('load', function() {
+                if (xhr.status === 200 || xhr.status === 302 || xhr.status === 201) {
+                    // Upload complete, simulate server processing (90-100%)
+                    updateProgress(90);
+                    
+                    // Simulate final processing
+                    let currentProgress = 90;
+                    const processingInterval = setInterval(() => {
+                        currentProgress += 2;
+                        if (currentProgress >= 100) {
+                            clearInterval(processingInterval);
+                            updateProgress(100);
+                            processingTitle.textContent = 'Complete!';
+                            processingMessage.textContent = 'Redirecting...';
+                            
+                            // Redirect after a brief moment
+                            setTimeout(() => {
+                                // Check for redirect in response URL
+                                if (xhr.responseURL && xhr.responseURL !== window.location.href) {
+                                    window.location.href = xhr.responseURL;
+                                } else {
+                                    // Check response headers for redirect location
+                                    const location = xhr.getResponseHeader('Location');
+                                    if (location) {
+                                        window.location.href = location;
+                                    } else {
+                                        // Try to parse JSON response for redirect URL
+                                        try {
+                                            const response = JSON.parse(xhr.responseText);
+                                            if (response.redirect) {
+                                                window.location.href = response.redirect;
+                                            } else if (response.url) {
+                                                window.location.href = response.url;
+                                            } else {
+                                                // Default redirect - Laravel will handle it
+                                                window.location.reload();
+                                            }
+                                        } catch (e) {
+                                            // Not JSON, check if response contains HTML redirect
+                                            const match = xhr.responseText.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
+                                            if (match) {
+                                                window.location.href = match[1];
+                                            } else {
+                                                // Default: reload page (Laravel redirect will happen)
+                                                window.location.reload();
+                                            }
+                                        }
+                                    }
+                                }
+                            }, 500);
+                        } else {
+                            updateProgress(currentProgress);
+                        }
+                    }, 100);
+                } else {
+                    // Error occurred
+                    updateProgress(0);
+                    processingOverlay.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtnText.classList.remove('hidden');
+                    submitBtnSpinner.classList.add('hidden');
+                    
+                    // Try to show error message from response
+                    let errorMessage = 'An error occurred. Please try again.';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            errorMessage = response.message;
+                        } else if (response.error) {
+                            errorMessage = response.error;
+                        }
+                    } catch (e) {
+                        // Not JSON, use default message
+                    }
+                    alert(errorMessage);
+                }
+            });
+            
+            // Handle errors
+            xhr.addEventListener('error', function() {
+                updateProgress(0);
+                processingOverlay.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtnText.classList.remove('hidden');
+                submitBtnSpinner.classList.add('hidden');
+                alert('Network error. Please check your connection and try again.');
+            });
+            
+            // Submit the form via AJAX
+            xhr.open('POST', form.action || window.location.href);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send(formData);
+        });
+    }
+});
 </script>
 
 <!-- Leaflet JS -->
@@ -1337,6 +1580,161 @@ if (locationInput) {
         }
     });
 }
+
+// Form submission with processing indicator
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('post-item-form');
+    const submitBtn = document.getElementById('submit-btn');
+    const submitBtnText = document.getElementById('submit-btn-text');
+    const submitBtnSpinner = document.getElementById('submit-btn-spinner');
+    const processingOverlay = document.getElementById('processing-overlay');
+    const progressBar = document.getElementById('progress-bar');
+    const progressPercentage = document.getElementById('progress-percentage');
+    
+    function updateProgress(percent) {
+        const clampedPercent = Math.min(100, Math.max(0, percent));
+        progressBar.style.width = clampedPercent + '%';
+        progressPercentage.textContent = Math.round(clampedPercent) + '%';
+    }
+    const processingTitle = document.getElementById('processing-title');
+    const processingMessage = document.getElementById('processing-message');
+    
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            e.preventDefault(); // Prevent default form submission
+            
+            // Validate form first
+            if (!form.checkValidity()) {
+                return; // Let browser show validation errors
+            }
+            
+            // Prevent double submission
+            if (submitBtn.disabled) {
+                return;
+            }
+            
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtnText.classList.add('hidden');
+            submitBtnSpinner.classList.remove('hidden');
+            
+            // Show processing overlay
+            processingOverlay.classList.remove('hidden');
+            updateProgress(0);
+            processingTitle.textContent = 'Processing Your Item';
+            processingMessage.textContent = 'Uploading and processing your item...';
+            
+            // Create FormData from form
+            const formData = new FormData(form);
+            
+            // Create XMLHttpRequest for progress tracking
+            const xhr = new XMLHttpRequest();
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', function(e) {
+                if (e.lengthComputable) {
+                    // Upload progress: 0-90% (leaving 10% for server processing)
+                    const uploadPercent = (e.loaded / e.total) * 90;
+                    updateProgress(uploadPercent);
+                }
+            });
+            
+            // Handle completion
+            xhr.addEventListener('load', function() {
+                if (xhr.status === 200 || xhr.status === 302 || xhr.status === 201) {
+                    // Upload complete, simulate server processing (90-100%)
+                    updateProgress(90);
+                    
+                    // Simulate final processing
+                    let currentProgress = 90;
+                    const processingInterval = setInterval(() => {
+                        currentProgress += 2;
+                        if (currentProgress >= 100) {
+                            clearInterval(processingInterval);
+                            updateProgress(100);
+                            processingTitle.textContent = 'Complete!';
+                            processingMessage.textContent = 'Redirecting...';
+                            
+                            // Redirect after a brief moment
+                            setTimeout(() => {
+                                // Check for redirect in response URL
+                                if (xhr.responseURL && xhr.responseURL !== window.location.href) {
+                                    window.location.href = xhr.responseURL;
+                                } else {
+                                    // Check response headers for redirect location
+                                    const location = xhr.getResponseHeader('Location');
+                                    if (location) {
+                                        window.location.href = location;
+                                    } else {
+                                        // Try to parse JSON response for redirect URL
+                                        try {
+                                            const response = JSON.parse(xhr.responseText);
+                                            if (response.redirect) {
+                                                window.location.href = response.redirect;
+                                            } else if (response.url) {
+                                                window.location.href = response.url;
+                                            } else {
+                                                // Default redirect - Laravel will handle it
+                                                window.location.reload();
+                                            }
+                                        } catch (e) {
+                                            // Not JSON, check if response contains HTML redirect
+                                            const match = xhr.responseText.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
+                                            if (match) {
+                                                window.location.href = match[1];
+                                            } else {
+                                                // Default: reload page (Laravel redirect will happen)
+                                                window.location.reload();
+                                            }
+                                        }
+                                    }
+                                }
+                            }, 500);
+                        } else {
+                            updateProgress(currentProgress);
+                        }
+                    }, 100);
+                } else {
+                    // Error occurred
+                    updateProgress(0);
+                    processingOverlay.classList.add('hidden');
+                    submitBtn.disabled = false;
+                    submitBtnText.classList.remove('hidden');
+                    submitBtnSpinner.classList.add('hidden');
+                    
+                    // Try to show error message from response
+                    let errorMessage = 'An error occurred. Please try again.';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.message) {
+                            errorMessage = response.message;
+                        } else if (response.error) {
+                            errorMessage = response.error;
+                        }
+                    } catch (e) {
+                        // Not JSON, use default message
+                    }
+                    alert(errorMessage);
+                }
+            });
+            
+            // Handle errors
+            xhr.addEventListener('error', function() {
+                updateProgress(0);
+                processingOverlay.classList.add('hidden');
+                submitBtn.disabled = false;
+                submitBtnText.classList.remove('hidden');
+                submitBtnSpinner.classList.add('hidden');
+                alert('Network error. Please check your connection and try again.');
+            });
+            
+            // Submit the form via AJAX
+            xhr.open('POST', form.action || window.location.href);
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.send(formData);
+        });
+    }
+});
 </script>
 </body>
 </html>
