@@ -301,12 +301,13 @@
                                 
                                 // Determine item URL based on notification type
                                 if (n.type === 'item_matched' && notifData.new_item_upload_id) {
-                                    itemUrl = `/item/${notifData.new_item_upload_id}`;
+                                    // Redirect to Claim and Verify page to see the matched item
+                                    itemUrl = `/claim-verify`;
                                     const similarityPercent = notifData.similarity_percent || notifData.similarity_score ? 
                                         (notifData.similarity_percent || (notifData.similarity_score * 100).toFixed(2)) : 'N/A';
                                     itemDetails = `
                                         <div class="mt-2 p-2 bg-purple-50 rounded border border-purple-200">
-                                            <div class="text-xs font-semibold text-purple-700 mb-1">Matched Item Details:</div>
+                                            <div class="text-xs font-semibold text-purple-700 mb-1">Similar Item Found!</div>
                                             <div class="text-xs text-gray-700">
                                                 <div><strong>Type:</strong> ${notifData.new_item_type || 'N/A'}</div>
                                                 <div><strong>Description:</strong> ${(notifData.new_item_description || '').substring(0, 50)}${(notifData.new_item_description || '').length > 50 ? '...' : ''}</div>
@@ -318,33 +319,39 @@
                                     viewButton = `
                                         <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
                                                 class="mt-2 px-3 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 transition-colors">
-                                            View Matched Item
+                                            View in Claim & Verify
                                         </button>
                                     `;
                                 } else if (n.type === 'item_match' && notifData.similar_items && notifData.similar_items.length > 0) {
-                                    // For item_match notifications, show similar items
-                                    const firstItem = notifData.similar_items[0];
-                                    if (firstItem.upload_id) {
-                                        itemUrl = `/item/${firstItem.upload_id}`;
-                                        viewButton = `
-                                            <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
-                                                    class="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
-                                                View Similar Item
-                                            </button>
-                                        `;
-                                    }
+                                    // For item_match notifications, redirect to Claim and Verify page
+                                    itemUrl = `/claim-verify`;
+                                    const similarCount = notifData.similar_items_count || notifData.similar_items.length;
+                                    itemDetails = `
+                                        <div class="mt-2 p-2 bg-blue-50 rounded border border-blue-200">
+                                            <div class="text-xs font-semibold text-blue-700 mb-1">Similar Items Found!</div>
+                                            <div class="text-xs text-gray-700">
+                                                We found ${similarCount} similar item(s) that match your reported item. Check the Claim & Verify page to view them.
+                                            </div>
+                                        </div>
+                                    `;
+                                    viewButton = `
+                                        <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
+                                                class="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
+                                            View in Claim & Verify
+                                        </button>
+                                    `;
                                 } else if (n.type === 'item_match' && notifData.upload_id) {
-                                    // Fallback for item_match with upload_id in data
-                                    itemUrl = `/item/${notifData.upload_id}`;
+                                    // Fallback for item_match - redirect to Claim and Verify
+                                    itemUrl = `/claim-verify`;
                                 } else if (n.type === 'item_uploaded' && notifData.upload_id) {
                                     itemUrl = `/item/${notifData.upload_id}`;
                                 } else if (n.type === 'item_claimed' && notifData.upload_id) {
                                     itemUrl = `/item/${notifData.upload_id}`;
                                 }
                                 
-                                // For item_matched, also allow viewing the matched item (user's own item)
+                                // For item_matched, redirect to Claim and Verify to see matched items
                                 if (n.type === 'item_matched' && notifData.matched_item_upload_id && !itemUrl) {
-                                    itemUrl = `/item/${notifData.matched_item_upload_id}`;
+                                    itemUrl = `/claim-verify`;
                                 }
                                 
                                 div.innerHTML = `

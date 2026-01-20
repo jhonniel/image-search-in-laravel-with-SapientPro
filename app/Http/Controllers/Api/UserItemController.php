@@ -957,11 +957,7 @@ class UserItemController extends Controller
             
             foreach ($userItems as $uploadId => $userItemGroup) {
                 $userItem = $userItemGroup->first();
-                $userItemType = $userItem->status; // 'lost' or 'found'
-                
-                // Find matching items (opposite type: if user has 'lost', find 'found' items)
-                $oppositeType = $userItemType === 'lost' ? 'found' : 'lost';
-                
+
                 foreach ($allOtherItems as $otherUploadId => $otherItemGroup) {
                     // Skip if already matched
                     if (in_array($otherUploadId, $matchedUploadIds)) {
@@ -969,11 +965,6 @@ class UserItemController extends Controller
                     }
                     
                     $otherItem = $otherItemGroup->first();
-                    
-                    // Only check items of opposite type
-                    if ($otherItem->status !== $oppositeType) {
-                        continue;
-                    }
                     
                     // Calculate similarity
                     try {
