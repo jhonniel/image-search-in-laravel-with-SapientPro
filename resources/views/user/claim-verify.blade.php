@@ -449,6 +449,24 @@ function viewItemDetails(uploadId) {
 
     const content = `
         <div class="space-y-4">
+            ${item.images && item.images.length > 0 ? `
+                <div>
+                    <h4 class="font-semibold text-gray-900 mb-2">Image</h4>
+                    <div class="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+                        <img 
+                            src="${item.images[0].path || item.images[0].file_path || `/storage/${item.images[0].filename || item.images[0].path}`}" 
+                            alt="${(item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
+                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
+                            onclick="viewImage('${(item.images[0].path || item.images[0].file_path || `/storage/${item.images[0].filename || item.images[0].path}`).replace(/'/g, \"\\\\'\")}')"
+                        >
+                        ${item.images.length > 1 ? `
+                            <div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
+                                <i class="fas fa-images mr-1"></i>${item.images.length} images
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            ` : ''}
             <div>
                 <h4 class="font-semibold text-gray-900">Item Type</h4>
                 <p class="text-gray-600">${item.item_type === 'lost' ? 'Lost Item' : 'Found Item'}</p>

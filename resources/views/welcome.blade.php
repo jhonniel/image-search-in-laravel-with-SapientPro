@@ -297,9 +297,7 @@
                             </div>
                         </div>
                     @if(isset($report['upload_id']) && !empty($report['upload_id']))
-                        <a href="{{ route('public.item.show', $report['upload_id']) }}" class="text-purple-primary underline font-medium text-sm hover:text-purple-600">
-                            View Details
-                        </a>
+                        <!-- View Details link intentionally hidden on public cards -->
                     @else
                         <span class="text-gray-400 text-sm">Details unavailable</span>
                     @endif
@@ -786,7 +784,7 @@
                             </div>
                             <div class="p-6">
                                 <h3 class="text-lg font-bold text-gray-900 mb-4 line-clamp-2">${escapeHtml(report.title)}</h3>
-                                <div class="space-y-2 text-sm text-gray-600 mb-4">
+                                <div class="space-y-2 text-sm text-gray-600">
                                     <div class="flex items-center">
                                         <i class="fas fa-map-marker-alt text-purple-primary mr-2"></i>
                                         <span class="line-clamp-1">${escapeHtml(report.location)}</span>
@@ -796,9 +794,6 @@
                                         <span>${escapeHtml(report.time_ago)}</span>
                                     </div>
                                 </div>
-                                <a href="/item/${report.upload_id}" class="text-purple-primary underline font-medium text-sm hover:text-purple-600">
-                                    View Details
-                                </a>
                             </div>
                         </div>
                     `;

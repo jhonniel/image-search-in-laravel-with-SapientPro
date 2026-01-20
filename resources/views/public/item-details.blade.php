@@ -6,6 +6,10 @@
     <title>Item Details - FindITFast</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
+    <!-- Leaflet CSS for map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body class="bg-gray-50">
@@ -74,22 +78,22 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-                <!-- Images Section -->
+                <!-- Location Map Section (no item images) -->
                 <div>
-                    <h2 class="text-xl font-semibold text-gray-900 mb-4">Images</h2>
-                    @if(count($item['images']) > 0)
-                        <div class="space-y-4">
-                            @foreach($item['images'] as $index => $image)
-                            <div class="rounded-lg overflow-hidden border border-gray-200">
-                                <img src="{{ $image['path'] }}" 
-                                     alt="{{ $image['original_name'] }}" 
-                                     class="w-full h-auto object-cover"
-                                     onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'%3E%3Crect fill=\'%23e5e7eb\' width=\'400\' height=\'300\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'20\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3EImage not available%3C/text%3E%3C/svg%3E';">
-                            </div>
-                            @endforeach
-                        </div>
+                    <h2 class="text-xl font-semibold text-gray-900 mb-3">Location</h2>
+                    @if(!empty($item['location']) && $item['location'] !== 'Location not specified')
+                        <p class="text-sm text-gray-600 mb-4">
+                            <i class="fas fa-map-marker-alt text-pink-primary mr-1"></i>
+                            {{ $item['location'] }}
+                        </p>
+                        <div id="item-location-map"
+                             class="w-full rounded-lg border border-gray-200 overflow-hidden bg-gray-100"
+                             style="height: 320px;"></div>
+                        <p class="mt-2 text-xs text-gray-400">
+                            Map location is approximate and based on the address provided.
+                        </p>
                     @else
-                        <p class="text-gray-500">No images available</p>
+                        <p class="text-gray-500">Location not specified for this item.</p>
                     @endif
                 </div>
 
@@ -129,7 +133,6 @@
                                 </span>
                                 @endif
                             </div>
-                            <p class="text-sm text-gray-500">{{ $item['uploader_email'] }}</p>
                             @if($item['uploader_verified'] ?? false)
                             <p class="text-xs text-blue-600 mt-1 flex items-center">
                                 <i class="fas fa-shield-alt mr-1"></i>
@@ -192,6 +195,58 @@
             </div>
         </div>
     </div>
+
+    <!-- Leaflet JS and map initialization -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const locationText = @json($item['location']);
+            if (!locationText || locationText === 'Location not specified') {
+                return;
+            }
+
+            const mapContainer = document.getElementById('item-location-map');
+            if (!mapContainer) return;
+
+            // Initialize basic Leaflet map
+            const map = L.map('item-location-map').setView([0, 0], 2);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '&copy; OpenStreetMap contributors'
+            }).addTo(map);
+
+            // Geocode the location text to coordinates using Nominatim
+            fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(locationText)}&limit=1`, {
+                headers: {
+                    'User-Agent': 'FindITFast Lost and Found App'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (!data || !data.length) {
+                        return;
+                    }
+
+                    const lat = parseFloat(data[0].lat);
+                    const lon = parseFloat(data[0].lon);
+
+                    if (isNaN(lat) || isNaN(lon)) {
+                        return;
+                    }
+
+                    map.setView([lat, lon], 15);
+
+                    const marker = L.marker([lat, lon]).addTo(map);
+                    marker.bindPopup(`<strong>${locationText}</strong>`).openPopup();
+                })
+                .catch(error => {
+                    console.error('Error geocoding item location:', error);
+                });
+        });
+    </script>
 
     @auth
     <script>
