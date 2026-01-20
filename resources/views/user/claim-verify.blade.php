@@ -9,12 +9,14 @@
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-2xl font-bold text-gray-900 mb-2">Claim and Verify</h2>
-                <p class="text-gray-600">Browse items posted by other users and claim items that belong to you.</p>
+                <p class="text-gray-600">
+                    These available items are automatically matched to your reported items using image and text similarity.
+                </p>
             </div>
             <div class="flex items-center space-x-4">
                 <div class="text-right">
                     <div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div>
-                    <div class="text-sm text-gray-500">Total Items</div>
+                    <div class="text-sm text-gray-500">Matched Available Items</div>
                 </div>
             </div>
         </div>
@@ -145,6 +147,12 @@ function displayOtherUsersItems(items) {
     emptyState.classList.add('hidden');
 
     itemsContainer.innerHTML = `
+        <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
+            <i class="fas fa-check-circle text-green-600"></i>
+            <p class="text-sm text-green-800 font-medium">
+                Similar items found! These available items match your reported items based on image and text similarity.
+            </p>
+        </div>
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             ${items.map(item => `
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -196,6 +204,13 @@ function displayOtherUsersItems(items) {
                                         <span class="text-lg font-bold text-purple-600">${item.similarity_score}%</span>
                                     </div>
                                 </div>
+                            ` : ''}
+                            ${item.matched_with_upload_id ? `
+                                <p class="text-xs text-gray-500 mb-2">
+                                    <i class="fas fa-link mr-1"></i>
+                                    Matched with your reported item ID: 
+                                    <span class="font-semibold text-gray-700">${item.matched_with_upload_id}</span>
+                                </p>
                             ` : ''}
                             <p class="text-gray-700 mb-2"><strong>Description:</strong> ${item.description || 'No description provided'}</p>
                             <p class="text-gray-700 mb-2"><strong>Location:</strong> ${item.location || 'No location specified'}</p>
@@ -447,19 +462,35 @@ function viewItemDetails(uploadId) {
     const item = allItems.find(item => item.upload_id === uploadId);
     if (!item) return;
 
+    // Build a safe image URL for the modal
+    let firstImageUrl = '';
+    if (item.images && item.images.length > 0) {
+        const img = item.images[0];
+        if (img.path) {
+            firstImageUrl = img.path.startsWith('/') ? img.path : '/' + img.path;
+        } else if (img.file_path) {
+            firstImageUrl = img.file_path.startsWith('/') ? img.file_path : '/' + img.file_path;
+        } else if (img.filename) {
+            firstImageUrl = '/storage/' + img.filename;
+        }
+    }
+
+    const escapedFirstImageUrl = firstImageUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const escapedDescription = (item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
     const content = `
         <div class="space-y-4">
-            ${item.images && item.images.length > 0 ? `
+            ${firstImageUrl ? `
                 <div>
                     <h4 class="font-semibold text-gray-900 mb-2">Image</h4>
                     <div class="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                        <img 
-                            src="${item.images[0].path || item.images[0].file_path || `/storage/${item.images[0].filename || item.images[0].path}`}" 
-                            alt="${(item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
+                        <img
+                            src="${firstImageUrl}"
+                            alt="${escapedDescription}"
                             class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                            onclick="viewImage('${(item.images[0].path || item.images[0].file_path || `/storage/${item.images[0].filename || item.images[0].path}`).replace(/'/g, \"\\\\'\")}')"
+                            onclick="viewImage('${escapedFirstImageUrl}')"
                         >
-                        ${item.images.length > 1 ? `
+                        ${item.images && item.images.length > 1 ? `
                             <div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
                                 <i class="fas fa-images mr-1"></i>${item.images.length} images
                             </div>

@@ -298,25 +298,9 @@ class UserItemController extends Controller
                 ], 401);
             }
 
-            // Get all items uploaded by the user, excluding verified claims
-            // Verified claims should only appear in Claims Management
+            // Get all items uploaded by the user
+            // Users should see all their own items regardless of claim status
             $items = ImageMetadata::where('uploader_email', $user->email)
-                ->where(function($query) {
-                    // Exclude items that are verified claims (is_claimed = true AND claim_verification_status = 'verified')
-                    $query->where(function($q) {
-                        // Not claimed at all
-                        $q->where('is_claimed', false)
-                          ->orWhereNull('is_claimed');
-                    })
-                    ->orWhere(function($q) {
-                        // Claimed but not verified
-                        $q->where('is_claimed', true)
-                          ->where(function($statusQ) {
-                              $statusQ->where('claim_verification_status', '!=', 'verified')
-                                      ->orWhereNull('claim_verification_status');
-                          });
-                    });
-                })
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
@@ -324,16 +308,24 @@ class UserItemController extends Controller
             $formattedItems = [];
             foreach ($items as $uploadId => $itemGroup) {
                 $firstItem = $itemGroup->first();
-                   $formattedItems[] = [
-                       'upload_id' => $uploadId,
-                       'item_type' => $firstItem->status,
-                       'location' => $firstItem->location ?? 'Location not specified',
-                       'province' => $firstItem->province ?? null,
-                       'city' => $firstItem->city ?? null,
-                       'description' => $firstItem->description,
-                       'tags' => $firstItem->tags,
-                       'contact_email' => $firstItem->uploader_email,
-                       'images' => $itemGroup->map(function ($item) {
+                
+                // Parse tags if they're stored as JSON string
+                $tags = $firstItem->tags;
+                if (is_string($tags)) {
+                    $decodedTags = json_decode($tags, true);
+                    $tags = $decodedTags !== null ? $decodedTags : (strpos($tags, ',') !== false ? explode(',', $tags) : [$tags]);
+                }
+                
+                $formattedItems[] = [
+                    'upload_id' => $uploadId,
+                    'item_type' => $firstItem->status ?? 'lost',
+                    'location' => $firstItem->location ?? 'Location not specified',
+                    'province' => $firstItem->province ?? null,
+                    'city' => $firstItem->city ?? null,
+                    'description' => $firstItem->description ?? '',
+                    'tags' => $tags ?? [],
+                    'contact_email' => $firstItem->uploader_email,
+                    'images' => $itemGroup->map(function ($item) {
                         // Handle file path - ensure it's a valid URL
                         $filePath = $item->file_path;
                         
@@ -355,15 +347,22 @@ class UserItemController extends Controller
                         }
 
                         return [
-                            'filename' => $item->filename,
+                            'filename' => $item->filename ?? basename($filePath),
                             'path' => $imagePath,
-                            'original_name' => $item->original_name,
-                            'size' => $item->file_size,
+                            'original_name' => $item->original_name ?? basename($filePath),
+                            'size' => $item->file_size ?? 0,
                         ];
                     })->toArray(),
-                    'created_at' => $firstItem->created_at->toISOString(),
+                    // Use ISO 8601 string for created_at to be safely consumed by JS
+                    'created_at' => $firstItem->created_at ? $firstItem->created_at->toIso8601String() : now()->toIso8601String(),
                 ];
             }
+
+            \Log::info('User items loaded', [
+                'user_email' => $user->email,
+                'items_count' => count($formattedItems),
+                'upload_ids' => array_column($formattedItems, 'upload_id')
+            ]);
 
             return response()->json([
                 'success' => true,

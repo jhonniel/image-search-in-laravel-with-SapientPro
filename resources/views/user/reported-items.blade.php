@@ -1475,34 +1475,59 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
 
 // Load user items
 async function loadItems() {
+    const itemsContainer = document.getElementById('user-items-list');
+    if (!itemsContainer) {
+        console.error('Items container not found');
+        return;
+    }
+
+    // Show loading state
+    itemsContainer.innerHTML = `
+        <div class="text-center text-gray-500 py-8">
+            <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
+            <p>Loading your items...</p>
+        </div>
+    `;
+
     try {
+        console.log('Fetching user items from /api/items');
         const response = await fetch('/api/items', {
             method: 'GET',
             credentials: 'same-origin',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
             }
         });
 
+        console.log('Response status:', response.status, response.statusText);
+
         if (response.ok) {
             const data = await response.json();
+            console.log('Response data:', data);
 
-            if (data.success) {
+            if (data.success && Array.isArray(data.data)) {
+                console.log('Items loaded:', data.data.length);
                 displayUserItems(data.data);
             } else {
-                showErrorState('Failed to load items: ' + data.message);
+                console.error('Invalid response format:', data);
+                showErrorState('Failed to load items: ' + (data.message || 'Invalid response format'));
             }
         } else {
+            const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+            console.error('API error:', response.status, errorData);
+            
             if (response.status === 401) {
                 alert('You need to be logged in to view your items. Please log in and try again.');
                 window.location.href = '/login';
             } else {
-                showErrorState('Failed to load items. Please try again.');
+                showErrorState('Failed to load items: ' + (errorData.message || 'Please try again.'));
             }
         }
     } catch (error) {
         console.error('Error loading items:', error);
-        showErrorState('Error loading items. Please try again.');
+        showErrorState('Error loading items: ' + error.message);
     }
 }
 
@@ -1550,12 +1575,35 @@ function displayUserItems(items) {
         itemsContainer.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             ${items.map(item => {
-                // Get first image for display
+                // Get first image for display - normalize the image path
                 const firstImage = item.images && item.images.length > 0 ? item.images[0] : null;
-                const imageUrl = firstImage ? (firstImage.path || firstImage.file_path || `/storage/${firstImage.filename || firstImage.path}`) : null;
+                let imageUrl = null;
+                if (firstImage) {
+                    if (firstImage.path) {
+                        imageUrl = firstImage.path.startsWith('/') ? firstImage.path : '/' + firstImage.path;
+                    } else if (firstImage.file_path) {
+                        imageUrl = firstImage.file_path.startsWith('/') ? firstImage.file_path : '/' + firstImage.file_path;
+                    } else if (firstImage.filename) {
+                        imageUrl = '/storage/' + firstImage.filename;
+                    }
+                }
+                
+                // Build all image URLs for modal
                 const allImageUrls = item.images && item.images.length > 0 ? 
-                    item.images.map(img => img.path || img.file_path || `/storage/${img.filename || img.path}`) : [];
+                    item.images.map(img => {
+                        if (img.path) {
+                            return img.path.startsWith('/') ? img.path : '/' + img.path;
+                        } else if (img.file_path) {
+                            return img.file_path.startsWith('/') ? img.file_path : '/' + img.file_path;
+                        } else if (img.filename) {
+                            return '/storage/' + img.filename;
+                        }
+                        return '';
+                    }).filter(url => url) : [];
                 const allImageUrlsJson = JSON.stringify(allImageUrls).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                
+                const escapedImageUrl = imageUrl ? imageUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
+                const escapedDescription = (item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                 
                 return `
                 <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
@@ -1563,14 +1611,11 @@ function displayUserItems(items) {
                     <!-- Item Image -->
                     <div class="relative w-full h-48 bg-gray-100 overflow-hidden">
                         <img src="${imageUrl}" 
-                             alt="${(item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}" 
+                             alt="${escapedDescription}" 
                              class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                             onclick="openImageModal('${imageUrl.replace(/'/g, "\\'")}', ${allImageUrlsJson})">
-                        ${item.images && item.images.length > 1 ? `
-                            <div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                                <i class="fas fa-images mr-1"></i>${item.images.length} images
-                            </div>
-                        ` : ''}
+                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3EImage not available%3C/text%3E%3C/svg%3E'; this.parentElement.classList.add('flex', 'items-center', 'justify-center');"
+                             onclick="openImageModal('${escapedImageUrl}', ${allImageUrlsJson})">
+                        ${item.images && item.images.length > 1 ? '<div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded"><i class="fas fa-images mr-1"></i>' + item.images.length + ' images</div>' : ''}
                         <div class="absolute top-2 left-2">
                             <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
                                 ${item.item_type === 'lost' ? 'Lost' : 'Found'}
@@ -1600,12 +1645,29 @@ function displayUserItems(items) {
                                 <i class="fas fa-map-marker-alt mr-1"></i>
                                 ${item.location ? (item.location.length > 40 ? item.location.substring(0, 40) + '...' : item.location) : 'No location'}
                             </p>
-                            ${item.tags && item.tags.length > 0 ? `
-                                <div class="flex flex-wrap gap-2 mb-3">
-                                    ${item.tags.slice(0, 3).map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
-                                    ${item.tags.length > 3 ? `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">+${item.tags.length - 3} more</span>` : ''}
-                                </div>
-                            ` : ''}
+                            ${(() => {
+                                let tagsArray = [];
+                                if (item.tags) {
+                                    if (Array.isArray(item.tags)) {
+                                        tagsArray = item.tags;
+                                    } else if (typeof item.tags === 'string') {
+                                        try {
+                                            tagsArray = JSON.parse(item.tags);
+                                        } catch (e) {
+                                            tagsArray = item.tags.split(',').map(t => t.trim()).filter(t => t);
+                                        }
+                                    }
+                                }
+                                if (tagsArray.length > 0) {
+                                    const tagsHtml = tagsArray.slice(0, 3).map(tag => {
+                                        const escapedTag = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                                        return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">' + escapedTag + '</span>';
+                                    }).join('');
+                                    const moreHtml = tagsArray.length > 3 ? '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">+' + (tagsArray.length - 3) + ' more</span>' : '';
+                                    return '<div class="flex flex-wrap gap-2 mb-3">' + tagsHtml + moreHtml + '</div>';
+                                }
+                                return '';
+                            })()}
                             <div class="text-xs text-gray-400">
                                 <i class="fas fa-clock mr-1"></i>
                                 ${new Date(item.created_at).toLocaleDateString()}
@@ -1640,7 +1702,8 @@ function displayUserItems(items) {
         setTimeout(() => {
             items.forEach(item => {
                 if (item.location) {
-                    initializeMap(`map-${item.upload_id}`, item.location);
+                    const mapId = 'map-' + item.upload_id;
+                    initializeMap(mapId, item.location);
                 }
             });
         }, 100);
@@ -1926,26 +1989,33 @@ function viewItemDetails(uploadId) {
     const item = window.userItems.find(item => item.upload_id === uploadId);
     if (!item) return;
 
+    // Build image URLs safely without nested template literals
+    let firstImageUrl = '';
+    const allImageUrls = [];
+    if (item.images && item.images.length > 0) {
+        item.images.forEach(img => {
+            let imgUrl = '';
+            if (img.path) {
+                imgUrl = img.path.startsWith('/') ? img.path : '/' + img.path;
+            } else if (img.file_path) {
+                imgUrl = img.file_path.startsWith('/') ? img.file_path : '/' + img.file_path;
+            } else if (img.filename) {
+                imgUrl = '/storage/' + img.filename;
+            }
+            if (imgUrl) {
+                allImageUrls.push(imgUrl);
+                if (!firstImageUrl) firstImageUrl = imgUrl;
+            }
+        });
+    }
+    
+    const escapedFirstImageUrl = firstImageUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const allImageUrlsJson = JSON.stringify(allImageUrls).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    const escapedDescription = (item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
     const content = `
         <div class="space-y-4">
-            ${item.images && item.images.length > 0 ? `
-                <div>
-                    <h4 class="font-semibold text-gray-900 mb-2">Image</h4>
-                    <div class="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-                        <img 
-                            src="${item.images[0].path || item.images[0].file_path || `/storage/${item.images[0].filename || item.images[0].path}`}" 
-                            alt="${(item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;')}"
-                            class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                            onclick="openImageModal('${(item.images[0].path || item.images[0].file_path || `/storage/${item.images[0].filename || item.images[0].path}`).replace(/'/g, \"\\\\'\")}', ${JSON.stringify((item.images || []).map(img => img.path || img.file_path || `/storage/${img.filename || img.path}`)).replace(/\"/g, '&quot;').replace(/'/g, '&#39;')})"
-                        >
-                        ${item.images.length > 1 ? `
-                            <div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded">
-                                <i class="fas fa-images mr-1"></i>${item.images.length} images
-                            </div>
-                        ` : ''}
-                    </div>
-                </div>
-            ` : ''}
+            ${firstImageUrl ? '<div><h4 class="font-semibold text-gray-900 mb-2">Image</h4><div class="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden"><img src="' + firstImageUrl + '" alt="' + escapedDescription + '" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openImageModal(\'' + escapedFirstImageUrl + '\', ' + allImageUrlsJson + ')">' + (item.images.length > 1 ? '<div class="absolute bottom-2 right-2 bg-black bg-opacity-60 text-white text-xs px-2 py-1 rounded"><i class="fas fa-images mr-1"></i>' + item.images.length + ' images</div>' : '') + '</div></div>' : ''}
             <div>
                 <h4 class="font-semibold text-gray-900">Item Type</h4>
                 <p class="text-gray-600">${item.item_type === 'lost' ? 'Lost Item' : 'Found Item'}</p>
@@ -1957,22 +2027,34 @@ function viewItemDetails(uploadId) {
             <div>
                 <h4 class="font-semibold text-gray-900 mb-2">Location</h4>
                 <p class="text-gray-600 mb-2">${item.location || 'No location specified'}</p>
-                ${item.location ? `
-                    <div id="map-detail-${item.upload_id}" class="w-full h-64 rounded-lg border border-gray-200 mt-2" style="z-index: 1;"></div>
-                ` : ''}
+                ${item.location ? '<div id="map-detail-' + item.upload_id + '" class="w-full h-64 rounded-lg border border-gray-200 mt-2" style="z-index: 1;"></div>' : ''}
             </div>
             <div>
                 <h4 class="font-semibold text-gray-900">Date Posted</h4>
                 <p class="text-gray-600">${new Date(item.created_at).toLocaleDateString()}</p>
             </div>
-            ${item.tags && item.tags.length > 0 ? `
-                <div>
-                    <h4 class="font-semibold text-gray-900">Tags</h4>
-                    <div class="flex flex-wrap gap-2">
-                        ${item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
-                    </div>
-                </div>
-            ` : ''}
+            ${(() => {
+                let tagsArray = [];
+                if (item.tags) {
+                    if (Array.isArray(item.tags)) {
+                        tagsArray = item.tags;
+                    } else if (typeof item.tags === 'string') {
+                        try {
+                            tagsArray = JSON.parse(item.tags);
+                        } catch (e) {
+                            tagsArray = item.tags.split(',').map(t => t.trim()).filter(t => t);
+                        }
+                    }
+                }
+                if (tagsArray.length > 0) {
+                    const tagsHtml = tagsArray.map(tag => {
+                        const escapedTag = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                        return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">' + escapedTag + '</span>';
+                    }).join('');
+                    return '<div><h4 class="font-semibold text-gray-900">Tags</h4><div class="flex flex-wrap gap-2">' + tagsHtml + '</div></div>';
+                }
+                return '';
+            })()}
         </div>
     `;
 
@@ -1996,7 +2078,8 @@ function viewItemDetails(uploadId) {
     // Initialize map in modal after it's added to DOM
     setTimeout(() => {
         if (item.location) {
-            initializeMap(`map-detail-${item.upload_id}`, item.location);
+            const mapId = 'map-detail-' + item.upload_id;
+            initializeMap(mapId, item.location);
         }
     }, 100);
 }
