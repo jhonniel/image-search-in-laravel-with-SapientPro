@@ -2508,11 +2508,23 @@ document.getElementById('edit-item-form').addEventListener('submit', async funct
     formData.append('location', location);
     formData.append('description', description);
 
-    // Get tags (optional)
-    if (tags) {
-        // Append tags as JSON array
-    const tagsArray = JSON.parse(document.getElementById('tags').value || '[]');
-    formData.append('tags', JSON.stringify(tagsArray));
+    // Get tags from hidden input (always append, even if empty)
+    const editTagsInput = document.getElementById('edit-tags');
+    if (editTagsInput && editTagsInput.value) {
+        try {
+            const tagsArray = JSON.parse(editTagsInput.value);
+            formData.append('tags', JSON.stringify(tagsArray));
+        } catch (e) {
+            console.error('Error parsing tags:', e);
+            // If parsing fails, try to send as comma-separated string
+            const tagsString = editTagsInput.value.trim();
+            if (tagsString) {
+                formData.append('tags', tagsString);
+            }
+        }
+    } else {
+        // No tags selected, send empty array
+        formData.append('tags', JSON.stringify([]));
     }
 
     // Get removed images

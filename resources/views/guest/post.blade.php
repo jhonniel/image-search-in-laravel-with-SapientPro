@@ -10,6 +10,86 @@
           integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
           crossorigin=""/>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @keyframes shimmer {
+            0% {
+                background-position: -200% 0;
+            }
+            100% {
+                background-position: 200% 0;
+            }
+        }
+        
+        @keyframes fillAnimation {
+            0% {
+                transform: scaleX(0);
+                transform-origin: left;
+            }
+            100% {
+                transform: scaleX(1);
+                transform-origin: left;
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.95;
+                transform: scale(1.02);
+            }
+        }
+        
+        #progress-bar {
+            background: linear-gradient(90deg, 
+                #ec4899 0%, 
+                #f472b6 25%, 
+                #ec4899 50%, 
+                #f472b6 75%, 
+                #ec4899 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s linear infinite;
+            position: relative;
+            overflow: visible;
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 2px 8px rgba(236, 72, 153, 0.3);
+        }
+        
+        #progress-bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: 100%;
+            background: linear-gradient(90deg, 
+                rgba(255, 255, 255, 0) 0%, 
+                rgba(255, 255, 255, 0.5) 50%, 
+                rgba(255, 255, 255, 0) 100%);
+            animation: shimmer 1.5s linear infinite;
+            pointer-events: none;
+        }
+        
+        #progress-bar::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            bottom: -2px;
+            width: 4px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+        }
+        
+        #progress-percentage {
+            animation: pulse 2s ease-in-out infinite;
+            transition: all 0.3s ease-out;
+            text-shadow: 0 2px 4px rgba(236, 72, 153, 0.2);
+        }
+    </style>
     @php
         $illustration = asset('images/register.png');
     @endphp
@@ -317,36 +397,39 @@
                             Processing...
                         </span>
                     </button>
+                    
+                    <!-- Processing Indicator (Inline Below Button) -->
+                    <div id="processing-indicator" class="mt-4 hidden">
+                        <div class="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-lg p-4 sm:p-6">
+                            <div class="text-center">
+                                <!-- Progress Percentage -->
+                                <h3 class="text-lg sm:text-xl font-semibold text-gray-900 mb-3" id="processing-title">Processing Your Item</h3>
+                                
+                                <!-- Progress Bar -->
+                                <div class="mb-4">
+                                    <div class="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
+                                        <div id="progress-bar" class="h-full rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                                    </div>
+                                    <div class="mt-2 flex items-center justify-center space-x-2">
+                                        <span id="progress-percentage" class="text-xl sm:text-2xl font-bold text-pink-600">0%</span>
+                                    </div>
+                                </div>
+                                
+                                <!-- Current Status Message (Only shows active status) -->
+                                <div id="current-status-container" class="mb-3">
+                                    <div id="current-status" class="flex items-center justify-center space-x-2 p-3 bg-pink-50 rounded-lg border border-pink-200">
+                                        <i id="current-status-icon" class="fas fa-circle-notch text-pink-600 text-sm fa-spin"></i>
+                                        <span id="current-status-text" class="text-pink-800 text-sm sm:text-base font-medium">Uploading images...</span>
+                                    </div>
+                                </div>
+                                
+                                <p class="text-xs sm:text-sm text-gray-500" id="processing-message">
+                                    Please wait while we process your item...
+                                </p>
+                            </div>
+                        </div>
+                    </div>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Processing Overlay -->
-    <div id="processing-overlay" class="fixed inset-0 bg-white bg-opacity-30 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl sm:rounded-2xl shadow-2xl p-4 sm:p-6 md:p-8 max-w-md w-full mx-2 sm:mx-4">
-            <div class="text-center">
-                <!-- Spinner -->
-                <div class="mb-4 sm:mb-6">
-                    <div class="inline-block animate-spin rounded-full h-12 w-12 sm:h-14 sm:w-14 md:h-16 md:w-16 border-b-4 border-pink-600"></div>
-                </div>
-                
-                <!-- Progress Percentage -->
-                <h3 class="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 mb-3 sm:mb-4" id="processing-title">Processing Your Item</h3>
-                
-                <!-- Progress Bar -->
-                <div class="mb-4 sm:mb-6">
-                    <div class="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
-                        <div id="progress-bar" class="bg-gradient-to-r from-pink-500 to-pink-600 h-full rounded-full transition-all duration-300 ease-out" style="width: 0%"></div>
-                    </div>
-                    <div class="mt-2 sm:mt-3 flex items-center justify-center">
-                        <span id="progress-percentage" class="text-2xl sm:text-3xl md:text-4xl font-bold text-pink-600">0%</span>
-                    </div>
-                </div>
-                
-                <p class="text-xs sm:text-sm text-gray-500" id="processing-message">
-                    Uploading and processing your item...
-                </p>
             </div>
         </div>
     </div>
@@ -896,17 +979,68 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtn = document.getElementById('submit-btn');
     const submitBtnText = document.getElementById('submit-btn-text');
     const submitBtnSpinner = document.getElementById('submit-btn-spinner');
-    const processingOverlay = document.getElementById('processing-overlay');
+    const processingIndicator = document.getElementById('processing-indicator');
     const progressBar = document.getElementById('progress-bar');
     const progressPercentage = document.getElementById('progress-percentage');
-    
-    function updateProgress(percent) {
-        const clampedPercent = Math.min(100, Math.max(0, percent));
-        progressBar.style.width = clampedPercent + '%';
-        progressPercentage.textContent = Math.round(clampedPercent) + '%';
-    }
+    const currentStatusContainer = document.getElementById('current-status-container');
+    const currentStatusIcon = document.getElementById('current-status-icon');
+    const currentStatusText = document.getElementById('current-status-text');
     const processingTitle = document.getElementById('processing-title');
     const processingMessage = document.getElementById('processing-message');
+    
+    function updateProgress(percent) {
+        if (!progressBar || !progressPercentage || !currentStatusIcon || !currentStatusText || !processingMessage) {
+            console.error('Progress elements not found');
+            return;
+        }
+        
+        const clampedPercent = Math.min(100, Math.max(0, percent));
+        const roundedPercent = Math.round(clampedPercent);
+        
+        // Smoothly animate the progress bar width
+        progressBar.style.width = clampedPercent + '%';
+        progressBar.style.transition = 'width 0.3s ease-out';
+        
+        // Update percentage with smooth animation
+        progressPercentage.textContent = roundedPercent + '%';
+        
+        // Add visual feedback - make the bar glow more as it fills
+        if (clampedPercent > 0) {
+            progressBar.style.boxShadow = `0 0 ${Math.min(20, clampedPercent / 5)}px rgba(236, 72, 153, 0.5)`;
+        }
+        
+        // Update status message based on progress - show only current status
+        if (clampedPercent < 30) {
+            // Uploading phase (0-30%)
+            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
+            currentStatusText.textContent = 'Uploading images...';
+            processingMessage.textContent = 'Please wait while we upload your images...';
+        } else if (clampedPercent < 60) {
+            // Uploading complete, processing (30-60%)
+            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
+            currentStatusText.textContent = 'Processing item details...';
+            processingMessage.textContent = 'Analyzing and processing your item information...';
+        } else if (clampedPercent < 90) {
+            // Processing complete, matching (60-90%)
+            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
+            currentStatusText.textContent = 'Matching similar items...';
+            processingMessage.textContent = 'Searching for similar items in our database...';
+        } else {
+            // Almost complete (90-100%)
+            currentStatusIcon.className = 'fas fa-check-circle text-green-600 text-sm';
+            currentStatusText.textContent = 'Finalizing...';
+            processingMessage.textContent = 'Almost done! Preparing to redirect...';
+        }
+    }
+    
+    function resetStatusIndicators() {
+        // Reset to initial upload status
+        if (currentStatusIcon && currentStatusText && processingMessage) {
+            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
+            currentStatusText.textContent = 'Uploading images...';
+            processingMessage.textContent = 'Please wait while we process your item...';
+        }
+    }
     
     if (form) {
         form.addEventListener('submit', function(e) {
@@ -927,11 +1061,17 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtnText.classList.add('hidden');
             submitBtnSpinner.classList.remove('hidden');
             
-            // Show processing overlay
-            processingOverlay.classList.remove('hidden');
+            // Show processing indicator below button
+            processingIndicator.classList.remove('hidden');
+            resetStatusIndicators();
             updateProgress(0);
             processingTitle.textContent = 'Processing Your Item';
-            processingMessage.textContent = 'Uploading and processing your item...';
+            processingMessage.textContent = 'Please wait while we process your item...';
+            
+            // Scroll to processing indicator
+            setTimeout(() => {
+                processingIndicator.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }, 100);
             
             // Create FormData from form
             const formData = new FormData(form);
@@ -944,6 +1084,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (e.lengthComputable) {
                     // Upload progress: 0-90% (leaving 10% for server processing)
                     const uploadPercent = (e.loaded / e.total) * 90;
+                    console.log('Upload progress:', Math.round(uploadPercent) + '%', '(', e.loaded, '/', e.total, ')');
                     updateProgress(uploadPercent);
                 }
             });
@@ -967,33 +1108,33 @@ document.addEventListener('DOMContentLoaded', function() {
                             // Redirect after a brief moment
                             setTimeout(() => {
                                 // Check for redirect in response URL
-                                if (xhr.responseURL && xhr.responseURL !== window.location.href) {
+                                if (xhr.responseURL && xhr.responseURL !== window.location.href && xhr.responseURL.includes('/reported-items')) {
                                     window.location.href = xhr.responseURL;
                                 } else {
                                     // Check response headers for redirect location
                                     const location = xhr.getResponseHeader('Location');
-                                    if (location) {
+                                    if (location && location.includes('/reported-items')) {
                                         window.location.href = location;
                                     } else {
                                         // Try to parse JSON response for redirect URL
                                         try {
                                             const response = JSON.parse(xhr.responseText);
-                                            if (response.redirect) {
+                                            if (response.redirect && response.redirect.includes('/reported-items')) {
                                                 window.location.href = response.redirect;
-                                            } else if (response.url) {
+                                            } else if (response.url && response.url.includes('/reported-items')) {
                                                 window.location.href = response.url;
                                             } else {
-                                                // Default redirect - Laravel will handle it
-                                                window.location.reload();
+                                                // Default redirect to reported-items page
+                                                window.location.href = '/reported-items';
                                             }
                                         } catch (e) {
                                             // Not JSON, check if response contains HTML redirect
                                             const match = xhr.responseText.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
-                                            if (match) {
+                                            if (match && match[1].includes('/reported-items')) {
                                                 window.location.href = match[1];
                                             } else {
-                                                // Default: reload page (Laravel redirect will happen)
-                                                window.location.reload();
+                                                // Default: redirect to reported-items page
+                                                window.location.href = '/reported-items';
                                             }
                                         }
                                     }
@@ -1006,7 +1147,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     // Error occurred
                     updateProgress(0);
-                    processingOverlay.classList.add('hidden');
+                    processingIndicator.classList.add('hidden');
                     submitBtn.disabled = false;
                     submitBtnText.classList.remove('hidden');
                     submitBtnSpinner.classList.add('hidden');
@@ -1030,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Handle errors
             xhr.addEventListener('error', function() {
                 updateProgress(0);
-                processingOverlay.classList.add('hidden');
+                processingIndicator.classList.add('hidden');
                 submitBtn.disabled = false;
                 submitBtnText.classList.remove('hidden');
                 submitBtnSpinner.classList.add('hidden');
@@ -1581,162 +1722,6 @@ if (locationInput) {
     });
 }
 
-// Form submission with processing indicator
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('post-item-form');
-    const submitBtn = document.getElementById('submit-btn');
-    const submitBtnText = document.getElementById('submit-btn-text');
-    const submitBtnSpinner = document.getElementById('submit-btn-spinner');
-    const processingOverlay = document.getElementById('processing-overlay');
-    const progressBar = document.getElementById('progress-bar');
-    const progressPercentage = document.getElementById('progress-percentage');
-    
-    function updateProgress(percent) {
-        const clampedPercent = Math.min(100, Math.max(0, percent));
-        progressBar.style.width = clampedPercent + '%';
-        progressPercentage.textContent = Math.round(clampedPercent) + '%';
-    }
-    const processingTitle = document.getElementById('processing-title');
-    const processingMessage = document.getElementById('processing-message');
-    
-    if (form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault(); // Prevent default form submission
-            
-            // Validate form first
-            if (!form.checkValidity()) {
-                return; // Let browser show validation errors
-            }
-            
-            // Prevent double submission
-            if (submitBtn.disabled) {
-                return;
-            }
-            
-            // Disable submit button
-            submitBtn.disabled = true;
-            submitBtnText.classList.add('hidden');
-            submitBtnSpinner.classList.remove('hidden');
-            
-            // Show processing overlay
-            processingOverlay.classList.remove('hidden');
-            updateProgress(0);
-            processingTitle.textContent = 'Processing Your Item';
-            processingMessage.textContent = 'Uploading and processing your item...';
-            
-            // Create FormData from form
-            const formData = new FormData(form);
-            
-            // Create XMLHttpRequest for progress tracking
-            const xhr = new XMLHttpRequest();
-            
-            // Track upload progress
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    // Upload progress: 0-90% (leaving 10% for server processing)
-                    const uploadPercent = (e.loaded / e.total) * 90;
-                    updateProgress(uploadPercent);
-                }
-            });
-            
-            // Handle completion
-            xhr.addEventListener('load', function() {
-                if (xhr.status === 200 || xhr.status === 302 || xhr.status === 201) {
-                    // Upload complete, simulate server processing (90-100%)
-                    updateProgress(90);
-                    
-                    // Simulate final processing
-                    let currentProgress = 90;
-                    const processingInterval = setInterval(() => {
-                        currentProgress += 2;
-                        if (currentProgress >= 100) {
-                            clearInterval(processingInterval);
-                            updateProgress(100);
-                            processingTitle.textContent = 'Complete!';
-                            processingMessage.textContent = 'Redirecting...';
-                            
-                            // Redirect after a brief moment
-                            setTimeout(() => {
-                                // Check for redirect in response URL
-                                if (xhr.responseURL && xhr.responseURL !== window.location.href) {
-                                    window.location.href = xhr.responseURL;
-                                } else {
-                                    // Check response headers for redirect location
-                                    const location = xhr.getResponseHeader('Location');
-                                    if (location) {
-                                        window.location.href = location;
-                                    } else {
-                                        // Try to parse JSON response for redirect URL
-                                        try {
-                                            const response = JSON.parse(xhr.responseText);
-                                            if (response.redirect) {
-                                                window.location.href = response.redirect;
-                                            } else if (response.url) {
-                                                window.location.href = response.url;
-                                            } else {
-                                                // Default redirect - Laravel will handle it
-                                                window.location.reload();
-                                            }
-                                        } catch (e) {
-                                            // Not JSON, check if response contains HTML redirect
-                                            const match = xhr.responseText.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
-                                            if (match) {
-                                                window.location.href = match[1];
-                                            } else {
-                                                // Default: reload page (Laravel redirect will happen)
-                                                window.location.reload();
-                                            }
-                                        }
-                                    }
-                                }
-                            }, 500);
-                        } else {
-                            updateProgress(currentProgress);
-                        }
-                    }, 100);
-                } else {
-                    // Error occurred
-                    updateProgress(0);
-                    processingOverlay.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    submitBtnText.classList.remove('hidden');
-                    submitBtnSpinner.classList.add('hidden');
-                    
-                    // Try to show error message from response
-                    let errorMessage = 'An error occurred. Please try again.';
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.message) {
-                            errorMessage = response.message;
-                        } else if (response.error) {
-                            errorMessage = response.error;
-                        }
-                    } catch (e) {
-                        // Not JSON, use default message
-                    }
-                    alert(errorMessage);
-                }
-            });
-            
-            // Handle errors
-            xhr.addEventListener('error', function() {
-                updateProgress(0);
-                processingOverlay.classList.add('hidden');
-                submitBtn.disabled = false;
-                submitBtnText.classList.remove('hidden');
-                submitBtnSpinner.classList.add('hidden');
-                alert('Network error. Please check your connection and try again.');
-            });
-            
-            // Submit the form via AJAX
-            xhr.open('POST', form.action || window.location.href);
-            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-            xhr.send(formData);
-        });
-    }
-});
 </script>
 </body>
 </html>
-
-
