@@ -597,6 +597,16 @@ class SimilarityNotificationService
                 $existingItemPath = $this->getItemFilePath($existingItem);
 
                 if (!$newItemPath || !$existingItemPath) {
+                    Log::warning('File path not found for similarity comparison', [
+                        'new_item_id' => $newItem->id,
+                        'new_item_file_path' => $newItem->file_path,
+                        'new_item_filename' => $newItem->filename,
+                        'new_item_path_resolved' => $newItemPath,
+                        'existing_item_id' => $existingItem->id,
+                        'existing_item_file_path' => $existingItem->file_path,
+                        'existing_item_filename' => $existingItem->filename,
+                        'existing_item_path_resolved' => $existingItemPath,
+                    ]);
                     continue;
                 }
 
@@ -609,7 +619,10 @@ class SimilarityNotificationService
                     ], $existingItem);
                     $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
 
-                    $visualThreshold = $this->config['thresholds']['visual'] ?? 0.7;
+                    // Get threshold from config - check both old and new config structure
+                    $visualThreshold = $this->config['thresholds']['visual'] ?? 
+                                       $this->config['threshold'] ?? 
+                                       0.7;
 
                     if ($overallSimilarity >= $visualThreshold) {
                         $similarItems[] = [
@@ -637,6 +650,13 @@ class SimilarityNotificationService
 
             // Send notification to the user
             if (count($similarItems) > 0) {
+                Log::info('Similar items found, sending notifications', [
+                    'user_email' => $userEmail,
+                    'similar_items_count' => count($similarItems),
+                    'new_item_id' => $newItem->id,
+                    'new_item_status' => $newItem->status
+                ]);
+                
                 $this->sendUserSimilarityNotification($userEmail, $newItem, $similarItems);
                 // Create in-app notification for similar items found
                 $this->createSimilarItemsNotification($userEmail, $newItem, $similarItems);
@@ -653,16 +673,71 @@ class SimilarityNotificationService
                             $isMatch = ($newItem->status === 'lost' && $matchedItem->status === 'found') ||
                                       ($newItem->status === 'found' && $matchedItem->status === 'lost');
                             
-                            if ($isMatch) {
-                                // Notify the matched item owner
-                                $this->notifyMatchedItemOwner($matchedItemOwnerEmail, $matchedItem, $newItem, $similarItem);
-                                $this->createMatchedItemNotification($matchedItemOwnerEmail, $matchedItem, $newItem, $similarItem);
+                            Log::info('Checking match status', [
+                                'new_item_status' => $newItem->status,
+                                'matched_item_status' => $matchedItem->status,
+                                'is_match' => $isMatch,
+                                'matched_item_owner_email' => $matchedItemOwnerEmail,
+                                'similarity_score' => $similarItem['similarity'] ?? 0
+                            ]);
+                            
+                            // Notify the matched item owner if it's a match (lost ↔ found)
+                            // OR if similarity is high enough (>= 0.75) regardless of type
+                            $highSimilarity = ($similarItem['similarity'] ?? 0) >= 0.75;
+                            
+                            if ($isMatch || $highSimilarity) {
+                                if ($isMatch) {
+                                    // Perfect match (lost ↔ found) - send match notification
+                                    $this->notifyMatchedItemOwner($matchedItemOwnerEmail, $matchedItem, $newItem, $similarItem);
+                                    $this->createMatchedItemNotification($matchedItemOwnerEmail, $matchedItem, $newItem, $similarItem);
+                                } else {
+                                    // High similarity but same type - send similarity notification
+                                    Log::info('High similarity found (same type), sending similarity notification', [
+                                        'similarity' => $similarItem['similarity'] ?? 0
+                                    ]);
+                                    $this->sendUserSimilarityNotification($matchedItemOwnerEmail, $matchedItem, [
+                                        [
+                                            'description' => $newItem->description,
+                                            'status' => $newItem->status,
+                                            'uploader_email' => $newItem->uploader_email,
+                                            'tags' => $newItem->tags,
+                                            'similarity' => $similarItem['similarity'] ?? 0,
+                                            'item_id' => $newItem->id,
+                                            'upload_id' => $newItem->upload_id
+                                        ]
+                                    ]);
+                                    $this->createSimilarItemsNotification($matchedItemOwnerEmail, $matchedItem, [
+                                        [
+                                            'description' => $newItem->description,
+                                            'status' => $newItem->status,
+                                            'uploader_email' => $newItem->uploader_email,
+                                            'tags' => $newItem->tags,
+                                            'similarity' => $similarItem['similarity'] ?? 0,
+                                            'item_id' => $newItem->id,
+                                            'upload_id' => $newItem->upload_id
+                                        ]
+                                    ]);
+                                }
                                 $notificationsSent[] = $matchedItemOwnerEmail;
+                            } else {
+                                Log::info('Items are similar but not matching criteria', [
+                                    'new_item_status' => $newItem->status,
+                                    'matched_item_status' => $matchedItem->status,
+                                    'similarity' => $similarItem['similarity'] ?? 0
+                                ]);
                             }
+                        } else {
+                            Log::warning('Matched item not found in database', [
+                                'upload_id' => $similarItem['upload_id'] ?? null
+                            ]);
                         }
                     }
                 }
             } else {
+                Log::info('No similar items found, sending upload confirmation', [
+                    'user_email' => $userEmail,
+                    'new_item_id' => $newItem->id
+                ]);
                 $this->sendUserUploadConfirmation($userEmail, $newItem);
                 $notificationsSent[] = $userEmail;
             }
@@ -691,15 +766,47 @@ class SimilarityNotificationService
      */
     private function getItemFilePath(ImageMetadata $item): ?string
     {
+        $path = null;
+        
         // Check if it's a user item or reference image
-        if (str_contains($item->file_path, 'user-items')) {
+        if (str_contains($item->file_path ?? '', 'user-items')) {
+            // Extract filename from file_path (e.g., /storage/user-items/filename.jpg -> filename.jpg)
             $filename = basename($item->file_path);
             $path = storage_path('app/public/user-items/' . $filename);
-        } else {
+        } elseif ($item->filename) {
+            // Try reference-images path
             $path = storage_path('app/public/reference-images/' . $item->filename);
         }
+        
+        // If path still not found, try alternative methods
+        if (!$path || !file_exists($path)) {
+            // Try using filename directly from file_path
+            if ($item->file_path) {
+                $filename = basename($item->file_path);
+                // Try user-items first
+                $altPath = storage_path('app/public/user-items/' . $filename);
+                if (file_exists($altPath)) {
+                    return $altPath;
+                }
+                // Try reference-images
+                $altPath = storage_path('app/public/reference-images/' . $filename);
+                if (file_exists($altPath)) {
+                    return $altPath;
+                }
+            }
+            
+            // Log the failure for debugging
+            Log::warning('File not found for item', [
+                'item_id' => $item->id,
+                'file_path' => $item->file_path,
+                'filename' => $item->filename,
+                'attempted_path' => $path,
+            ]);
+            
+            return null;
+        }
 
-        return file_exists($path) ? $path : null;
+        return $path;
     }
 
     /**
