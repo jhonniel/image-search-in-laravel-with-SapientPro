@@ -284,7 +284,7 @@
                         <div class="flex items-start justify-between mb-4 gap-3">
                             <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
                             <!-- Status Badge -->
-                            <span class="px-3 py-1 {{ $report['type'] === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }} rounded-full text-xs font-medium shrink-0">
+                            <span class="px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
                                 {{ ucfirst($report['type']) }}
                             </span>
                         </div>
@@ -781,14 +781,14 @@
                                     `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200"><i class="fas fa-image text-gray-400 text-5xl"></i></div>`
                                 }
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                                <span class="absolute top-2 left-2 px-3 py-1 ${report.type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'} rounded-full text-xs font-medium z-10">
+                                <span class="absolute top-3 left-3 px-4 py-2 ${report.type === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800'} rounded-full text-sm font-bold uppercase tracking-wide shadow-md z-10">
                                     ${report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                                 </span>
                             </div>
                             <div class="p-6">
                                 <div class="flex items-start justify-between mb-4 gap-3">
                                     <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">${escapeHtml(report.title)}</h3>
-                                    <span class="px-3 py-1 ${report.type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'} rounded-full text-xs font-medium shrink-0">
+                                    <span class="px-4 py-2 ${report.type === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800'} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
                                         ${report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                                     </span>
                                 </div>
