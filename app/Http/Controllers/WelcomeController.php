@@ -192,9 +192,11 @@ class WelcomeController extends Controller
             }
             
             // Try JSON contains for databases that support it (MySQL 5.7+, PostgreSQL)
+            // PostgreSQL uses JSONB operators, Laravel handles this automatically
             $driver = DB::connection()->getDriverName();
             if (in_array($driver, ['mysql', 'pgsql'])) {
                 try {
+                    // For PostgreSQL, whereJsonContains works with JSON/JSONB columns
                     $q->orWhereJsonContains('tags', $query);
                     foreach ($keywords as $keyword) {
                         if (strlen(trim($keyword)) > 0) {
@@ -203,6 +205,11 @@ class WelcomeController extends Controller
                     }
                 } catch (\Exception $e) {
                     // If JSON contains fails, the LIKE search above will still work
+                    // Log for debugging but don't break the query
+                    \Log::debug('JSON contains query failed, using LIKE fallback', [
+                        'driver' => $driver,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
         });

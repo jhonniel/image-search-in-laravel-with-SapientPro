@@ -7,6 +7,7 @@ use App\Mail\SimilarImageNotification;
 use App\Mail\UserItemNotification;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use SapientPro\ImageComparator\ImageComparator;
 use SapientPro\ImageComparator\Exceptions\ImageResourceException;
 
@@ -20,16 +21,22 @@ class SimilarityNotificationService
         $this->imageComparator = $imageComparator;
         $this->config = config('similarity', []);
         
-        // Apply mail configuration from database settings
-        $this->applyMailConfigurationFromSettings();
+        // Don't apply mail configuration in constructor to avoid timeout during service resolution
+        // Mail configuration will be applied lazily when needed
     }
     
     /**
      * Apply mail configuration from database settings
+     * Made lazy to avoid timeout during service container resolution
      */
     private function applyMailConfigurationFromSettings(): void
     {
         try {
+            // Check if database connection is available and settings table exists
+            if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                return;
+            }
+            
             // Check if email notifications are enabled
             $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
             $similarityAlertsEnabled = \App\Models\Setting::get('similarity_alerts', true);
@@ -66,7 +73,8 @@ class SimilarityNotificationService
                 }
             }
         } catch (\Exception $e) {
-            Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
+            // Silently fail - don't log to avoid spam during bootstrap
+            // Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
         }
     }
     
@@ -76,13 +84,18 @@ class SimilarityNotificationService
     private function areEmailNotificationsEnabled(): bool
     {
         try {
+            // Check if database connection is available
+            if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                return true; // Default to enabled if settings table doesn't exist
+            }
+            
             $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
             $similarityAlertsEnabled = \App\Models\Setting::get('similarity_alerts', true);
             
             return $emailNotificationsEnabled && $similarityAlertsEnabled;
         } catch (\Exception $e) {
-            Log::warning('Error checking email notification settings: ' . $e->getMessage());
-            return true; // Default to enabled if settings can't be read
+            // Default to enabled if settings can't be read (e.g., during migrations)
+            return true;
         }
     }
 

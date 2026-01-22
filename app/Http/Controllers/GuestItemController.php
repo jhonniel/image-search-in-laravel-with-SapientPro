@@ -42,6 +42,16 @@ class GuestItemController extends Controller
 
     public function submit(Request $request)
     {
+        // Set execution time limit to prevent hanging
+        set_time_limit(300); // 5 minutes max
+        
+        Log::info('Guest post submit started', [
+            'has_files' => $request->hasFile('images'),
+            'files_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
+            'is_authenticated' => Auth::check(),
+            'user_id' => Auth::id()
+        ]);
+        
         // Get enabled cities for validation
         $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
@@ -117,10 +127,27 @@ class GuestItemController extends Controller
 
         // User is not logged in - store in session and redirect to register
         $storedFiles = [];
-        foreach ($request->file('images') as $index => $image) {
-            $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
-            $path = $image->storeAs('temp-guest', $filename, 'public');
-            $storedFiles[] = $path; // relative to public disk
+        try {
+            foreach ($request->file('images') as $index => $image) {
+                if (!$image->isValid()) {
+                    Log::error('Invalid file uploaded', [
+                        'index' => $index,
+                        'error' => $image->getError(),
+                        'file_name' => $image->getClientOriginalName()
+                    ]);
+                    return back()->withErrors(['images' => 'One or more files failed to upload. Please try again.'])->withInput();
+                }
+                
+                $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
+                $path = $image->storeAs('temp-guest', $filename, 'public');
+                $storedFiles[] = $path; // relative to public disk
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to store guest files', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return back()->withErrors(['images' => 'Failed to upload files. Please try again.'])->withInput();
         }
 
         $pending = [
@@ -208,10 +235,36 @@ class GuestItemController extends Controller
                 ]);
 
                 // Check for similar images and notify involved users
+                // Run with timeout to prevent blocking the response
+                // Note: This runs synchronously but with a timeout to prevent hanging
                 try {
+                    $startTime = microtime(true);
+                    $maxTime = 10; // Maximum 10 seconds for similarity check
+                    
+                    // Set a shorter time limit for this operation
+                    $originalTimeLimit = ini_get('max_execution_time');
+                    set_time_limit($maxTime);
+                    
                     $similarityService->checkAndNotifySimilarities($metadata, $user->email);
+                    
+                    $elapsed = microtime(true) - $startTime;
+                    Log::info('Similarity check completed', [
+                        'upload_id' => $uploadId,
+                        'metadata_id' => $metadata->id,
+                        'elapsed_seconds' => round($elapsed, 2)
+                    ]);
+                    
+                    // Restore original time limit
+                    if ($originalTimeLimit) {
+                        set_time_limit($originalTimeLimit);
+                    }
                 } catch (\Throwable $e) {
-                    Log::error('Similarity check failed: ' . $e->getMessage());
+                    Log::error('Similarity check failed: ' . $e->getMessage(), [
+                        'upload_id' => $uploadId,
+                        'metadata_id' => $metadata->id,
+                        'error_type' => get_class($e)
+                    ]);
+                    // Don't fail the upload if similarity check fails
                 }
             }
 

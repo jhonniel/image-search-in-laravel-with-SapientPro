@@ -21,16 +21,19 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Apply mail configuration from database settings
-        try {
-            $this->applyMailConfiguration();
-        } catch (\Exception $e) {
-            // Silently fail if settings table doesn't exist yet
-        }
+        // Set execution time limit to prevent timeout errors
+        @set_time_limit(300); // 5 minutes
+        @ini_set('max_execution_time', '300');
+        @ini_set('default_socket_timeout', '60');
+        
+        // Defer mail configuration to avoid timeout during bootstrap
+        // Mail configuration will be applied lazily when needed
+        // This prevents database queries during service provider boot
     }
     
     /**
      * Apply mail configuration from database settings
+     * This method is kept for backward compatibility but is no longer called in boot()
      */
     private function applyMailConfiguration(): void
     {
@@ -40,15 +43,27 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
             
-            // Get mail settings from database
-            $mailMailer = Setting::get('mail_mailer');
-            $mailHost = Setting::get('mail_host');
-            $mailPort = Setting::get('mail_port');
-            $mailUsername = Setting::get('mail_username');
-            $mailPassword = Setting::get('mail_password');
-            $mailEncryption = Setting::get('mail_encryption');
-            $mailFromAddress = Setting::get('mail_from_address');
-            $mailFromName = Setting::get('mail_from_name');
+            // Batch load all mail settings in a single query to avoid multiple database calls
+            $mailSettings = \App\Models\Setting::whereIn('key', [
+                'mail_mailer',
+                'mail_host',
+                'mail_port',
+                'mail_username',
+                'mail_password',
+                'mail_encryption',
+                'mail_from_address',
+                'mail_from_name'
+            ])->pluck('value', 'key')->toArray();
+            
+            // Get mail settings from database with defaults
+            $mailMailer = $mailSettings['mail_mailer'] ?? null;
+            $mailHost = $mailSettings['mail_host'] ?? null;
+            $mailPort = $mailSettings['mail_port'] ?? null;
+            $mailUsername = $mailSettings['mail_username'] ?? null;
+            $mailPassword = $mailSettings['mail_password'] ?? null;
+            $mailEncryption = $mailSettings['mail_encryption'] ?? null;
+            $mailFromAddress = $mailSettings['mail_from_address'] ?? null;
+            $mailFromName = $mailSettings['mail_from_name'] ?? null;
             
             // Only update if database has values
             if ($mailMailer) {

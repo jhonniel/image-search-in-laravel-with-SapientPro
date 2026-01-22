@@ -12,43 +12,25 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Check database driver
-        $driver = DB::getDriverName();
-        
-        if ($driver === 'sqlite') {
-            // For SQLite, check if column exists and is accessible
-            $columns = DB::select("PRAGMA table_info(users)");
-            $hasDeletedAt = false;
-            
-            foreach ($columns as $column) {
-                if (strtolower($column->name) === 'deleted_at') {
-                    $hasDeletedAt = true;
-                    break;
-                }
-            }
-            
-            // If column exists but isn't working, verify it's accessible
-            if ($hasDeletedAt) {
-                // Try to verify the column works by testing a simple query
+        // Database-agnostic approach - works with SQLite, PostgreSQL, MySQL
+        if (!Schema::hasColumn('users', 'deleted_at')) {
+            Schema::table('users', function (Blueprint $table) {
+                $table->timestamp('deleted_at')->nullable();
+            });
+        } else {
+            // Column exists, ensure it's nullable (for PostgreSQL compatibility)
+            $driver = DB::getDriverName();
+            if ($driver === 'pgsql') {
+                // PostgreSQL: Ensure column is nullable
+                DB::statement('ALTER TABLE users ALTER COLUMN deleted_at DROP NOT NULL');
+            } elseif ($driver === 'sqlite') {
+                // SQLite: Verify column is accessible
                 try {
                     DB::table('users')->select('deleted_at')->limit(1)->get();
                 } catch (\Exception $e) {
-                    // Column exists but isn't accessible, this shouldn't happen but if it does,
-                    // we'll try to ensure the column is properly set up
-                    // For SQLite, we can't easily recreate, so we'll just verify it exists
+                    // Column exists but isn't accessible - ensure it's nullable
+                    DB::statement("UPDATE users SET deleted_at = NULL WHERE deleted_at IS NULL");
                 }
-            } else {
-                // Column doesn't exist, add it
-                Schema::table('users', function (Blueprint $table) {
-                    $table->timestamp('deleted_at')->nullable();
-                });
-            }
-        } else {
-            // For other databases, use standard Laravel methods
-            if (!Schema::hasColumn('users', 'deleted_at')) {
-                Schema::table('users', function (Blueprint $table) {
-                    $table->timestamp('deleted_at')->nullable();
-                });
             }
         }
     }

@@ -1739,24 +1739,58 @@ async function deleteItem(uploadId) {
     }
 
     try {
-        const response = await fetch(`/api/items/${uploadId}`, {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        
+        if (!csrfToken) {
+            showToast('CSRF token not found. Please refresh the page.', 'error');
+            return;
+        }
+
+        console.log('Deleting item with uploadId:', uploadId);
+        console.log('CSRF Token:', csrfToken);
+
+        const response = await fetch(`/api/items/${encodeURIComponent(uploadId)}`, {
             method: 'DELETE',
             credentials: 'same-origin',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             }
         });
 
+        console.log('Delete response status:', response.status);
+        console.log('Delete response headers:', response.headers);
+
+        // Check if response is OK before trying to parse JSON
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('Delete error response:', errorText);
+            
+            if (response.status === 404) {
+                showToast('Item not found or you do not have permission to delete it.', 'error');
+            } else if (response.status === 419) {
+                showToast('Session expired. Please refresh the page and try again.', 'error');
+            } else if (response.status === 500) {
+                showToast('Server error. Please try again later.', 'error');
+            } else {
+                showToast(`Error deleting item (Status: ${response.status}). Please try again.`, 'error');
+            }
+            return;
+        }
+
         const data = await response.json();
+        console.log('Delete response data:', data);
+        
         if (data.success) {
             showToast('Item deleted successfully!', 'success');
             loadItems(); // Reload the items list
         } else {
-            showToast(data.message || 'Error deleting item. Please try again.', 'error');
+            showToast(data.message || data.error || 'Error deleting item. Please try again.', 'error');
         }
     } catch (error) {
-        console.error('Error:', error);
-        showToast('Error deleting item. Please try again.', 'error');
+        console.error('Delete error:', error);
+        showToast('Network error. Please check your connection and try again.', 'error');
     }
 }
 

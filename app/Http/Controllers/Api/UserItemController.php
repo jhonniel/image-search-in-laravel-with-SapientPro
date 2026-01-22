@@ -23,11 +23,75 @@ class UserItemController extends Controller
      */
     public function uploadItems(Request $request)
     {
+        // Check authentication first
+        if (!Auth::check()) {
+            Log::warning('Upload attempt by unauthenticated user', [
+                'ip' => $request->ip(),
+                'user_agent' => $request->userAgent()
+            ]);
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthorized',
+                'message' => 'You must be logged in to upload items. Please log in and try again.'
+            ], 401);
+        }
+
+        $user = Auth::user();
+        
         // Debug: Log the incoming request data
         $files = $request->file('images');
         $fileDetails = [];
+        
+        // Check if files were uploaded
+        if (!$files || (is_array($files) && count($files) === 0)) {
+            Log::warning('Upload attempt with no files', [
+                'user_id' => $user->id,
+                'has_files_key' => $request->has('images'),
+                'post_max_size' => ini_get('post_max_size'),
+                'upload_max_filesize' => ini_get('upload_max_filesize'),
+                'content_length' => $request->header('Content-Length')
+            ]);
+            
+            // Check if request exceeded POST size limit
+            $postMaxSize = $this->parseSize(ini_get('post_max_size'));
+            $contentLength = $request->header('Content-Length');
+            if ($contentLength && $contentLength > $postMaxSize) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'File size too large',
+                    'message' => 'The total size of your upload exceeds the server limit (' . ini_get('post_max_size') . '). Please reduce the file sizes and try again.'
+                ], 413);
+            }
+            
+            return response()->json([
+                'success' => false,
+                'error' => 'No files uploaded',
+                'message' => 'Please select at least one image to upload.'
+            ], 400);
+        }
+        
         if ($files) {
             foreach ($files as $index => $file) {
+                // Check for upload errors
+                if (!$file->isValid()) {
+                    $errorCode = $file->getError();
+                    $errorMessage = $this->getUploadErrorMessage($errorCode);
+                    
+                    Log::error('File upload error', [
+                        'user_id' => $user->id,
+                        'file_index' => $index,
+                        'file_name' => $file->getClientOriginalName(),
+                        'error_code' => $errorCode,
+                        'error_message' => $errorMessage
+                    ]);
+                    
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'File upload error',
+                        'message' => $errorMessage . ' (File: ' . $file->getClientOriginalName() . ')'
+                    ], 400);
+                }
+                
                 $fileDetails[] = [
                     'index' => $index,
                     'original_name' => $file->getClientOriginalName(),
@@ -40,11 +104,12 @@ class UserItemController extends Controller
         }
 
         Log::info('User upload request received', [
-            'request_data' => $request->all(),
+            'user_id' => $user->id,
+            'user_email' => $user->email,
             'files_count' => $files ? count($files) : 0,
             'file_details' => $fileDetails,
             'file_names' => $files ? array_map(fn($f) => $f->getClientOriginalName(), $files) : [],
-            'user' => Auth::user() ? Auth::user()->email : 'not authenticated'
+            'request_keys' => array_keys($request->all())
         ]);
 
         // Get enabled cities for validation
@@ -167,7 +232,7 @@ class UserItemController extends Controller
         }
 
         try {
-            $user = Auth::user();
+            // User is already authenticated (checked above)
             $uploadId = 'user_upload_' . Str::random(10);
             $uploadedImages = [];
             $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
@@ -695,32 +760,70 @@ class UserItemController extends Controller
         try {
             $user = Auth::user();
 
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Unauthorized',
+                    'message' => 'You must be logged in to delete items'
+                ], 401);
+            }
+
+            Log::info('Delete item request', [
+                'upload_id' => $uploadId,
+                'user_email' => $user->email,
+                'user_id' => $user->id
+            ]);
+
             // Find items by upload_id and user email
             $items = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', $user->email)
                 ->get();
 
             if ($items->isEmpty()) {
+                Log::warning('Delete item - not found or access denied', [
+                    'upload_id' => $uploadId,
+                    'user_email' => $user->email
+                ]);
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item not found or access denied'
+                    'error' => 'Item not found or access denied',
+                    'message' => 'The item you are trying to delete does not exist or you do not have permission to delete it.'
                 ], 404);
             }
 
             // Soft delete database records (files are kept for potential restore)
-            ImageMetadata::where('upload_id', $uploadId)
+            $deletedCount = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', $user->email)
                 ->delete(); // This will perform soft delete automatically
 
+            Log::info('Items soft deleted', [
+                'upload_id' => $uploadId,
+                'deleted_count' => $deletedCount,
+                'user_email' => $user->email
+            ]);
+
             // Broadcast item deleted event for real-time updates in chat
-            broadcast(new \App\Events\ItemDeleted($uploadId, $user->id))->toOthers();
+            try {
+                broadcast(new \App\Events\ItemDeleted($uploadId, $user->id))->toOthers();
+            } catch (\Exception $e) {
+                Log::warning('Failed to broadcast item deleted event', [
+                    'error' => $e->getMessage()
+                ]);
+                // Don't fail the delete if broadcast fails
+            }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item deleted successfully. It can be restored from the trash.'
+                'message' => 'Item deleted successfully. It can be restored from the trash.',
+                'deleted_count' => $deletedCount
             ]);
 
         } catch (\Exception $e) {
+            Log::error('Failed to delete item', [
+                'upload_id' => $uploadId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to delete item',
@@ -1511,6 +1614,38 @@ class UserItemController extends Controller
         }
     }
 
+    /**
+     * Parse size string (e.g., "8M", "2M") to bytes
+     */
+    private function parseSize($size)
+    {
+        $unit = preg_replace('/[^bkmgtpezy]/i', '', $size);
+        $size = preg_replace('/[^0-9\.]/', '', $size);
+        if ($unit) {
+            return round($size * pow(1024, stripos('bkmgtpezy', $unit[0])));
+        } else {
+            return round($size);
+        }
+    }
+    
+    /**
+     * Get human-readable upload error message
+     */
+    private function getUploadErrorMessage($errorCode)
+    {
+        $errors = [
+            UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize (' . ini_get('upload_max_filesize') . ')',
+            UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive in HTML form',
+            UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
+            UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+            UPLOAD_ERR_NO_TMP_DIR => 'Missing temporary folder',
+            UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+            UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload',
+        ];
+        
+        return $errors[$errorCode] ?? 'Unknown upload error (code: ' . $errorCode . ')';
+    }
+    
     /**
      * Process tags from request (handles both JSON array and comma-separated string)
      * Also increments tag usage counts

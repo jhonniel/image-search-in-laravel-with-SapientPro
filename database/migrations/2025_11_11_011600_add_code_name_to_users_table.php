@@ -39,8 +39,11 @@ return new class extends Migration
             if ($driver === 'sqlite') {
                 // Drop the unique index first (SQLite requires this)
                 DB::statement('DROP INDEX IF EXISTS users_code_name_unique');
+            } elseif ($driver === 'pgsql') {
+                // PostgreSQL: DROP INDEX with schema
+                DB::statement('DROP INDEX IF EXISTS users_code_name_unique');
             } else {
-                // For other databases, use database-specific syntax
+                // MySQL/MariaDB: DROP INDEX ON table
                 DB::statement('DROP INDEX IF EXISTS users_code_name_unique ON users');
             }
         } catch (\Throwable $e) {

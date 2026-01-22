@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 
 class Setting extends Model
 {
@@ -14,34 +15,54 @@ class Setting extends Model
     ];
 
     /**
-     * Get a setting value by key
+     * Cache duration for settings (5 minutes)
+     */
+    private static int $cacheDuration = 300;
+
+    /**
+     * Get a setting value by key with caching to prevent timeout
      */
     public static function get($key, $default = null)
     {
-        $setting = self::where('key', $key)->first();
+        // Use cache to avoid multiple database queries
+        $cacheKey = "setting_{$key}";
         
-        if (!$setting) {
-            return $default;
-        }
+        return Cache::remember($cacheKey, self::$cacheDuration, function () use ($key, $default) {
+            try {
+                // Check if settings table exists first
+                if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+                    return $default;
+                }
 
-        $value = match($setting->type) {
-            'boolean' => self::parseBoolean($setting->value),
-            'integer' => (int) $setting->value,
-            'json' => json_decode($setting->value, true),
-            default => $setting->value,
-        };
+                $setting = self::where('key', $key)->first();
+                
+                if (!$setting) {
+                    return $default;
+                }
 
-        // For boolean type, if value is null after parsing, return default
-        // Otherwise return the parsed value (even if it's false)
-        if ($setting->type === 'boolean') {
-            if ($value === null) {
+                $value = match($setting->type) {
+                    'boolean' => self::parseBoolean($setting->value),
+                    'integer' => (int) $setting->value,
+                    'json' => json_decode($setting->value, true),
+                    default => $setting->value,
+                };
+
+                // For boolean type, if value is null after parsing, return default
+                // Otherwise return the parsed value (even if it's false)
+                if ($setting->type === 'boolean') {
+                    if ($value === null) {
+                        return $default;
+                    }
+                    // Return the actual boolean value (true or false), not the default
+                    return $value;
+                }
+
+                return $value ?? $default;
+            } catch (\Exception $e) {
+                // Return default on any error to prevent timeout
                 return $default;
             }
-            // Return the actual boolean value (true or false), not the default
-            return $value;
-        }
-
-        return $value ?? $default;
+        });
     }
 
     /**
@@ -58,7 +79,7 @@ class Setting extends Model
             $value = (string) $value;
         }
 
-        return self::updateOrCreate(
+        $result = self::updateOrCreate(
             ['key' => $key],
             [
                 'value' => $value,
@@ -66,6 +87,11 @@ class Setting extends Model
                 'description' => $description,
             ]
         );
+
+        // Clear cache when setting is updated
+        Cache::forget("setting_{$key}");
+
+        return $result;
     }
 
     /**

@@ -16,25 +16,37 @@ return new class extends Migration
             return;
         }
 
-        if (DB::connection()->getDriverName() === 'sqlite') {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            // SQLite doesn't support ALTER COLUMN, so rebuild table
             $this->rebuildRewardsTableForSqlite(true);
             return;
         }
 
-        Schema::table('rewards', function (Blueprint $table) {
-            $table->dropForeign(['user_id']);
-        });
+        // For PostgreSQL and MySQL, use standard ALTER COLUMN
+        if ($driver === 'pgsql') {
+            // PostgreSQL: Drop foreign key, alter column, recreate foreign key
+            DB::statement('ALTER TABLE rewards DROP CONSTRAINT IF EXISTS rewards_user_id_foreign');
+            DB::statement('ALTER TABLE rewards ALTER COLUMN user_id DROP NOT NULL');
+            DB::statement('ALTER TABLE rewards ADD CONSTRAINT rewards_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE');
+        } else {
+            // MySQL/MariaDB: Use Laravel's change() method
+            Schema::table('rewards', function (Blueprint $table) {
+                $table->dropForeign(['user_id']);
+            });
 
-        Schema::table('rewards', function (Blueprint $table) {
-            $table->unsignedBigInteger('user_id')->nullable()->change();
-        });
+            Schema::table('rewards', function (Blueprint $table) {
+                $table->unsignedBigInteger('user_id')->nullable()->change();
+            });
 
-        Schema::table('rewards', function (Blueprint $table) {
-            $table->foreign('user_id')
-                ->references('id')
-                ->on('users')
-                ->onDelete('cascade');
-        });
+            Schema::table('rewards', function (Blueprint $table) {
+                $table->foreign('user_id')
+                    ->references('id')
+                    ->on('users')
+                    ->onDelete('cascade');
+            });
+        }
     }
 
     /**
@@ -46,25 +58,37 @@ return new class extends Migration
             return;
         }
 
-        if (DB::connection()->getDriverName() === 'sqlite') {
+        $driver = DB::connection()->getDriverName();
+
+        if ($driver === 'sqlite') {
+            // SQLite doesn't support ALTER COLUMN, so rebuild table
             $this->rebuildRewardsTableForSqlite(false);
             return;
         }
 
-        Schema::table('rewards', function (Blueprint $table) {
-            $table->dropForeign(['user_id']);
-        });
+        // For PostgreSQL and MySQL, use standard ALTER COLUMN
+        if ($driver === 'pgsql') {
+            // PostgreSQL: Drop foreign key, alter column, recreate foreign key
+            DB::statement('ALTER TABLE rewards DROP CONSTRAINT IF EXISTS rewards_user_id_foreign');
+            DB::statement('ALTER TABLE rewards ALTER COLUMN user_id SET NOT NULL');
+            DB::statement('ALTER TABLE rewards ADD CONSTRAINT rewards_user_id_foreign FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE');
+        } else {
+            // MySQL/MariaDB: Use Laravel's change() method
+            Schema::table('rewards', function (Blueprint $table) {
+                $table->dropForeign(['user_id']);
+            });
 
-        Schema::table('rewards', function (Blueprint $table) {
-            $table->unsignedBigInteger('user_id')->nullable(false)->change();
-        });
+            Schema::table('rewards', function (Blueprint $table) {
+                $table->unsignedBigInteger('user_id')->nullable(false)->change();
+            });
 
-        Schema::table('rewards', function (Blueprint $table) {
-            $table->foreign('user_id')
-                ->references('id')
-                ->on('users')
-                ->onDelete('cascade');
-        });
+            Schema::table('rewards', function (Blueprint $table) {
+                $table->foreign('user_id')
+                    ->references('id')
+                    ->on('users')
+                    ->onDelete('cascade');
+            });
+        }
     }
 
     /**

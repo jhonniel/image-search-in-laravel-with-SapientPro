@@ -86,10 +86,33 @@ class ImageMetadata extends Model
 
     /**
      * Scope to search by tags.
+     * Works with SQLite, PostgreSQL, and MySQL
      */
     public function scopeByTags($query, array $tags)
     {
-        return $query->whereJsonContains('tags', $tags);
+        $driver = \Illuminate\Support\Facades\DB::connection()->getDriverName();
+        
+        // For PostgreSQL and MySQL, use whereJsonContains
+        if (in_array($driver, ['pgsql', 'mysql'])) {
+            // For array of tags, check if any tag is contained
+            if (count($tags) === 1) {
+                return $query->whereJsonContains('tags', $tags[0]);
+            } else {
+                // For multiple tags, use OR condition
+                return $query->where(function($q) use ($tags) {
+                    foreach ($tags as $tag) {
+                        $q->orWhereJsonContains('tags', $tag);
+                    }
+                });
+            }
+        } else {
+            // For SQLite, use LIKE search as fallback
+            return $query->where(function($q) use ($tags) {
+                foreach ($tags as $tag) {
+                    $q->orWhere('tags', 'like', '%' . $tag . '%');
+                }
+            });
+        }
     }
 
     /**
