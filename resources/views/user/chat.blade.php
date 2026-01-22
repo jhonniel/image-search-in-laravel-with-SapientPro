@@ -126,7 +126,7 @@
             </div>
 
             <!-- Message Input -->
-            <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden">
+            <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden" style="overflow: visible !important;">
                 <!-- Privacy Warning -->
                 <div id="privacy-warning" class="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
                     <div class="flex items-start justify-between">
@@ -208,21 +208,21 @@
                     </div>
                 </div>
 
-                <form id="message-form" class="flex items-end gap-3" enctype="multipart/form-data">
+                <form id="message-form" class="flex items-end gap-3" enctype="multipart/form-data" style="display: flex !important; width: 100%; overflow: visible !important;">
                     <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
-                    <div class="flex-1 relative">
+                    <div class="flex-1 relative" style="min-width: 0;">
                         <textarea id="message-input" 
                                   placeholder="Type a message..."
                                   rows="1"
                                   class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
                                   maxlength="1000"></textarea>
                         <button type="button" onclick="document.getElementById('image-input').click()" 
-                                class="absolute bottom-2 right-2 text-gray-400 hover:text-purple-500 p-2">
+                                class="absolute bottom-2 right-2 text-gray-400 hover:text-purple-500 p-2 transition-colors" style="opacity: 1 !important; visibility: visible !important; display: block !important;">
                             <i class="fas fa-image"></i>
                             </button>
                         </div>
-                    <button type="submit" class="px-5 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600">
-                        <i class="fas fa-paper-plane"></i>
+                    <button type="submit" id="send-button" class="flex-shrink-0 shadow-md rounded-lg transition-all hover:shadow-lg" style="opacity: 1 !important; visibility: visible !important; display: flex !important; align-items: center !important; justify-content: center !important; min-width: 48px !important; min-height: 48px !important; width: 48px !important; height: 48px !important; position: relative !important; z-index: 10 !important; background-color: #8B5CF6 !important; border: none !important; padding: 0 !important; cursor: pointer !important;" onmouseover="this.style.backgroundColor='#7C3AED'" onmouseout="this.style.backgroundColor='#8B5CF6'">
+                        <i class="fas fa-paper-plane" style="color: white !important; font-size: 18px !important;"></i>
                     </button>
                 </form>
             </div>
@@ -263,6 +263,17 @@ function selectUser(userId) {
     if (chatHeader) chatHeader.classList.remove('hidden');
     if (messagesContainer) messagesContainer.classList.remove('hidden');
     if (messageInputContainer) messageInputContainer.classList.remove('hidden');
+    
+    // Ensure send button is visible when input container is shown
+    setTimeout(() => {
+        const sendButton = document.getElementById('send-button');
+        if (sendButton) {
+            sendButton.style.display = 'block';
+            sendButton.style.visibility = 'visible';
+            sendButton.style.opacity = '1';
+            sendButton.classList.remove('hidden');
+        }
+    }, 100);
 
         // Update active user in sidebar
         document.querySelectorAll('.user-item').forEach(item => {
@@ -315,7 +326,7 @@ async function loadMessages(userId) {
                 showItemContext();
                 showChatItemContext();
             } else {
-                hideItemContext();
+                    hideItemContext();
                 hideChatItemContext();
                 itemContext = null;
                 // Hide the show button if there's no item context
@@ -807,6 +818,34 @@ function hidePrivacyNotice() {
 }
 
 // User item click handlers
+// Ensure send button is always visible
+function ensureSendButtonVisible() {
+    const sendButton = document.getElementById('send-button');
+    if (sendButton) {
+        sendButton.style.display = 'flex';
+        sendButton.style.visibility = 'visible';
+        sendButton.style.opacity = '1';
+        sendButton.style.alignItems = 'center';
+        sendButton.style.justifyContent = 'center';
+        sendButton.style.position = 'relative';
+        sendButton.style.zIndex = '10';
+        sendButton.classList.remove('hidden');
+        
+        // Also ensure parent form is visible
+        const form = document.getElementById('message-form');
+        if (form) {
+            form.style.display = 'flex';
+            form.style.overflow = 'visible';
+        }
+        
+        // Ensure container is visible
+        const container = document.getElementById('message-input-container');
+        if (container) {
+            container.style.overflow = 'visible';
+        }
+    }
+}
+
 function initializeChat() {
     console.log('Initializing chat...');
     
@@ -873,14 +912,36 @@ function initializeChat() {
         });
         });
     }
+    
+    // Send message on Enter key (but not Shift+Enter for new line)
+    const messageInput = document.getElementById('message-input');
+    if (messageInput) {
+        messageInput.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const sendButton = document.getElementById('send-button');
+                if (sendButton && !sendButton.disabled) {
+                    sendButton.click();
+                }
+            }
+        });
+    }
 }
 
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeChat);
+    document.addEventListener('DOMContentLoaded', function() {
+        initializeChat();
+        ensureSendButtonVisible();
+        // Check periodically to ensure button stays visible
+        setInterval(ensureSendButtonVisible, 1000);
+    });
         } else {
     // DOM is already ready
     initializeChat();
+    ensureSendButtonVisible();
+    // Check periodically to ensure button stays visible
+    setInterval(ensureSendButtonVisible, 1000);
 }
 </script>
 @endsection
