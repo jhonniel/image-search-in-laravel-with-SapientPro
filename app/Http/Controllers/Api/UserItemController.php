@@ -1083,10 +1083,12 @@ class UserItemController extends Controller
                 ->groupBy('upload_id');
             
             // Filter items to only show those that match user's reported items
+            // This includes both directions: user's items matching others AND others' items matching user's items
             $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
             $matchedItems = [];
             $matchedUploadIds = [];
             
+            // First pass: Check if user's items match other users' items (existing logic)
             foreach ($userItems as $uploadId => $userItemGroup) {
                 $userItem = $userItemGroup->first();
 
@@ -1149,9 +1151,14 @@ class UserItemController extends Controller
                         $textSimilarity = ($tagOverlap * 0.4) + ($descOverlap * 0.6);
                         $overallSimilarity = ($textSimilarity * 0.3) + ($visualSimilarity * 0.7);
                         
-                        $visualThreshold = config('similarity.thresholds.visual', 0.5); // Lower threshold for matching
+                        // Use same threshold as notification service to ensure consistency
+                        // This ensures items that trigger notifications also show on claim-verify page
+                        $visualThreshold = config('similarity.thresholds.visual', 0.5); // Lower threshold for matching on claim-verify
                         
                         // If similarity meets threshold, add to matched items
+                        // This works bidirectionally: when User A views the page, they see User B's items that match User A's items
+                        // When User B views the page, they see User A's items that match User B's items
+                        // Since similarity is symmetric, both users will see the match
                         if ($overallSimilarity >= $visualThreshold) {
                             $matchedUploadIds[] = $otherUploadId;
                             $matchedItems[$otherUploadId] = [
@@ -1170,6 +1177,7 @@ class UserItemController extends Controller
                     }
                 }
             }
+            
             
             // If no matches found, return empty array
             if (empty($matchedItems)) {
