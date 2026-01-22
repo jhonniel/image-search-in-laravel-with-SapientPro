@@ -225,12 +225,6 @@ function displayOtherUsersItems(items) {
                                                                             <p class="text-sm">Image not available</p>
                                                                         </div>
                                                                     </div>
-                                                                    <div class="absolute inset-0 transition-all duration-200 rounded-lg flex items-center justify-center pointer-events-none" style="background-color: transparent;">
-                                                                        <button onclick="viewImage('${image.path || image.file_path || ''}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 pointer-events-auto z-10 shadow-lg">
-                                                                            <i class="fas fa-eye mr-1"></i>
-                                                                            View
-                                                                        </button>
-                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         `).join('')}
@@ -281,9 +275,9 @@ function displayOtherUsersItems(items) {
                         ` : ''}
                         
                         <!-- Matched Item from Other User (Right Side) -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
                     <!-- Item Header -->
-                    <div class="p-6 border-b border-gray-200">
+                    <div class="p-6 border-b border-gray-200 flex-shrink-0">
                         <div class="flex items-start justify-between mb-4">
                             <div class="flex items-center space-x-3">
                                 <div class="w-10 h-10 rounded-full flex items-center justify-center ${item.item_type === 'lost' ? 'bg-red-100' : 'bg-green-100'}">
@@ -320,7 +314,7 @@ function displayOtherUsersItems(items) {
                             </div>
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-4 flex-shrink-0">
                             ${item.similarity_score ? `
                                 <div class="mb-3 p-2 bg-purple-50 border border-purple-200 rounded-lg">
                                     <div class="flex items-center justify-between">
@@ -338,55 +332,50 @@ function displayOtherUsersItems(items) {
                                     <span class="font-semibold text-gray-700">${item.matched_with_upload_id}</span>
                                 </p>
                             ` : ''}
-                            <p class="text-gray-700 mb-2"><strong>Description:</strong> ${item.description || 'No description provided'}</p>
-                            <p class="text-gray-700 mb-2"><strong>Location:</strong> ${item.location || 'No location specified'}</p>
+                            <p class="text-gray-700 mb-2 flex-shrink-0"><strong>Description:</strong> ${item.description || 'No description provided'}</p>
+                            <p class="text-gray-700 mb-2 flex-shrink-0"><strong>Location:</strong> ${item.location || 'No location specified'}</p>
                             ${item.tags && item.tags.length > 0 ? `
-                                <div class="flex flex-wrap gap-2 mb-2">
+                                <div class="flex flex-wrap gap-2 mb-2 flex-shrink-0">
                                     <strong class="text-gray-700">Tags:</strong>
                                     ${item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
                                 </div>
                             ` : ''}
                         </div>
 
-                        <div class="text-sm text-gray-500">
+                        <div class="text-sm text-gray-500 flex-shrink-0">
                             <i class="fas fa-clock mr-1"></i>
                             Reported ${new Date(item.created_at).toLocaleDateString()}
                         </div>
                     </div>
 
                     <!-- Images Carousel -->
-                    <div class="p-6">
-                        <div class="relative">
-                            <div class="carousel-container overflow-hidden rounded-lg" style="height: 192px;">
-                                <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-claim-${item.upload_id}" style="height: 192px;">
+                    <div class="p-6 flex-1 min-h-0 flex flex-col">
+                        <div class="relative flex-1 min-h-0 flex flex-col">
+                            <div class="carousel-container overflow-hidden rounded-lg flex-1 min-h-0">
+                                <div class="carousel-track flex transition-transform duration-300 ease-in-out h-full" id="carousel-claim-${item.upload_id}">
                                     ${item.images && item.images.length > 0 ? item.images.map((image, index) => `
-                                        <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6; height: 192px; width: 100%;">
+                                        <div class="carousel-slide flex-shrink-0 w-full h-full">
                                             <div class="relative group w-full h-full" style="background-color: #f3f4f6;">
                                                 <img src="${image.path || image.file_path || ''}" 
                                                      alt="${image.original_name || 'Item image'}" 
-                                                     class="w-full h-full object-cover rounded-lg border border-gray-200"
-                                                     style="background-color: #f3f4f6; width: 100%; height: 192px; object-fit: cover; display: block; position: relative; z-index: 1;"
+                                                     class="w-full h-full object-contain rounded-lg border border-gray-200 cursor-pointer"
+                                                     style="background-color: #f3f4f6; width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;"
+                                                     onclick="viewImage('${image.path || image.file_path || ''}')"
                                                      onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
                                                      onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
                                                      loading="lazy">
-                                                <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
+                                                <div class="hidden w-full h-full bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
                                                     <div class="text-center text-gray-400">
                                                         <i class="fas fa-image text-4xl mb-2"></i>
                                                         <p class="text-sm">Image not available</p>
                                                     </div>
                                                 </div>
-                                                <div class="absolute inset-0 transition-all duration-200 rounded-lg flex items-center justify-center pointer-events-none" style="background-color: transparent;">
-                                                    <button onclick="viewImage('${image.path || image.file_path || ''}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 pointer-events-auto z-10 shadow-lg">
-                                                        <i class="fas fa-eye mr-1"></i>
-                                                        View
-                                                    </button>
-                                                </div>
                                             </div>
                                         </div>
                                     `).join('') : `
-                                        <div class="carousel-slide flex-shrink-0 w-full">
-                                            <div class="relative group">
-                                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
+                                        <div class="carousel-slide flex-shrink-0 w-full h-full">
+                                            <div class="relative group w-full h-full">
+                                                <div class="w-full h-full bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
                                                     <div class="text-center text-gray-400">
                                                         <i class="fas fa-image text-4xl mb-2"></i>
                                                         <p class="text-sm">No image available</p>
@@ -400,7 +389,7 @@ function displayOtherUsersItems(items) {
 
                             ${item.images && item.images.length > 1 ? `
                                 <!-- Carousel Navigation -->
-                                <div class="flex items-center justify-between mt-4">
+                                <div class="flex items-center justify-between mt-4 flex-shrink-0">
                                     <button onclick="previousSlide('claim-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
                                         <i class="fas fa-chevron-left text-gray-600"></i>
                                     </button>
