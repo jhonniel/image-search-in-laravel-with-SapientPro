@@ -205,20 +205,77 @@ function displayOtherUsersItems(items) {
                                     ` : ''}
                                     ${item.user_matched_item.images && item.user_matched_item.images.length > 0 ? `
                                         <div class="mt-3">
-                                            <div class="grid grid-cols-2 gap-2">
-                                                ${item.user_matched_item.images.slice(0, 4).map((image, idx) => `
-                                                    <img src="${image.path || image.file_path || ''}" 
-                                                         alt="${image.original_name || 'Item image'}" 
-                                                         class="w-full h-24 object-cover rounded-lg border border-gray-200 cursor-pointer"
-                                                         onclick="viewImage('${image.path || image.file_path || ''}')"
-                                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
-                                                    <div class="hidden w-full h-24 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                                                        <i class="fas fa-image text-gray-400"></i>
+                                            <div class="relative">
+                                                <div class="carousel-container overflow-hidden rounded-lg" style="height: 192px;">
+                                                    <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-user-${item.upload_id}" style="height: 192px;">
+                                                        ${item.user_matched_item.images.map((image, index) => `
+                                                            <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6; height: 192px; width: 100%;">
+                                                                <div class="relative group w-full h-full" style="background-color: #f3f4f6;">
+                                                                    <img src="${image.path || image.file_path || ''}" 
+                                                                         alt="${image.original_name || 'Item image'}" 
+                                                                         class="w-full h-full object-cover rounded-lg border border-gray-200 cursor-pointer"
+                                                                         style="background-color: #f3f4f6; width: 100%; height: 192px; object-fit: cover; display: block; position: relative; z-index: 1;"
+                                                                         onclick="viewImage('${image.path || image.file_path || ''}')"
+                                                                         onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                                                         onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
+                                                                         loading="lazy">
+                                                                    <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
+                                                                        <div class="text-center text-gray-400">
+                                                                            <i class="fas fa-image text-4xl mb-2"></i>
+                                                                            <p class="text-sm">Image not available</p>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div class="absolute inset-0 transition-all duration-200 rounded-lg flex items-center justify-center pointer-events-none" style="background-color: transparent;">
+                                                                        <button onclick="viewImage('${image.path || image.file_path || ''}')" class="opacity-0 group-hover:opacity-100 bg-white text-gray-800 px-3 py-1 rounded-lg text-sm font-medium transition-all duration-200 pointer-events-auto z-10 shadow-lg">
+                                                                            <i class="fas fa-eye mr-1"></i>
+                                                                            View
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        `).join('')}
                                                     </div>
-                                                `).join('')}
+                                                </div>
+
+                                                ${item.user_matched_item.images.length > 1 ? `
+                                                    <!-- Carousel Navigation -->
+                                                    <div class="flex items-center justify-between mt-4">
+                                                        <button onclick="previousSlide('user-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
+                                                            <i class="fas fa-chevron-left text-gray-600"></i>
+                                                        </button>
+
+                                                        <div class="flex items-center space-x-2">
+                                                            <div class="flex space-x-1">
+                                                                ${item.user_matched_item.images.map((_, index) => `
+                                                                    <button onclick="goToSlide('user-${item.upload_id}', ${index})"
+                                                                            class="carousel-dot w-2 h-2 rounded-full bg-gray-300 transition-colors"
+                                                                            id="dot-user-${item.upload_id}-${index}"></button>
+                                                                `).join('')}
+                                                            </div>
+                                                            <span class="carousel-counter text-sm text-gray-500 ml-2" id="counter-user-${item.upload_id}">1 / ${item.user_matched_item.images.length}</span>
+                                                        </div>
+
+                                                        <button onclick="nextSlide('user-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
+                                                            <i class="fas fa-chevron-right text-gray-600"></i>
+                                                        </button>
+                                                    </div>
+                                                ` : ''}
                                             </div>
                                         </div>
-                                    ` : ''}
+                                    ` : `
+                                        <div class="mt-3">
+                                            <div class="relative">
+                                                <div class="carousel-container overflow-hidden rounded-lg" style="height: 192px;">
+                                                    <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
+                                                        <div class="text-center text-gray-400">
+                                                            <i class="fas fa-image text-4xl mb-2"></i>
+                                                            <p class="text-sm">No image available</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `}
                                 </div>
                             </div>
                         ` : ''}
@@ -300,19 +357,19 @@ function displayOtherUsersItems(items) {
                     <!-- Images Carousel -->
                     <div class="p-6">
                         <div class="relative">
-                            <div class="carousel-container overflow-hidden rounded-lg">
-                                <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-claim-${item.upload_id}">
+                            <div class="carousel-container overflow-hidden rounded-lg" style="height: 192px;">
+                                <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-claim-${item.upload_id}" style="height: 192px;">
                                     ${item.images && item.images.length > 0 ? item.images.map((image, index) => `
-                                        <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6;">
-                                            <div class="relative group" style="background-color: #f3f4f6;">
+                                        <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6; height: 192px; width: 100%;">
+                                            <div class="relative group w-full h-full" style="background-color: #f3f4f6;">
                                                 <img src="${image.path || image.file_path || ''}" 
                                                      alt="${image.original_name || 'Item image'}" 
-                                                     class="w-full h-48 object-cover rounded-lg border border-gray-200"
-                                                     style="background-color: #f3f4f6; min-height: 192px; display: block; width: 100%; height: 192px; position: relative; z-index: 1;"
+                                                     class="w-full h-full object-cover rounded-lg border border-gray-200"
+                                                     style="background-color: #f3f4f6; width: 100%; height: 192px; object-fit: cover; display: block; position: relative; z-index: 1;"
                                                      onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
                                                      onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
                                                      loading="lazy">
-                                                <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
+                                                <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
                                                     <div class="text-center text-gray-400">
                                                         <i class="fas fa-image text-4xl mb-2"></i>
                                                         <p class="text-sm">Image not available</p>
@@ -329,7 +386,7 @@ function displayOtherUsersItems(items) {
                                     `).join('') : `
                                         <div class="carousel-slide flex-shrink-0 w-full">
                                             <div class="relative group">
-                                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
+                                                <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
                                                     <div class="text-center text-gray-400">
                                                         <i class="fas fa-image text-4xl mb-2"></i>
                                                         <p class="text-sm">No image available</p>
@@ -407,8 +464,13 @@ function displayOtherUsersItems(items) {
 
     // Initialize carousels
     items.forEach(item => {
+        // Initialize matched item carousel
         if (item.images && item.images.length > 1) {
             initializeCarousel(`claim-${item.upload_id}`, item.images.length);
+        }
+        // Initialize user's matched item carousel
+        if (item.user_matched_item && item.user_matched_item.images && item.user_matched_item.images.length > 1) {
+            initializeCarousel(`user-${item.upload_id}`, item.user_matched_item.images.length);
         }
     });
 }

@@ -1,36 +1,28 @@
 @extends('layouts.user')
 
 @section('content')
-<div class="p-3 sm:p-6 h-full">
-    <!-- Header -->
-    <div class="mb-4 sm:mb-6">
-        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Messages</h1>
-        <p class="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Chat with other users in the system</p>
-    </div>
+<div class="p-6">
+    <h1 class="text-3xl font-bold text-gray-900 mb-2">Messages</h1>
+    <p class="text-gray-600 mb-6">Chat with other users in the system</p>
 
-    <div class="bg-white rounded-lg shadow-sm border h-[calc(100vh-180px)] sm:h-[calc(100vh-200px)] flex flex-col lg:flex-row relative overflow-hidden">
+    <div class="bg-white rounded-lg shadow-sm border flex" style="height: calc(100vh - 200px);">
         <!-- Users List Sidebar -->
-        <div id="users-sidebar" class="w-full lg:w-1/3 border-r border-gray-200 flex flex-col absolute lg:relative inset-0 z-10 lg:z-auto bg-white transition-transform duration-300 ease-in-out lg:translate-x-0">
+        <div class="w-1/3 border-r border-gray-200 flex flex-col">
             <!-- Search -->
-            <div class="p-3 sm:p-4 border-b border-gray-200">
-                <div class="relative">
+            <div class="p-4 border-b border-gray-200">
                     <input type="text" id="user-search" placeholder="Search users..."
-                           class="w-full pl-10 pr-4 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
-                    <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <i class="fas fa-search text-gray-400"></i>
-                    </div>
-                </div>
+                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
             </div>
 
             <!-- Users List -->
             <div class="flex-1 overflow-y-auto" id="users-list">
-                <!-- Conversations -->
-                @if($conversations->count() > 0)
+                @if($conversations && $conversations->count() > 0)
                 <div class="p-4">
                     <h3 class="text-sm font-medium text-gray-500 mb-3">Conversations</h3>
-                    <div class="space-y-1 sm:space-y-2">
+                    <div class="space-y-2">
                         @foreach($conversations as $conversation)
-                        <div class="user-item flex items-center p-2 sm:p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors active:bg-gray-100"
+                        @if(isset($conversation['user']) && $conversation['user'] && isset($conversation['last_message']) && $conversation['last_message'])
+                        <div class="user-item flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
                              data-user-id="{{ $conversation['user']->id }}">
                             <div class="flex-shrink-0">
                                 @if($conversation['user']->profile_picture)
@@ -46,189 +38,201 @@
                             </div>
                             <div class="ml-3 flex-1 min-w-0">
                                 <div class="flex items-center justify-between">
-                                    <div class="flex items-center gap-1.5">
                                         <p class="text-sm font-medium text-gray-900 truncate">{{ $conversation['user']->name }}</p>
-                                        @if($conversation['user']->is_verified ?? false)
-                                        <span class="inline-flex items-center justify-center w-4 h-4 flex-shrink-0" title="Verified Profile">
-                                            <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-4 h-4">
-                                        </span>
-                                        @endif
-                                    </div>
-                                    @if($conversation['unread_count'] > 0)
+                                    @if(isset($conversation['unread_count']) && $conversation['unread_count'] > 0)
                                         <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
                                             {{ $conversation['unread_count'] }}
                                         </span>
                                     @endif
                                 </div>
                                 <p class="text-sm text-gray-500 truncate">
-                                    {{ $conversation['last_message']->message }}
+                                    @if($conversation['last_message']->image_path)
+                                        <i class="fas fa-image mr-1"></i> Image
+                                    @elseif($conversation['last_message']->message)
+                                        {{ \Illuminate\Support\Str::limit($conversation['last_message']->message, 50) }}
+                                    @else
+                                        <span class="text-gray-400 italic">No message</span>
+                                    @endif
                                 </p>
                                 <p class="text-xs text-gray-400">
                                     {{ $conversation['last_message']->created_at->diffForHumans() }}
                                 </p>
                             </div>
                         </div>
+                        @endif
                         @endforeach
                     </div>
                 </div>
                 @else
-                <!-- Empty State -->
                 <div class="p-4 text-center">
                     <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-comments text-gray-400 text-2xl"></i>
                     </div>
                     <h3 class="text-sm font-medium text-gray-900 mb-2">No Conversations</h3>
-                    <p class="text-xs text-gray-500">You don't have any conversations yet. Start chatting by claiming an item or messaging someone about an item.</p>
+                    <p class="text-xs text-gray-500">You don't have any conversations yet.</p>
                 </div>
                 @endif
             </div>
         </div>
 
         <!-- Chat Area -->
-        <div id="chat-area" class="flex-1 flex flex-col hidden lg:flex">
+        <div id="chat-area" class="flex-1 flex flex-col">
             <!-- Chat Header -->
-            <div id="chat-header" class="p-3 sm:p-4 border-b border-gray-200 bg-white">
-                <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center flex-1 min-w-0">
-                        <!-- Back Button (Mobile Only) -->
-                        <button id="back-to-users" onclick="showUsersList()" class="lg:hidden mr-3 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
-                            <i class="fas fa-arrow-left"></i>
-                        </button>
+            <div id="chat-header" class="p-4 border-b border-gray-200 bg-white hidden">
+                    <div class="flex items-center">
                         <div class="flex-shrink-0">
                             <div id="chat-user-avatar" class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                                 <span id="chat-user-initials" class="text-sm font-medium text-purple-600"></span>
                             </div>
                         </div>
-                        <div class="ml-3 flex-1 min-w-0">
-                            <div class="flex items-center gap-2">
-                                <h3 id="chat-user-name" class="text-base sm:text-lg font-medium text-gray-900 truncate"></h3>
-                                <span id="chat-user-verified-badge" class="hidden inline-flex items-center justify-center w-5 h-5 flex-shrink-0" title="Verified Profile">
-                                    <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-5 h-5">
-                                </span>
+                        <div class="ml-3">
+                        <p id="chat-user-name" class="text-sm font-medium text-gray-900"></p>
                             </div>
-                            <p id="chat-user-status" class="text-xs sm:text-sm text-gray-500">Online</p>
                         </div>
                     </div>
+
+            <!-- Messages Container -->
+            <div id="messages-container" class="flex-1 overflow-y-auto p-4 bg-gray-50 hidden">
+                <!-- Item Context Display in Chat Area -->
+                <div id="chat-item-context" class="mb-4 p-4 bg-white border border-purple-200 rounded-lg shadow-sm hidden">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-box text-purple-600"></i>
+                            <h3 class="text-sm font-semibold text-purple-900">Item Being Discussed</h3>
                 </div>
-                <!-- Item Context Info (shown when chatting about an item) -->
-                <div id="item-context-info" class="hidden mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 bg-purple-50 rounded-lg p-2 sm:p-3">
-                    <div class="flex items-start space-x-2">
-                        <i class="fas fa-info-circle text-purple-500 mt-0.5 text-sm sm:text-base"></i>
-                        <div class="flex-1">
-                            <p class="text-xs sm:text-sm font-semibold text-purple-900" id="item-context-title">About Item</p>
-                            <p class="text-xs text-purple-700 mt-1" id="item-context-details">Item details will appear here</p>
+                        <button type="button" onclick="hideChatItemContext()" class="text-gray-400 hover:text-gray-600" title="Hide item details">
+                            <i class="fas fa-times"></i>
+                        </button>
                         </div>
+                    <div id="chat-item-context-content">
+                        <!-- Item details will be displayed here -->
                     </div>
+                    <div id="chat-item-context-images" class="mt-3 flex gap-2 overflow-x-auto">
+                        <!-- Item images will be displayed here -->
                 </div>
             </div>
 
-            <!-- Messages Area -->
-            <div id="messages-container" class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gradient-to-b from-gray-50 to-white">
-                <div id="messages-list" class="space-y-1 sm:space-y-2">
+                <!-- Show Item Context Button (hidden by default) -->
+                <div id="show-chat-item-context-btn" class="mb-4 hidden">
+                    <button type="button" onclick="showChatItemContext()" class="text-sm text-purple-600 hover:text-purple-800 flex items-center gap-2 px-3 py-2 bg-purple-50 rounded-lg border border-purple-200">
+                        <i class="fas fa-box"></i>
+                        <span>Show Item Details</span>
+                    </button>
+                </div>
+                
+                <div id="messages-list" class="space-y-4">
                     <!-- Messages will be loaded here -->
                 </div>
             </div>
 
             <!-- Message Input -->
-            <div id="message-input-container" class="p-3 sm:p-4 border-t border-gray-200 bg-white">
+            <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden">
                 <!-- Privacy Warning -->
-                <div id="privacy-warning" class="mb-3 sm:mb-4 p-2 sm:p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
-                    <div class="flex items-start">
+                <div id="privacy-warning" class="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-start flex-1">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-exclamation-triangle text-yellow-600 text-base sm:text-lg"></i>
+                                <i class="fas fa-exclamation-triangle text-yellow-400"></i>
                         </div>
-                        <div class="ml-2 sm:ml-3 flex-1">
-                            <p class="text-xs sm:text-sm font-medium text-yellow-800">
-                                <strong>Privacy Notice:</strong> Please do not share personal information such as phone numbers, addresses, email addresses, or financial details in your messages. Keep your conversations focused on the items you're discussing.
+                            <div class="ml-3">
+                                <p class="text-sm text-yellow-700">
+                                    <strong>Privacy Notice:</strong> Please be respectful and only share necessary information. 
+                                    Do not share personal details unless you trust the other party.
                             </p>
                         </div>
-                        <div class="ml-2 sm:ml-3 flex-shrink-0">
-                            <button type="button" 
-                                    onclick="hidePrivacyWarning()" 
-                                    class="text-yellow-600 hover:text-yellow-800 transition-colors p-1 rounded-full hover:bg-yellow-100"
-                                    title="Hide this notice">
-                                <i class="fas fa-times text-sm"></i>
+                        </div>
+                        <button type="button" onclick="hidePrivacyNotice()" class="ml-3 text-yellow-600 hover:text-yellow-800" title="Hide notice">
+                            <i class="fas fa-times"></i>
                             </button>
                         </div>
                     </div>
+                
+                <!-- Show Privacy Notice Button (hidden by default) -->
+                <div id="show-privacy-notice-btn" class="mb-4 hidden">
+                    <button type="button" onclick="showPrivacyNotice()" class="text-xs text-yellow-600 hover:text-yellow-800 flex items-center gap-1">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Show Privacy Notice</span>
+                    </button>
                 </div>
 
-                <!-- Item Context Message -->
-                <div id="item-context-message" class="mb-3 sm:mb-4 p-2 sm:p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg sm:rounded-xl shadow-sm hidden">
-                    <div class="flex items-center justify-between mb-2">
-                        <h4 class="text-xs sm:text-sm font-semibold text-purple-900 flex items-center">
-                            <i class="fas fa-info-circle mr-1 sm:mr-2 text-xs sm:text-sm"></i>Chatting about this item:
-                        </h4>
-                        <button onclick="clearItemContext()" class="text-purple-600 hover:text-purple-800 transition-colors p-1 rounded-full hover:bg-purple-100 min-w-[32px] min-h-[32px] flex items-center justify-center">
-                            <i class="fas fa-times text-xs sm:text-sm"></i>
+                <!-- Item Context Display -->
+                <div id="item-context-message" class="mb-4 p-3 bg-purple-50 border border-purple-200 rounded-lg hidden">
+                    <div class="flex items-start justify-between mb-2">
+                        <div class="flex-1">
+                            <p class="text-xs font-semibold text-purple-900 mb-1">📦 About Item</p>
+                            <p id="item-context-title" class="text-sm font-medium text-gray-900"></p>
+                            <p id="item-context-location" class="text-xs text-gray-600 mt-1"></p>
+                        </div>
+                        <button type="button" onclick="hideItemContext()" class="ml-3 text-gray-400 hover:text-gray-600" title="Hide item context">
+                            <i class="fas fa-times"></i>
                         </button>
                     </div>
-                    <div id="item-context-content" class="text-xs sm:text-sm text-purple-700">
-                        <!-- Item details will be loaded here -->
+                    <div id="item-context-images" class="mt-2 flex gap-2 overflow-x-auto">
+                        <!-- Item images will be displayed here -->
                     </div>
                 </div>
 
-                <!-- Image Upload Preview (Hidden by default) -->
-                <div id="image-preview-container" class="mb-3 sm:mb-4 hidden">
+                <!-- Show Item Context Button (hidden by default) -->
+                <div id="show-item-context-btn" class="mb-4 hidden">
+                    <button type="button" onclick="showItemContext()" class="text-xs text-purple-600 hover:text-purple-800 flex items-center gap-1">
+                        <i class="fas fa-box"></i>
+                        <span>Show Item Details</span>
+                    </button>
+                </div>
+
+                <!-- Image Preview -->
+                <div id="image-preview-container" class="mb-4 hidden">
                     <div class="relative inline-block">
-                        <img id="image-preview" src="" alt="Preview" class="max-w-full sm:max-w-xs max-h-40 sm:max-h-48 rounded-lg border-2 border-purple-300">
-                        <button type="button" onclick="removeImagePreview()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 sm:p-2 hover:bg-red-600 min-w-[32px] min-h-[32px] flex items-center justify-center">
+                        <img id="image-preview" src="" alt="Preview" class="max-w-xs max-h-48 rounded-lg border-2 border-purple-300">
+                        <button type="button" onclick="removeImagePreview()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600">
                             <i class="fas fa-times text-xs"></i>
                         </button>
                     </div>
                     <!-- View Option Selection -->
                     <div class="mt-2">
-                        <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Image View Option:</label>
-                        <div class="flex flex-wrap gap-2 sm:gap-3">
+                        <label class="block text-xs font-medium text-gray-700 mb-2">Image View Option:</label>
+                        <div class="flex gap-3">
                             <label class="flex items-center">
-                                <input type="radio" name="view_option" value="once" class="mr-1 sm:mr-2" checked>
-                                <span class="text-xs sm:text-sm">View Once</span>
+                                <input type="radio" name="view_option" value="once" class="mr-2" checked>
+                                <span class="text-xs">View Once</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="radio" name="view_option" value="twice" class="mr-1 sm:mr-2">
-                                <span class="text-xs sm:text-sm">View Twice</span>
+                                <input type="radio" name="view_option" value="twice" class="mr-2">
+                                <span class="text-xs">View Twice</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="radio" name="view_option" value="keep" class="mr-1 sm:mr-2">
-                                <span class="text-xs sm:text-sm">Keep in Chat</span>
+                                <input type="radio" name="view_option" value="keep" class="mr-2">
+                                <span class="text-xs">Keep in Chat</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
-                <form id="message-form" class="flex items-end gap-2 sm:gap-3" enctype="multipart/form-data">
+                <form id="message-form" class="flex items-end gap-3" enctype="multipart/form-data">
                     <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
                     <div class="flex-1 relative">
                         <textarea id="message-input" 
                                   placeholder="Type a message..."
                                   rows="1"
-                                  class="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 text-base border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden transition-all"
-                                  maxlength="1000"
-                                  style="min-height: 44px; max-height: 120px;"></textarea>
-                        <div class="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex items-center gap-1 sm:gap-2">
-                            <span id="char-count" class="text-xs text-gray-400 hidden sm:inline">0/1000</span>
-                            <button type="button" onclick="document.getElementById('image-input').click()" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 sm:p-2 rounded-full hover:bg-purple-50 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Upload image">
-                                <i class="fas fa-image text-base sm:text-lg"></i>
-                            </button>
-                            <button type="button" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 sm:p-2 rounded-full hover:bg-purple-50 min-w-[44px] min-h-[44px] flex items-center justify-center hidden sm:flex" title="Add emoji">
-                                <i class="fas fa-smile text-base sm:text-lg"></i>
+                                  class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                                  maxlength="1000"></textarea>
+                        <button type="button" onclick="document.getElementById('image-input').click()" 
+                                class="absolute bottom-2 right-2 text-gray-400 hover:text-purple-500 p-2">
+                            <i class="fas fa-image"></i>
                             </button>
                         </div>
-                    </div>
-                    <button type="submit"
-                            class="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl sm:rounded-2xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none min-w-[44px] min-h-[44px]"
-                            title="Send message">
-                        <i class="fas fa-paper-plane text-sm sm:text-base"></i>
+                    <button type="submit" class="px-5 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600">
+                        <i class="fas fa-paper-plane"></i>
                     </button>
                 </form>
             </div>
 
             <!-- Empty State -->
-            <div id="empty-state" class="flex-1 flex items-center justify-center hidden lg:flex">
-                <div class="text-center px-4">
-                    <i class="fas fa-comments text-4xl sm:text-6xl text-gray-300 mb-4"></i>
-                    <h3 class="text-base sm:text-lg font-medium text-gray-900 mb-2">Start a Conversation</h3>
-                    <p class="text-sm sm:text-base text-gray-500">Select a user from the list to start chatting</p>
+            <div id="empty-state" class="flex-1 flex items-center justify-center">
+                <div class="text-center">
+                    <i class="fas fa-comments text-6xl text-gray-300 mb-4"></i>
+                    <h3 class="text-lg font-medium text-gray-900 mb-2">Start a Conversation</h3>
+                    <p class="text-sm text-gray-500">Select a user from the list to start chatting</p>
                 </div>
             </div>
         </div>
@@ -237,58 +241,7 @@
 
 <script>
 let currentUserId = null;
-let messageInterval = null;
-
-// Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', function() {
-    // User search functionality
-    const userSearchInput = document.getElementById('user-search');
-    if (userSearchInput) {
-        userSearchInput.addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
-            const userItems = document.querySelectorAll('.user-item');
-
-            userItems.forEach(item => {
-                const userNameEl = item.querySelector('p.font-medium');
-                const lastMessage = item.querySelector('p.text-gray-500:not(.text-xs)');
-                const userName = userNameEl ? userNameEl.textContent.toLowerCase() : '';
-                const lastMessageText = lastMessage ? lastMessage.textContent.toLowerCase() : '';
-
-                if (userName.includes(searchTerm) || lastMessageText.includes(searchTerm)) {
-                    item.style.display = 'flex';
-                } else {
-                    item.style.display = 'none';
-                }
-            });
-        });
-    }
-});
-
-// User selection - attach after DOM is ready
-function initializeUserSelection() {
-    // Attach click handlers to all user items
-    document.querySelectorAll('.user-item').forEach(userItem => {
-        userItem.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const userId = this.dataset.userId || this.getAttribute('data-user-id');
-            if (userId) {
-                console.log('User item clicked, opening conversation with user:', userId);
-                selectUser(parseInt(userId));
-            } else {
-                console.error('No user ID found on clicked item:', this);
-            }
-        });
-    });
-    console.log('User selection handlers attached to', document.querySelectorAll('.user-item').length, 'items');
-}
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeUserSelection);
-} else {
-    // DOM is already ready
-    initializeUserSelection();
-}
+let selectedImage = null;
 
 // Select user and load messages
 function selectUser(userId) {
@@ -300,490 +253,280 @@ function selectUser(userId) {
     console.log('selectUser called with userId:', userId);
     currentUserId = userId;
 
-    try {
         // Update UI
         const emptyState = document.getElementById('empty-state');
         const chatHeader = document.getElementById('chat-header');
         const messagesContainer = document.getElementById('messages-container');
         const messageInputContainer = document.getElementById('message-input-container');
         
-        console.log('UI Elements found:', {
-            emptyState: !!emptyState,
-            chatHeader: !!chatHeader,
-            messagesContainer: !!messagesContainer,
-            messageInputContainer: !!messageInputContainer
-        });
-        
-        if (emptyState) {
-            emptyState.classList.add('hidden');
-            emptyState.style.display = 'none';
-            console.log('Hidden empty state');
-        }
-        if (chatHeader) {
-            chatHeader.classList.remove('hidden');
-            chatHeader.style.display = '';
-            console.log('Showed chat header');
-        }
-        if (messagesContainer) {
-            messagesContainer.classList.remove('hidden');
-            messagesContainer.style.display = '';
-            console.log('Showed messages container');
-        }
-        if (messageInputContainer) {
-            messageInputContainer.classList.remove('hidden');
-            messageInputContainer.style.display = '';
-            console.log('Showed message input container');
-        }
-        
-        // Show chat area on mobile
-        const chatArea = document.getElementById('chat-area');
-        if (chatArea) {
-            chatArea.classList.remove('hidden');
-        }
-        
-        // Show privacy warning when opening conversation
-        if (typeof showPrivacyWarning === 'function') {
-            showPrivacyWarning();
-        } else {
-            console.warn('showPrivacyWarning function not found');
-        }
+    if (emptyState) emptyState.classList.add('hidden');
+    if (chatHeader) chatHeader.classList.remove('hidden');
+    if (messagesContainer) messagesContainer.classList.remove('hidden');
+    if (messageInputContainer) messageInputContainer.classList.remove('hidden');
 
         // Update active user in sidebar
         document.querySelectorAll('.user-item').forEach(item => {
-            item.classList.remove('bg-purple-50', 'border-purple-200');
+        item.classList.remove('bg-purple-50');
         });
-        
         const selectedUserItem = document.querySelector(`[data-user-id="${userId}"]`);
         if (selectedUserItem) {
-            selectedUserItem.classList.add('bg-purple-50', 'border-purple-200');
-        } else {
-            console.warn('Could not find user item with data-user-id:', userId, '- User may not be in conversations list yet, but chat will still work');
-        }
+        selectedUserItem.classList.add('bg-purple-50');
+    }
+    
+    // Always show privacy notice when opening conversation
+    showPrivacyNotice();
 
-        // Load messages (this will also update the chat header with user info)
+    // Load messages (this will also restore item context if available)
         loadMessages(userId);
-
-        // Stop polling since we're using WebSocket now
-        if (messageInterval) {
-            clearInterval(messageInterval);
-            messageInterval = null;
-        }
-        
-        // On mobile, hide sidebar and show chat area
-        if (window.innerWidth < 1024) {
-            showChatArea();
-        }
-    } catch (error) {
-        console.error('Error in selectUser:', error);
-    }
 }
 
-// Mobile navigation functions
-function showUsersList() {
-    const sidebar = document.getElementById('users-sidebar');
-    const chatArea = document.getElementById('chat-area');
-    
-    if (sidebar) {
-        sidebar.classList.remove('-translate-x-full');
-        sidebar.classList.add('translate-x-0');
-    }
-    
-    if (chatArea) {
-        chatArea.classList.add('hidden');
-    }
-}
-
-function showChatArea() {
-    const sidebar = document.getElementById('users-sidebar');
-    const chatArea = document.getElementById('chat-area');
-    
-    if (sidebar) {
-        sidebar.classList.add('-translate-x-full');
-        sidebar.classList.remove('translate-x-0');
-    }
-    
-    if (chatArea) {
-        chatArea.classList.remove('hidden');
-    }
-}
-
-// Handle window resize
-let resizeTimer;
-window.addEventListener('resize', function() {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(function() {
-        // On desktop, always show both
-        if (window.innerWidth >= 1024) {
-            const sidebar = document.getElementById('users-sidebar');
-            const chatArea = document.getElementById('chat-area');
-            
-            if (sidebar) {
-                sidebar.classList.remove('-translate-x-full', 'translate-x-0');
-            }
-            
-            if (chatArea) {
-                chatArea.classList.remove('hidden');
-            }
-        }
-    }, 250);
-});
-
-// Load messages for selected user
+// Load messages
 async function loadMessages(userId) {
     try {
-        // Build URL - don't include item_id parameter, let server extract from messages
-        let url = `/chat/messages/${userId}`;
-
-        const response = await fetch(url, {
+        const response = await fetch(`/chat/messages/${userId}`, {
             method: 'GET',
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
             }
         });
 
         if (!response.ok) {
-            console.error('Failed to load messages:', response.status, response.statusText);
-            const messagesList = document.getElementById('messages-list');
-            if (messagesList) {
-                messagesList.innerHTML = '<div class="text-center text-red-500 py-8">Failed to load messages. Please try again.</div>';
-            }
+            console.error('Failed to load messages');
+            document.getElementById('messages-list').innerHTML = '<div class="text-center text-red-500 py-8">Failed to load messages</div>';
             return;
         }
 
         const data = await response.json();
-        console.log('API Response:', data);
 
         if (data.success) {
-            updateChatHeader(data.other_user);
-            console.log('Messages received:', data.messages);
-            if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
-                displayMessages(data.messages);
-            } else {
-                console.log('No messages to display');
-                const messagesList = document.getElementById('messages-list');
-                if (messagesList) {
-                    messagesList.innerHTML = '<div class="text-center text-gray-500 py-8">No messages yet. Start the conversation!</div>';
-                }
+            // Update chat header
+            if (data.other_user) {
+                document.getElementById('chat-user-name').textContent = data.other_user.name;
+                const initials = data.other_user.name.substring(0, 2).toUpperCase();
+                document.getElementById('chat-user-initials').textContent = initials;
             }
-
-            // Update item context if provided by server (this ensures both users see it)
-            // BUT only if item is not verified
+            
+            // Update item context if provided - show based on claim, even if verified
             if (data.item_context) {
-                console.log('Item context received from server:', data.item_context);
-                // Check if item is verified - if so, hide context
-                if (data.item_context.claim_status === 'verified') {
-                    // Item is verified, hide context
-                    console.log('Item is verified, hiding context');
-                    hideItemContext();
-                } else {
-                    // Item is not verified, show/update context (for both users in conversation)
-                    console.log('Showing item context for both users');
                 itemContext = data.item_context;
-                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                    showItemContext(); // Always refresh to show latest claim status
-                }
+                
+                // Always show item context when opening conversation (shows claim status)
+                showItemContext();
+                showChatItemContext();
             } else {
-                // No item context from server - check if current context is for a verified item
-                if (itemContext && (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified')) {
-                    console.log('Current context is verified, hiding');
-                    hideItemContext();
-                } else if (itemContext) {
-                    // If we have context but server didn't return it, it might be verified - hide it
-                    console.log('Server returned no context, hiding existing context');
-                    hideItemContext();
-                }
+                hideItemContext();
+                hideChatItemContext();
+                itemContext = null;
+                // Hide the show button if there's no item context
+                const showBtn = document.getElementById('show-chat-item-context-btn');
+                if (showBtn) showBtn.classList.add('hidden');
             }
+            
+            // Display messages
+            displayMessages(data.messages || []);
+        } else {
+            document.getElementById('messages-list').innerHTML = '<div class="text-center text-red-500 py-8">Failed to load messages</div>';
         }
     } catch (error) {
         console.error('Error loading messages:', error);
-    }
-}
-
-// Update chat header with user info
-function updateChatHeader(user) {
-    document.getElementById('chat-user-name').textContent = user.name;
-    document.getElementById('chat-user-initials').textContent = user.name.substring(0, 2).toUpperCase();
-
-    // Show/hide verification badge
-    const verifiedBadge = document.getElementById('chat-user-verified-badge');
-    if (user.is_verified) {
-        verifiedBadge.classList.remove('hidden');
-        verifiedBadge.innerHTML = '<img src="/images/icons/verify.png" alt="Verified" class="w-5 h-5">';
-    } else {
-        verifiedBadge.classList.add('hidden');
-    }
-
-    if (user.profile_picture) {
-        document.getElementById('chat-user-avatar').innerHTML =
-            `<img src="${user.profile_picture}" alt="${user.name}" class="w-full h-full rounded-full object-cover">`;
+        document.getElementById('messages-list').innerHTML = '<div class="text-center text-red-500 py-8">Error loading messages</div>';
     }
 }
 
 // Display messages
 function displayMessages(messages) {
     const messagesList = document.getElementById('messages-list');
-    const messagesContainer = document.getElementById('messages-container');
+    if (!messagesList) return;
     
-    if (!messagesList) {
-        console.error('Messages list element not found');
-        return;
-    }
+    messagesList.innerHTML = '';
     
-    // Ensure messages container is visible
-    if (messagesContainer) {
-        messagesContainer.classList.remove('hidden');
-    }
-    
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    if (!messages || messages.length === 0) {
         messagesList.innerHTML = '<div class="text-center text-gray-500 py-8">No messages yet. Start the conversation!</div>';
         return;
     }
     
-    console.log('Displaying', messages.length, 'messages');
-    messagesList.innerHTML = '';
-
-    // Group messages by date
-    let currentDate = null;
-    messages.forEach((message, index) => {
-        if (!message) {
-            console.warn('Invalid message at index', index);
-            return;
-        }
+    const currentUser = @json(Auth::user());
+    
+    messages.forEach(message => {
+        const isOwnMessage = parseInt(message.sender_id) === parseInt(currentUser.id);
+        console.log('Message sender_id:', message.sender_id, 'Current user id:', currentUser.id, 'isOwnMessage:', isOwnMessage);
         
-        try {
-        // Check if we need to show a date separator
-        const messageDate = new Date(message.created_at);
-        const messageDateStr = messageDate.toDateString();
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `flex items-end gap-2 mb-4 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`;
         
-        if (currentDate !== messageDateStr) {
-            currentDate = messageDateStr;
-            const dateSeparator = document.createElement('div');
-            dateSeparator.className = 'flex items-center justify-center my-4';
-            const today = new Date().toDateString();
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            
-            let dateLabel = '';
-            if (messageDateStr === today) {
-                dateLabel = 'Today';
-            } else if (messageDateStr === yesterday.toDateString()) {
-                dateLabel = 'Yesterday';
+        // Avatar
+        const avatar = document.createElement('div');
+        avatar.className = 'flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center';
+        const senderName = message.sender && message.sender.name ? message.sender.name : 'User';
+        const initials = senderName.substring(0, 2).toUpperCase();
+        avatar.innerHTML = `<span class="text-xs font-medium text-purple-600">${initials}</span>`;
+        
+        // Message bubble - ensure blue for sender
+        const bubble = document.createElement('div');
+        bubble.className = 'max-w-md px-4 py-2 rounded-lg';
+        if (isOwnMessage) {
+            bubble.className += ' bg-blue-300 text-gray-900';
+            bubble.style.backgroundColor = '#93c5fd'; // blue-300 color as fallback
+            bubble.style.color = '#111827'; // gray-900
             } else {
-                dateLabel = messageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: messageDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+            bubble.className += ' bg-gray-200 text-gray-900';
+            bubble.style.backgroundColor = '#e5e7eb'; // gray-200 color as fallback
+            bubble.style.color = '#111827'; // gray-900
+        }
+        
+        let messageContent = '';
+        
+        // Item context in message
+    if (message.item_context) {
+            let itemCtx = message.item_context;
+            if (typeof itemCtx === 'string') {
+                try {
+                    itemCtx = JSON.parse(itemCtx);
+        } catch (e) {
+                    itemCtx = null;
+                }
             }
             
-            dateSeparator.innerHTML = `
-                <div class="px-4 py-1.5 bg-white/80 backdrop-blur-sm border border-gray-200 rounded-full shadow-sm">
-                    <span class="text-xs font-medium text-gray-600">${dateLabel}</span>
-                </div>
-            `;
-            messagesList.appendChild(dateSeparator);
-        }
-
-        const messageElement = createMessageElement(message);
-        if (messageElement) {
-            messagesList.appendChild(messageElement);
-        } else {
-            console.error('Failed to create message element for message:', message);
-        }
-        } catch (error) {
-            console.error('Error processing message at index', index, ':', error, message);
-        }
-    });
-
-    // Scroll to bottom smoothly
-    if (messagesContainer) {
-        setTimeout(() => {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth'
-            });
-        }, 100);
-    }
-}
-
-// Create message element with messenger-style speech bubbles
-function createMessageElement(message) {
-    const currentUserId = {{ Auth::id() }};
-    const isOwnMessage = parseInt(message.sender_id) === parseInt(currentUserId);
-    const messageDiv = document.createElement('div');
-    messageDiv.className = `flex items-end gap-2 mb-4 ${isOwnMessage ? 'flex-row-reverse' : 'flex-row'}`;
-    messageDiv.setAttribute('data-message-id', message.id);
-
-    // Format created_at date
-    let timeString = 'Just now';
-    if (message.created_at) {
-        try {
-            const date = new Date(message.created_at);
-            if (!isNaN(date.getTime())) {
-                timeString = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            }
-        } catch (e) {
-            console.error('Error parsing date:', e);
-        }
-    }
-
-    // Get sender info for avatar
-    const sender = message.sender || {};
-    const senderName = sender.name || 'User';
-    const senderAvatar = sender.profile_picture || null;
-    const senderInitials = senderName.substring(0, 2).toUpperCase();
-
-    // Build item context preview if available
-    let itemContextHtml = '';
-    if (message.item_context) {
-        let previewContext = message.item_context;
-        if (typeof previewContext === 'string') {
-            try {
-                previewContext = JSON.parse(previewContext);
-            } catch (parseError) {
-                console.error('Failed to parse message item_context in createMessageElement:', parseError);
-                previewContext = null;
+            if (itemCtx) {
+                const description = itemCtx.description || 'Item';
+                const location = itemCtx.location || 'Location not specified';
+                const images = itemCtx.images || [];
+                
+                // Use appropriate background for item context based on message sender
+                const itemBgClass = isOwnMessage ? 'bg-white/70' : 'bg-white/60';
+                messageContent += `<div class="mb-2 p-2 ${itemBgClass} rounded border border-gray-300">`;
+                messageContent += '<p class="text-xs font-semibold mb-1 text-gray-700">📦 About Item</p>';
+                messageContent += `<p class="text-sm font-medium text-gray-900">${escapeHtml(description)}</p>`;
+                messageContent += `<p class="text-xs mt-1 text-gray-700">📍 ${escapeHtml(location)}</p>`;
+                if (images.length > 0) {
+                    messageContent += '<div class="mt-2 flex gap-1">';
+                    images.slice(0, 3).forEach(img => {
+                        messageContent += `<img src="${img.path}" alt="Item" class="w-12 h-12 object-cover rounded">`;
+                    });
+                    messageContent += '</div>';
+                }
+                messageContent += '</div>';
             }
         }
-
-        if (previewContext && typeof previewContext === 'object') {
-            const claimStatus = previewContext.claim_status || previewContext.claimStatus;
-            // Show preview only if item is not yet verified
-            if (claimStatus !== 'verified') {
-                const description = previewContext.description || 'No description provided';
-                const location = previewContext.location || 'Location not specified';
-                const statusLabel = (previewContext.item_type || previewContext.itemType || 'item').toString();
-                const uploadId = previewContext.upload_id || previewContext.uploadId;
-                const tags = Array.isArray(previewContext.tags) ? previewContext.tags : [];
-                const claimBadge = claimStatus === 'pending'
-                    ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⏳ Claim Pending</span>'
-                    : '';
-                const images = Array.isArray(previewContext.images) ? previewContext.images : [];
-                const firstImage = images.length ? images[0] : null;
-                const imagePreviewHtml = firstImage && firstImage.path
-                    ? `<div class="mb-2 -mx-2 -mt-2 first:mt-0"><img src="${firstImage.path}" alt="Item image" class="w-full h-40 object-cover rounded-t-lg"></div>`
-                    : '';
-
-                itemContextHtml = `
-                    <div class="mt-2 bg-white text-gray-900 rounded-2xl border border-gray-200 p-3 shadow-sm">
-                        <div class="flex items-center justify-between mb-2">
-                            <span class="text-xs font-semibold uppercase tracking-wide text-purple-600">Item Details</span>
-                            ${claimBadge}
-                        </div>
-                        ${imagePreviewHtml}
-                        <p class="text-sm font-medium mb-1">${escapeHtml(description)}</p>
-                        <p class="text-xs text-gray-600 mb-2"><i class="fas fa-map-marker-alt mr-1"></i>${escapeHtml(location)}</p>
-                        <p class="text-xs text-gray-600 mb-2"><i class="fas fa-tag mr-1"></i>${escapeHtml(statusLabel)}</p>
-                        ${tags.length ? `<div class="flex flex-wrap gap-1 mb-2">${tags.map(tag => `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-[10px] font-medium">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
-                        ${uploadId ? `<a href="/item/${uploadId}" target="_blank" class="text-xs text-purple-600 hover:text-purple-800 font-medium inline-flex items-center">
-                            View item <i class="fas fa-external-link-alt ml-1"></i>
-                        </a>` : ''}
-                    </div>
-                `;
-            }
-        }
-    }
-
-    // Avatar HTML (only show for received messages)
-    const avatarHtml = !isOwnMessage ? `
-        <div class="flex-shrink-0 w-8 h-8">
-            ${senderAvatar ? `
-                <img src="${senderAvatar}" alt="${senderName}" class="w-8 h-8 rounded-full object-cover border-2 border-gray-200">
-            ` : `
-                <div class="w-8 h-8 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center border-2 border-gray-200">
-                    <span class="text-xs font-semibold text-white">${senderInitials}</span>
-                </div>
-            `}
-        </div>
-    ` : '';
-
-    // Message bubble with speech bubble tail
-    const bubbleClass = isOwnMessage 
-        ? 'bg-gradient-to-br from-[#0a7bff] to-[#1d8dff] text-white rounded-2xl rounded-tr-sm shadow-md' 
-        : 'bg-[#e9e9eb] text-gray-900 rounded-2xl rounded-tl-sm shadow-sm border border-gray-200';
-    
-    // Image HTML
-    let imageHtml = '';
-    if (message.image_path) {
-        const canView = message.can_view_image !== false;
-        const isExpired = message.is_expired === true;
-        const viewOption = message.view_option || 'keep';
-        const viewCount = message.view_count || 0;
         
-        if (isExpired || !canView) {
-            imageHtml = `
-                <div class="mb-2 p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-center">
-                    <i class="fas fa-image text-gray-400 text-2xl mb-2"></i>
-                    <p class="text-xs text-gray-500">This image has expired</p>
-                </div>
-            `;
-        } else {
-            imageHtml = `
-                <div class="mb-2 relative">
-                    <img src="${message.image_path}" 
-                         alt="Shared image" 
-                         class="max-w-full max-h-64 rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                         onclick="viewImage(${message.id}, '${message.image_path}')"
-                         data-message-id="${message.id}">
-                    ${viewOption !== 'keep' ? `
-                        <div class="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">
-                            ${viewOption === 'once' ? 'View Once' : 'View Twice'} (${viewCount}/${viewOption === 'once' ? '1' : '2'})
-                        </div>
-                    ` : ''}
-                </div>
-            `;
+        // Image in message
+    if (message.image_path) {
+            messageContent += `<img src="${message.image_path}" alt="Image" class="max-w-full rounded mb-2">`;
         }
-    }
+        
+        // Text message
+        if (message.message) {
+            messageContent += `<p>${escapeHtml(message.message)}</p>`;
+        }
+        
+        bubble.innerHTML = messageContent || '<p class="text-sm opacity-70">Message</p>';
+        
+        // Time
+        const time = document.createElement('span');
+        time.className = `text-xs ${isOwnMessage ? 'text-gray-700' : 'text-gray-400'}`;
+        if (message.created_at) {
+            const date = new Date(message.created_at);
+            time.textContent = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        const messageWrapper = document.createElement('div');
+        messageWrapper.className = `flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'}`;
+        messageWrapper.appendChild(bubble);
+        messageWrapper.appendChild(time);
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(messageWrapper);
+        messagesList.appendChild(messageDiv);
+    });
     
-    messageDiv.innerHTML = `
-        ${avatarHtml}
-        <div class="flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%] md:max-w-[65%] lg:max-w-[55%]">
-            ${!isOwnMessage ? `<span class="text-xs text-gray-500 mb-1 px-2">${escapeHtml(senderName)}</span>` : ''}
-            <div class="${bubbleClass} px-3 sm:px-4 py-2 sm:py-2.5 relative group">
-                ${imageHtml}
-                ${message.message && message.message.trim() ? `<p class="text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(message.message)}</p>` : ''}
-                ${itemContextHtml}
-                ${!imageHtml && !message.message && !itemContextHtml ? '<p class="text-sm opacity-70">Message</p>' : ''}
-                <div class="flex items-center justify-end gap-1.5 mt-1.5">
-                    <span class="text-[10px] ${isOwnMessage ? 'text-white/70' : 'text-gray-400'}">
-                        ${timeString}
-                    </span>
-                    ${isOwnMessage ? `
-                        <i class="fas fa-check text-[10px] ${message.is_read ? 'text-blue-300' : 'text-white/50'}"></i>
-                    ` : ''}
-                </div>
-            </div>
-        </div>
-    `;
-
-    return messageDiv;
+    // Scroll to bottom
+    const container = document.getElementById('messages-container');
+    if (container) {
+        container.scrollTop = container.scrollHeight;
+    }
 }
 
-// Escape HTML to prevent XSS
+// Escape HTML helper
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Auto-resize textarea
-const messageInput = document.getElementById('message-input');
-if (messageInput) {
-    messageInput.addEventListener('input', function() {
-        this.style.height = 'auto';
-        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-        
-        // Show character count if typing
-        const charCount = document.getElementById('char-count');
-        if (charCount) {
-            if (this.value.length > 0) {
-                charCount.textContent = `${this.value.length}/1000`;
-                charCount.classList.remove('hidden');
-            } else {
-                charCount.classList.add('hidden');
-            }
+// Send message
+document.getElementById('message-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    const messageInput = document.getElementById('message-input');
+    const message = messageInput.value.trim();
+    
+    if ((!message && !selectedImage) || !currentUserId) {
+        alert('Please select a user and enter a message');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('receiver_id', currentUserId);
+        formData.append('message', message || '');
+        if (selectedImage) {
+            formData.append('image', selectedImage);
+            const viewOption = document.querySelector('input[name="view_option"]:checked')?.value || 'keep';
+            formData.append('view_option', viewOption);
         }
-    });
-}
+        if (itemContext) {
+            formData.append('item_upload_id', itemContext.uploadId || itemContext.upload_id || '');
+            formData.append('item_context', JSON.stringify(itemContext));
+        }
+
+        const response = await fetch('/chat/send', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: formData
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            messageInput.value = '';
+            selectedImage = null;
+            document.getElementById('image-input').value = '';
+            removeImagePreview();
+            
+            // Update item context if response includes it
+            if (data.message && data.message.item_context) {
+                let responseContext = data.message.item_context;
+                if (typeof responseContext === 'string') {
+                    try {
+                        responseContext = JSON.parse(responseContext);
+                    } catch (e) {
+                        responseContext = null;
+                    }
+                }
+                if (responseContext) {
+                    itemContext = responseContext;
+                    showItemContext(); // This will also call showChatItemContext()
+                }
+            }
+
+            // Reload messages
+            loadMessages(currentUserId);
+            } else {
+            alert(data.message || 'Failed to send message');
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        alert('An error occurred while sending the message');
+    }
+});
+
+// Item context
+let itemContext = null;
 
 // Handle image selection
-let selectedImage = null;
 function handleImageSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -814,650 +557,331 @@ function removeImagePreview() {
     document.getElementById('image-preview-container').classList.add('hidden');
 }
 
-// View image and record view
-async function viewImage(messageId, imagePath) {
-    // Record the view
-    try {
-        const response = await fetch(`/chat/image-view/${messageId}`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        });
+// Show item context
+function showItemContext() {
+    if (!itemContext) return;
+    
+    const contextElement = document.getElementById('item-context-message');
+    const showBtn = document.getElementById('show-item-context-btn');
+    const titleElement = document.getElementById('item-context-title');
+    const locationElement = document.getElementById('item-context-location');
+    const imagesElement = document.getElementById('item-context-images');
+    
+    if (contextElement && titleElement && locationElement) {
+        titleElement.textContent = itemContext.description || 'Item';
+        locationElement.textContent = '📍 ' + (itemContext.location || 'Location not specified');
         
-        const data = await response.json();
-        if (data.success) {
-            // Update the message element if view limit reached
-            if (data.is_expired || !data.can_view_image) {
-                const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
-                if (messageElement) {
-                    const img = messageElement.querySelector('img[data-message-id]');
-                    if (img) {
-                        img.parentElement.innerHTML = `
-                            <div class="mb-2 p-4 bg-gray-100 rounded-lg border-2 border-dashed border-gray-300 text-center">
-                                <i class="fas fa-image text-gray-400 text-2xl mb-2"></i>
-                                <p class="text-xs text-gray-500">This image has expired</p>
-                            </div>
-                        `;
-                    }
-                }
-            }
+        // Display images
+        if (imagesElement && itemContext.images && itemContext.images.length > 0) {
+            imagesElement.innerHTML = '';
+            itemContext.images.forEach(image => {
+                const img = document.createElement('img');
+                img.src = image.path;
+                img.className = 'w-20 h-20 object-cover rounded border border-gray-200';
+                img.alt = 'Item image';
+                imagesElement.appendChild(img);
+            });
         }
-    } catch (error) {
-        console.error('Error recording image view:', error);
+        
+        contextElement.classList.remove('hidden');
+        if (showBtn) showBtn.classList.add('hidden');
+        
+        // Store preference - item context is visible
+        if (currentUserId) {
+            localStorage.setItem(`item-context-hidden-${currentUserId}`, 'false');
+        }
     }
     
-    // Show image in modal/lightbox
-    showImageModal(imagePath);
+    // Also show in chat area
+    showChatItemContext();
 }
 
-// Show image in modal
-function showImageModal(imagePath) {
-    const modal = document.createElement('div');
-    modal.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4';
-    modal.innerHTML = `
-        <div class="relative max-w-4xl max-h-full">
-            <img src="${imagePath}" alt="Image" class="max-w-full max-h-[90vh] rounded-lg">
-            <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
-    modal.onclick = function(e) {
-        if (e.target === modal) {
-            modal.remove();
-        }
-    };
-    document.body.appendChild(modal);
-}
-
-// Send message
-document.getElementById('message-form').addEventListener('submit', async function(e) {
-    e.preventDefault();
-
-    const messageInput = document.getElementById('message-input');
-    const message = messageInput.value.trim();
-    const imageInput = document.getElementById('image-input');
-    const viewOption = document.querySelector('input[name="view_option"]:checked')?.value || null;
-
-    if ((!message && !selectedImage) || !currentUserId) return;
+// Hide item context
+function hideItemContext() {
+    const contextElement = document.getElementById('item-context-message');
+    const showBtn = document.getElementById('show-item-context-btn');
     
-    // Reset textarea height
-    messageInput.style.height = 'auto';
+    if (contextElement) {
+        contextElement.classList.add('hidden');
+    }
+    if (showBtn) {
+        showBtn.classList.remove('hidden');
+    }
+    
+    // Store preference - item context is hidden
+    if (currentUserId) {
+        localStorage.setItem(`item-context-hidden-${currentUserId}`, 'true');
+    }
+}
 
-    try {
-        const formData = new FormData();
-        formData.append('receiver_id', currentUserId);
-        formData.append('message', message || '');
-        if (selectedImage) {
-            formData.append('image', selectedImage);
-            formData.append('view_option', viewOption || 'keep');
-        }
-        if (itemContext) {
-            formData.append('item_upload_id', itemContext.uploadId || '');
-            formData.append('item_context', JSON.stringify(itemContext));
-        }
-
-        const response = await fetch('/chat/send', {
-            method: 'POST',
+// Show item context in chat area (visible to both users)
+function showChatItemContext() {
+    // If itemContext is not set, try to get it from the current conversation
+    if (!itemContext && currentUserId) {
+        // Try to fetch item context from the current conversation
+        fetch(`/chat/messages/${currentUserId}`, {
             headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            },
-            body: formData
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            // Clear input immediately for better UX
-            const messageText = messageInput.value.trim();
-            messageInput.value = '';
-            messageInput.style.height = 'auto';
-            
-            // Clear image preview if any
-            removeImagePreview();
-            
-            // Hide character count
-            const charCount = document.getElementById('char-count');
-            if (charCount) {
-                charCount.classList.add('hidden');
-            }
-
-            // Update item context if the response includes it (e.g., claim message)
-            if (data.message && data.message.item_context) {
-                let responseContext = data.message.item_context;
-                if (typeof responseContext === 'string') {
-                    try {
-                        responseContext = JSON.parse(responseContext);
-                    } catch (parseError) {
-                        console.error('Failed to parse item_context from response:', parseError);
-                        responseContext = null;
-                    }
-                }
-
-                if (responseContext && (responseContext.claim_status !== 'verified')) {
-                    itemContext = responseContext;
-                    sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                    showItemContext();
-                }
-            }
-
-            // Add message to UI immediately for sender (optimistic update)
-            if (data.message) {
-                // Format the message to match expected structure
-                let created_at = data.message.created_at;
-                if (!created_at) {
-                    created_at = new Date().toISOString();
-                } else if (typeof created_at === 'object' && created_at.date) {
-                    created_at = created_at.date;
-                }
-
-                const formattedMessage = {
-                    id: data.message.id,
-                    sender_id: data.message.sender_id,
-                    receiver_id: data.message.receiver_id,
-                    message: data.message.message || messageText,
-                    item_upload_id: data.message.item_upload_id,
-                    item_context: data.message.item_context,
-                    is_read: data.message.is_read || false,
-                    read_at: data.message.read_at,
-                    created_at: created_at,
-                    sender: data.message.sender || { id: data.message.sender_id },
-                    receiver: data.message.receiver || { id: data.message.receiver_id }
-                };
-
-                console.log('Adding sent message to UI:', formattedMessage);
-                addMessageToUI(formattedMessage);
-            } else {
-                console.error('No message data in response:', data);
-            }
-        } else {
-            showNotification(data.message || 'Failed to send message', 'error');
-        }
-    } catch (error) {
-        console.error('Error sending message:', error);
-        showNotification('An error occurred while sending the message', 'error');
-    }
-});
-
-// Toast notification function
-function showNotification(message, type = 'info') {
-    const existingToasts = document.querySelectorAll('.toast-notification');
-    existingToasts.forEach(toast => toast.remove());
-
-    const toast = document.createElement('div');
-    toast.className = 'toast-notification fixed top-4 right-4 z-50 transform transition-all duration-300 ease-in-out';
-
-    let bgColor, icon, iconColor;
-    switch (type) {
-        case 'success':
-            bgColor = 'bg-green-500';
-            icon = 'fas fa-check-circle';
-            iconColor = 'text-green-100';
-            break;
-        case 'error':
-            bgColor = 'bg-red-500';
-            icon = 'fas fa-exclamation-circle';
-            iconColor = 'text-red-100';
-            break;
-        default:
-            bgColor = 'bg-blue-500';
-            icon = 'fas fa-info-circle';
-            iconColor = 'text-blue-100';
-    }
-
-    toast.innerHTML = `
-        <div class="${bgColor} text-white px-6 py-4 rounded-lg shadow-lg flex items-center space-x-3 max-w-md">
-            <i class="${icon} ${iconColor} text-xl"></i>
-            <div class="flex-1">
-                <div class="font-medium">${message}</div>
-            </div>
-            <button onclick="this.parentElement.parentElement.remove()" class="text-white hover:text-gray-200 transition-colors">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-    `;
-
-    document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.style.transform = 'translateX(0)';
-        toast.style.opacity = '1';
-    }, 100);
-
-    setTimeout(() => {
-        if (toast.parentElement) {
-            toast.style.transform = 'translateX(100%)';
-            toast.style.opacity = '0';
-            setTimeout(() => {
-                if (toast.parentElement) {
-                    toast.remove();
-                }
-            }, 300);
-        }
-    }, 5000);
-}
-
-// Add message to UI without reloading
-function addMessageToUI(message) {
-    if (!message || !message.id) {
-        console.error('Invalid message data:', message);
-        return;
-    }
-    
-    const messagesList = document.getElementById('messages-list');
-    if (!messagesList) {
-        console.error('Messages list element not found');
-        return;
-    }
-    
-    // Check if message already exists to prevent duplicates
-    const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
-    if (existingMessage) {
-        console.log('Message already exists, skipping:', message.id);
-        return;
-    }
-    
-    const messageElement = createMessageElement(message);
-    messagesList.appendChild(messageElement);
-    
-    // Scroll to bottom smoothly
-    const messagesContainer = document.getElementById('messages-container');
-    if (messagesContainer) {
-        messagesContainer.scrollTo({
-            top: messagesContainer.scrollHeight,
-            behavior: 'smooth'
-        });
-    }
-}
-
-// Mark message as read
-async function markMessageAsRead(messageId) {
-    try {
-        await fetch(`/chat/messages/${currentUserId}/read`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-            }
-        });
-    } catch (error) {
-        console.error('Error marking message as read:', error);
-    }
-}
-
-// Update unread count in sidebar
-function updateUnreadCount() {
-    // This will be called when a new message arrives
-    // You can implement a fetch to get the latest unread count
-    fetch('/chat/unread-count')
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Update unread count display if needed
-                console.log('Unread count:', data.unread_count);
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
             }
         })
-        .catch(error => console.error('Error fetching unread count:', error));
-}
-
-// Update conversation list when new message arrives
-function updateConversationList(message) {
-    // Find the conversation in the sidebar and update it
-    const otherUserId = message.sender_id == {{ Auth::id() }} ? message.receiver_id : message.sender_id;
-    const userItem = document.querySelector(`[data-user-id="${otherUserId}"]`);
-    if (userItem) {
-        // Update last message preview
-        const lastMessageElement = userItem.querySelector('p.text-gray-500:not(.text-xs)');
-        if (lastMessageElement) {
-            lastMessageElement.textContent = message.message;
-        }
-        
-        // Update timestamp
-        const timeElement = userItem.querySelector('p.text-xs.text-gray-400');
-        if (timeElement) {
-            const messageTime = new Date(message.created_at);
-            timeElement.textContent = messageTime.toLocaleTimeString();
-        }
-        
-        // Update unread count if message is from other user
-        if (message.sender_id != {{ Auth::id() }}) {
-            const unreadBadge = userItem.querySelector('.inline-flex.items-center.px-2');
-            if (unreadBadge) {
-                const currentCount = parseInt(unreadBadge.textContent) || 0;
-                unreadBadge.textContent = currentCount + 1;
-                unreadBadge.classList.remove('hidden');
-            } else {
-                // Create unread badge if it doesn't exist
-                const badge = document.createElement('span');
-                badge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800';
-                badge.textContent = '1';
-                userItem.querySelector('.flex.items-center.justify-between').appendChild(badge);
-            }
-        }
-    }
-}
-
-// Clean up interval when page is unloaded
-window.addEventListener('beforeunload', function() {
-    if (messageInterval) {
-        clearInterval(messageInterval);
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch item context');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.success && data.item_context) {
+                    itemContext = data.item_context;
+                    displayChatItemContext();
+                } else {
+                    console.log('No item context available for this conversation');
+                    alert('No item details available for this conversation');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching item context:', error);
+                alert('Failed to load item details. Please try again.');
+            });
+        return;
     }
     
-    // Disconnect Echo
-    if (typeof window.Echo !== 'undefined') {
-        window.Echo.disconnect();
+    if (!itemContext) {
+        console.log('No item context available');
+        alert('No item details available');
+        return;
     }
-});
+    
+    displayChatItemContext();
+}
 
-// Item Context Functions
-let itemContext = null;
+function displayChatItemContext() {
+    if (!itemContext) return;
+    
+    const chatContextElement = document.getElementById('chat-item-context');
+    const chatShowBtn = document.getElementById('show-chat-item-context-btn');
+    const chatContentElement = document.getElementById('chat-item-context-content');
+    const chatImagesElement = document.getElementById('chat-item-context-images');
+    
+    if (chatContextElement && chatContentElement) {
+        // Build content
+        const description = itemContext.description || 'Item';
+        const location = itemContext.location || 'Location not specified';
+        const itemType = itemContext.item_type || itemContext.itemType || 'item';
+        const tags = itemContext.tags || [];
+        
+        // Get claim status info
+        const claimStatus = itemContext.claim_status || null;
+        const isClaimed = itemContext.is_claimed || false;
+        let claimBadge = '';
+        
+        if (claimStatus === 'verified' || (isClaimed && claimStatus === 'verified')) {
+            claimBadge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">✓ Claim Verified</span>';
+        } else if (claimStatus === 'pending') {
+            claimBadge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">⏳ Claim Pending</span>';
+        } else if (claimStatus === 'rejected') {
+            claimBadge = '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">✗ Claim Rejected</span>';
+        }
+        
+        let contentHtml = `
+            <div class="space-y-2">
+                <div class="flex items-center justify-between">
+                    <p class="text-sm font-medium text-gray-900">${escapeHtml(description)}</p>
+                    ${claimBadge}
+                </div>
+                <p class="text-xs text-gray-600 flex items-center gap-1">
+                    <i class="fas fa-map-marker-alt"></i>
+                    ${escapeHtml(location)}
+                </p>
+                <p class="text-xs text-gray-600 flex items-center gap-1">
+                    <i class="fas fa-tag"></i>
+                    ${escapeHtml(itemType)}
+                </p>
+        `;
+        
+        if (tags.length > 0) {
+            contentHtml += '<div class="flex flex-wrap gap-1 mt-2">';
+            tags.forEach(tag => {
+                contentHtml += `<span class="px-2 py-0.5 bg-purple-100 text-purple-700 rounded-full text-xs">${escapeHtml(tag)}</span>`;
+            });
+            contentHtml += '</div>';
+        }
+        
+        contentHtml += '</div>';
+        
+        chatContentElement.innerHTML = contentHtml;
+        
+        // Display images
+        if (chatImagesElement && itemContext.images && itemContext.images.length > 0) {
+            chatImagesElement.innerHTML = '';
+            itemContext.images.forEach(image => {
+                const img = document.createElement('img');
+                img.src = image.path;
+                img.className = 'w-24 h-24 object-cover rounded border border-gray-200 cursor-pointer hover:opacity-80';
+                img.alt = 'Item image';
+                img.onclick = () => {
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4';
+                    modal.innerHTML = `
+                        <div class="relative max-w-4xl max-h-full">
+                            <img src="${image.path}" alt="Item" class="max-w-full max-h-[90vh] rounded-lg">
+                            <button onclick="this.closest('.fixed').remove()" class="absolute top-4 right-4 bg-white/20 hover:bg-white/30 text-white rounded-full p-2">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    `;
+                    modal.onclick = (e) => {
+                        if (e.target === modal) modal.remove();
+                    };
+                    document.body.appendChild(modal);
+                };
+                chatImagesElement.appendChild(img);
+            });
+        } else {
+            chatImagesElement.innerHTML = '';
+        }
+        
+        chatContextElement.classList.remove('hidden');
+        if (chatShowBtn) chatShowBtn.classList.add('hidden');
+        
+        // Store preference
+        if (currentUserId) {
+            localStorage.setItem(`chat-item-context-hidden-${currentUserId}`, 'false');
+        }
+    }
+}
 
-// Check for item context on page load and initialize WebSocket
-document.addEventListener('DOMContentLoaded', function() {
-    // Check URL parameters
+// Hide item context in chat area
+function hideChatItemContext() {
+    const chatContextElement = document.getElementById('chat-item-context');
+    const chatShowBtn = document.getElementById('show-chat-item-context-btn');
+    
+    if (chatContextElement) {
+        chatContextElement.classList.add('hidden');
+    }
+    // Only show the button if item context exists
+    if (chatShowBtn && itemContext) {
+        chatShowBtn.classList.remove('hidden');
+    } else if (chatShowBtn) {
+        chatShowBtn.classList.add('hidden');
+    }
+    
+    // Store preference
+    if (currentUserId) {
+        localStorage.setItem(`chat-item-context-hidden-${currentUserId}`, 'true');
+    }
+}
+
+// Show privacy notice
+function showPrivacyNotice() {
+    const notice = document.getElementById('privacy-warning');
+    const showBtn = document.getElementById('show-privacy-notice-btn');
+    
+    if (notice) {
+        notice.classList.remove('hidden');
+    }
+    if (showBtn) {
+        showBtn.classList.add('hidden');
+    }
+    
+    // Store preference - notice is visible
+    localStorage.setItem('privacy-notice-hidden', 'false');
+}
+
+// Hide privacy notice
+function hidePrivacyNotice() {
+    const notice = document.getElementById('privacy-warning');
+    const showBtn = document.getElementById('show-privacy-notice-btn');
+    
+    if (notice) {
+        notice.classList.add('hidden');
+    }
+    if (showBtn) {
+        showBtn.classList.remove('hidden');
+    }
+    
+    // Store preference - notice is hidden
+    localStorage.setItem('privacy-notice-hidden', 'true');
+}
+
+// User item click handlers
+function initializeChat() {
+    console.log('Initializing chat...');
+    
+    // Attach click handlers to user items
+    const userItems = document.querySelectorAll('.user-item');
+    console.log('Found', userItems.length, 'user items');
+    
+    userItems.forEach(item => {
+        // Remove any existing listeners by cloning
+        const newItem = item.cloneNode(true);
+        item.parentNode.replaceChild(newItem, item);
+        
+        newItem.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const userId = this.getAttribute('data-user-id');
+            console.log('User item clicked, userId:', userId);
+            if (userId) {
+                selectUser(parseInt(userId));
+        } else {
+                console.error('No userId found on clicked item');
+            }
+        });
+    });
+    
+    // Auto-select user from URL
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
     const itemId = urlParams.get('item');
 
-    // Try to get item context from server-side data first
+    // Load item context if itemId is provided
     @if(isset($itemContextData) && $itemContextData)
         itemContext = @json($itemContextData);
     @endif
-
-    // Fallback to sessionStorage if not available from server
-    if (!itemContext) {
-        const storedContext = sessionStorage.getItem('chatItemContext');
-        if (storedContext) {
-            try {
-                itemContext = JSON.parse(storedContext);
-            } catch (e) {
-                console.error('Error parsing item context from sessionStorage:', e);
-            }
-        }
-    }
-
-    if (userId) {
-        // Wait a bit for DOM to be fully ready, then select user
-        setTimeout(() => {
-            selectUser(parseInt(userId));
-            // Show item context if available and not verified
-            if (itemContext) {
-                // Check if item is verified - if so, don't show context
-                if (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified') {
-                    hideItemContext();
-                } else {
-                    setTimeout(() => showItemContext(), 100);
-                }
-            }
-        }, 100);
-    }
     
-    // Show privacy warning when conversation opens
-    showPrivacyWarning();
-
-    // Initialize Laravel Echo for real-time messaging
-    if (typeof window.Echo !== 'undefined' && window.Echo) {
-        try {
-            const currentUser = @json(Auth::user());
-            
-            if (!currentUser || !currentUser.id) {
-                console.error('Current user not available for Echo initialization');
-                return;
-            }
-            
-            console.log('Initializing Laravel Echo for user:', currentUser.id);
-            
-            // Listen for new messages on the current user's private channel
-            const channel = window.Echo.private(`user.${currentUser.id}`);
-        
-        channel.listen('.message.sent', (e) => {
-            console.log('Received message event:', e);
-            const message = e;
-            
-            // Only add message if it's for the currently open conversation
-            if (currentUserId && (message.sender_id == currentUserId || message.receiver_id == currentUserId)) {
-                // Check if message already exists in UI (prevent duplicates)
-                const existingMessage = document.querySelector(`[data-message-id="${message.id}"]`);
-                if (!existingMessage) {
-                    console.log('Adding message to UI:', message);
-                    addMessageToUI(message);
-                    
-                    // Check if message has item_context and update item context display
-                    if (message.item_context) {
-                        let messageItemContext = message.item_context;
-                        if (typeof messageItemContext === 'string') {
-                            try {
-                                messageItemContext = JSON.parse(messageItemContext);
-                            } catch (parseError) {
-                                console.error('Failed to parse item_context from message:', parseError);
-                                messageItemContext = null;
-                            }
-                        }
-                        
-                        if (messageItemContext && typeof messageItemContext === 'object') {
-                            // Check if item is verified - if so, don't show context
-                            if (messageItemContext.claim_status !== 'verified') {
-                                console.log('Updating item context from received message:', messageItemContext);
-                                itemContext = messageItemContext;
-                                sessionStorage.setItem('chatItemContext', JSON.stringify(itemContext));
-                                showItemContext();
-                            } else {
-                                console.log('Item is verified, hiding context');
-                                hideItemContext();
-                            }
-                        }
-                    }
-                    
-                    // Mark as read if it's the current conversation and user is the receiver
-                    if (message.receiver_id == currentUser.id && message.sender_id == currentUserId) {
-                        markMessageAsRead(message.id);
-                    }
-                } else {
-                    console.log('Message already exists in UI, skipping:', message.id);
-                }
-            } else {
-                // Update unread count in sidebar if message is not for current conversation
-                console.log('Message not for current conversation, updating unread count');
-                updateUnreadCount();
-            }
-            
-            // Update conversation list
-            updateConversationList(message);
-        });
-        
-        // Log connection status
-        channel.subscribed(() => {
-            console.log('Successfully subscribed to private channel: user.' + currentUser.id);
-        });
-        
-        channel.error((error) => {
-            console.error('Echo subscription error:', error);
-        });
-
-        // Listen for item claim events
-        channel.listen('.item.claimed', (e) => {
-            console.log('Item claimed event received:', e);
-            // Check if this is for the current conversation
-            const isCurrentConversation = currentUserId && (
-                (e.claimer_id == currentUser.id && e.owner_id == currentUserId) ||
-                (e.owner_id == currentUser.id && e.claimer_id == currentUserId)
-            );
-            
-            if (isCurrentConversation) {
-                // Always reload messages to get the item context from the claim message
-                // This ensures both users see the item context
-                if (currentUserId) {
-                    console.log('Reloading messages to show item context after claim');
-                    loadMessages(currentUserId);
-                }
-            }
-        });
-
-        // Listen for item claim verified events
-        channel.listen('.item.claim.verified', (e) => {
-            console.log('Item claim verified event received:', e);
-            // Check if this is for the current conversation
-            const isCurrentConversation = currentUserId && (
-                (e.claimer_id == currentUser.id && e.owner_id == currentUserId) ||
-                (e.owner_id == currentUser.id && e.claimer_id == currentUserId)
-            );
-            
-            if (isCurrentConversation) {
-                if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
-                    // Hide item context since item is now verified/claimed
-                    hideItemContext();
-                    showNotification('This item has been claimed and verified. Item context removed from chat.', 'info');
-                } else if (currentUserId) {
-                    // Reload messages to ensure context is removed
-                    loadMessages(currentUserId);
-                }
-            }
-        });
-
-        // Listen for item deleted events
-        channel.listen('.item.deleted', (e) => {
-            console.log('Item deleted event received:', e);
-            if (itemContext && (itemContext.upload_id === e.upload_id || itemContext.uploadId === e.upload_id)) {
-                // Hide item context since item is deleted
-                hideItemContext();
-                showNotification('This item has been deleted. Item context removed from chat.', 'info');
-            }
-        });
-        } catch (error) {
-            console.error('Error initializing Laravel Echo:', error);
-            console.warn('Real-time messaging will not work. Make sure Pusher credentials are configured in your .env file (VITE_PUSHER_APP_KEY, VITE_PUSHER_APP_CLUSTER, etc.)');
-        }
+    // Restore privacy notice preference on page load
+    const privacyNoticeHidden = localStorage.getItem('privacy-notice-hidden') === 'true';
+    if (privacyNoticeHidden) {
+        hidePrivacyNotice();
     } else {
-        console.warn('Laravel Echo is not available. Real-time messaging will not work. Make sure to include the app.js script and that Pusher credentials are configured in your .env file.');
+        showPrivacyNotice();
     }
-});
-
-// Show item context in chat
-function showItemContext() {
-    if (!itemContext) return;
-
-    const contextElement = document.getElementById('item-context-message');
-    const contextContent = document.getElementById('item-context-content');
-    const contextInfo = document.getElementById('item-context-info');
-    const contextTitle = document.getElementById('item-context-title');
-    const contextDetails = document.getElementById('item-context-details');
-
-    // Show item context in message input area (enhanced display)
-    contextElement.classList.remove('hidden');
-    contextElement.classList.add('bg-purple-50', 'border-purple-300');
     
-    const firstImage = itemContext.images && itemContext.images.length > 0 ? itemContext.images[0] : null;
-    const itemType = itemContext.item_type || itemContext.itemType || 'item';
-    const uploadId = itemContext.upload_id || itemContext.uploadId;
-    const claimStatus = itemContext.claim_status || itemContext.claimStatus;
-    const currentUserId = {{ Auth::id() }};
-    const claimedById = itemContext.claimed_by_id || itemContext.claimedById;
+    if (userId) {
+        console.log('Auto-selecting user from URL:', userId);
+        setTimeout(() => selectUser(parseInt(userId)), 100);
+    }
     
-    // Determine if item is claimed and by whom
-    let claimBadge = '';
-    if (claimStatus === 'pending') {
-        if (claimedById == currentUserId) {
-            claimBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">⏳ Claim Pending (You claimed this)</span>';
+    // User search
+    const userSearch = document.getElementById('user-search');
+    if (userSearch) {
+        userSearch.addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            document.querySelectorAll('.user-item').forEach(item => {
+                const userNameEl = item.querySelector('p.font-medium');
+                if (userNameEl) {
+                    const userName = userNameEl.textContent.toLowerCase();
+                    if (userName.includes(searchTerm)) {
+                        item.style.display = 'flex';
+                            } else {
+                        item.style.display = 'none';
+                }
+            }
+        });
+        });
+    }
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeChat);
         } else {
-            claimBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">⏳ Claim Pending</span>';
-        }
-    } else if (claimStatus === 'verified') {
-        claimBadge = '<span class="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">✅ Claim Verified</span>';
-    }
-    
-    contextContent.innerHTML = `
-        <div class="flex items-start space-x-4">
-            <div class="flex-shrink-0">
-                ${firstImage ? `
-                    <img src="${firstImage.path}" alt="${firstImage.original_name || 'Item image'}"
-                         class="w-20 h-20 object-cover rounded-lg border-2 border-purple-300 shadow-sm cursor-pointer"
-                         onclick="window.open('/item/${uploadId}', '_blank')">
-                ` : `
-                    <div class="w-20 h-20 bg-purple-100 rounded-lg flex items-center justify-center border-2 border-purple-300">
-                        <i class="fas fa-image text-purple-400 text-2xl"></i>
-                    </div>
-                `}
-            </div>
-            <div class="flex-1 min-w-0">
-                <div class="space-y-2">
-                    <div class="flex items-center space-x-2 flex-wrap">
-                        <span class="px-3 py-1 rounded-full text-xs font-semibold ${itemType === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                            ${itemType === 'lost' ? '📌 Lost Item' : '📌 Found Item'}
-                        </span>
-                        ${claimBadge}
-                        <span class="text-xs text-gray-600">
-                            Posted by ${itemContext.uploader_name || 'Unknown'}
-                        </span>
-                    </div>
-                    <div class="text-sm font-semibold text-gray-900">${itemContext.description || 'No description'}</div>
-                    ${itemContext.location ? `<div class="text-sm text-gray-600">📍 ${itemContext.location}</div>` : ''}
-                    ${itemContext.tags && itemContext.tags.length > 0 ? `
-                        <div class="flex flex-wrap gap-1 mt-2">
-                            ${itemContext.tags.map(tag => `<span class="px-2 py-1 bg-white text-purple-700 rounded-full text-xs border border-purple-200">${tag}</span>`).join('')}
-                        </div>
-                    ` : ''}
-                    ${uploadId ? `
-                        <a href="/item/${uploadId}" target="_blank" class="inline-block text-xs text-purple-600 hover:text-purple-800 font-medium mt-2">
-                            <i class="fas fa-external-link-alt mr-1"></i>View Full Item Details
-                        </a>
-                    ` : ''}
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Show item context in header
-    if (contextInfo) {
-        contextInfo.classList.remove('hidden');
-        if (contextTitle) contextTitle.textContent = `💬 Chatting about: ${itemType === 'lost' ? 'Lost' : 'Found'} Item`;
-        if (contextDetails) contextDetails.textContent = `${itemContext.description || 'Item'}${itemContext.location ? ' • ' + itemContext.location : ''}`;
-    }
-
-    // Update message placeholder
-    const messageInput = document.getElementById('message-input');
-    if (messageInput) {
-        messageInput.placeholder = `Type your message about this ${itemType} item...`;
-        messageInput.focus();
-    }
-}
-
-// Hide privacy warning (temporary, will show again on next conversation)
-function hidePrivacyWarning() {
-    const privacyWarning = document.getElementById('privacy-warning');
-    if (privacyWarning) {
-        privacyWarning.classList.add('hidden');
-    }
-}
-
-// Show privacy warning when conversation opens
-function showPrivacyWarning() {
-    const privacyWarning = document.getElementById('privacy-warning');
-    if (privacyWarning) {
-        privacyWarning.classList.remove('hidden');
-    }
-}
-
-// Clear item context
-function clearItemContext() {
-    itemContext = null;
-    sessionStorage.removeItem('chatItemContext');
-
-    // Hide context elements
-    document.getElementById('item-context-message').classList.add('hidden');
-    document.getElementById('item-context-info').classList.add('hidden');
-
-    // Reset message placeholder
-    const messageInput = document.getElementById('message-input');
-    if (messageInput) {
-        messageInput.placeholder = 'Type a message...';
-        messageInput.focus();
-    }
-
-    // Clean URL
-    const url = new URL(window.location);
-    url.searchParams.delete('user');
-    url.searchParams.delete('item');
-    window.history.replaceState({}, '', url);
+    // DOM is already ready
+    initializeChat();
 }
 </script>
 @endsection
+

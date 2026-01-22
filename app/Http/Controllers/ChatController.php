@@ -21,6 +21,9 @@ class ChatController extends Controller
 
         // Get recent conversations (only users with initiated conversations)
         $conversations = $this->getRecentConversations($user);
+        
+        // Debug: Log conversation count
+        \Log::info('Chat conversations count: ' . $conversations->count());
 
         // Check if we have URL parameters for pre-selecting a user
         $selectedUserId = $request->get('user');
@@ -95,11 +98,39 @@ class ChatController extends Controller
         ->orderBy('created_at', 'asc')
         ->get();
         
-        // Map messages to include image data
+        // Map messages to include image data with proper date formatting
         $messages = $messages->map(function ($message) use ($currentUser) {
             $messageArray = $message->toArray();
             $messageArray['image_path'] = $message->image_path ? Storage::url($message->image_path) : null;
             $messageArray['can_view_image'] = $message->canViewImage($currentUser->id);
+            
+            // Ensure proper date formatting
+            $messageArray['created_at'] = $message->created_at ? $message->created_at->toIso8601String() : now()->toIso8601String();
+            $messageArray['read_at'] = $message->read_at ? $message->read_at->toIso8601String() : null;
+            
+            // Ensure sender and receiver are properly formatted
+            if (isset($messageArray['sender']) && is_array($messageArray['sender'])) {
+                // Already formatted
+            } elseif ($message->sender) {
+                $messageArray['sender'] = [
+                    'id' => $message->sender->id,
+                    'name' => $message->sender->name,
+                    'email' => $message->sender->email,
+                    'profile_picture' => $message->sender->profile_picture,
+                ];
+            }
+            
+            if (isset($messageArray['receiver']) && is_array($messageArray['receiver'])) {
+                // Already formatted
+            } elseif ($message->receiver) {
+                $messageArray['receiver'] = [
+                    'id' => $message->receiver->id,
+                    'name' => $message->receiver->name,
+                    'email' => $message->receiver->email,
+                    'profile_picture' => $message->receiver->profile_picture,
+                ];
+            }
+            
             return $messageArray;
         })->values();
 
@@ -113,7 +144,7 @@ class ChatController extends Controller
             ]);
 
         // Get item context from the first message that has item context
-        // BUT only if the item is not verified/claimed
+        // Show item context based on claim - always show if there's a claim, even if verified
         $itemContext = null;
         $firstMessageWithContext = $messages->where('item_upload_id', '!=', null)->whereNotNull('item_context')->first();
         if ($firstMessageWithContext && isset($firstMessageWithContext['item_context']) && $firstMessageWithContext['item_context']) {
@@ -159,15 +190,16 @@ class ChatController extends Controller
                 }
             }
             
-            // Check if item is verified - if so, don't return context
+            // Always return context if it exists (show based on claim, even if verified)
             if ($decodedContext && (isset($decodedContext['upload_id']) || isset($decodedContext['uploadId']))) {
                 $itemId = $decodedContext['upload_id'] ?? $decodedContext['uploadId'];
                 $item = \App\Models\ImageMetadata::where('upload_id', $itemId)->first();
-                // Only return context if item is NOT verified
-                if ($item && !($item->is_claimed && $item->claim_verification_status === 'verified')) {
+                
+                if ($item) {
                     $itemContext = $decodedContext;
-                    // Update claim status from database (always get latest status)
+                    // Always update claim status from database (get latest status)
                     $itemContext['claim_status'] = $item->claim_verification_status ?? null;
+                    $itemContext['is_claimed'] = $item->is_claimed ?? false;
                     $itemContext['claimed_by_id'] = $item->claimed_by_email ? (User::where('email', $item->claimed_by_email)->first()?->id ?? null) : null;
                     
                     // Ensure all required fields are present for display
@@ -279,7 +311,10 @@ class ChatController extends Controller
         }
 
         // Require either message or image
-        if (!$request->has('message') && !$request->hasFile('image')) {
+        $hasMessage = $request->filled('message') && trim($request->message) !== '';
+        $hasImage = $request->hasFile('image');
+        
+        if (!$hasMessage && !$hasImage) {
             return response()->json([
                 'success' => false,
                 'message' => 'Either message text or image is required'
@@ -358,12 +393,21 @@ class ChatController extends Controller
      */
     public function getRecentConversations($user)
     {
-        // Get users with whom the current user has had conversations
-        $messages = Message::where('sender_id', $user->id)
-            ->orWhere('receiver_id', $user->id)
+        // Get all messages where user is sender or receiver
+        $messages = Message::where(function($query) use ($user) {
+                $query->where('sender_id', $user->id)
+                      ->orWhere('receiver_id', $user->id);
+            })
             ->with(['sender', 'receiver'])
+            ->orderBy('created_at', 'desc')
             ->get();
 
+        // If no messages, return empty collection
+        if ($messages->isEmpty()) {
+            return collect([]);
+        }
+
+        // Group messages by the other user (not the current user)
         $conversationUsers = $messages->groupBy(function($message) use ($user) {
             if ($message->sender_id == $user->id) {
                 return $message->receiver_id;
@@ -374,13 +418,42 @@ class ChatController extends Controller
 
         $conversations = [];
 
-        foreach ($conversationUsers as $otherUserId => $messages) {
-            $otherUser = $messages->first()->sender_id == $user->id
-                ? $messages->first()->receiver
-                : $messages->first()->sender;
+        foreach ($conversationUsers as $otherUserId => $messageGroup) {
+            // Get the other user from the first message
+            $firstMessage = $messageGroup->first();
+            
+            if (!$firstMessage) {
+                continue;
+            }
+            
+            // Ensure relationships are loaded
+            if (!$firstMessage->relationLoaded('sender') || !$firstMessage->relationLoaded('receiver')) {
+                $firstMessage->load(['sender', 'receiver']);
+            }
+            
+            $otherUser = $firstMessage->sender_id == $user->id
+                ? $firstMessage->receiver
+                : $firstMessage->sender;
+            
+            // Skip if user doesn't exist (might be deleted)
+            if (!$otherUser) {
+                continue;
+            }
 
-            $lastMessage = $messages->sortByDesc('created_at')->first();
-            $unreadCount = $messages->where('receiver_id', $user->id)
+            // Get the most recent message
+            $lastMessage = $messageGroup->sortByDesc('created_at')->first();
+            
+            // Ensure last message has relationships loaded
+            if ($lastMessage && (!$lastMessage->relationLoaded('sender') || !$lastMessage->relationLoaded('receiver'))) {
+                $lastMessage->load(['sender', 'receiver']);
+            }
+            
+            if (!$lastMessage) {
+                continue;
+            }
+            
+            // Count unread messages (messages sent TO the current user that are unread)
+            $unreadCount = $messageGroup->where('receiver_id', $user->id)
                 ->where('is_read', false)
                 ->count();
 
@@ -392,7 +465,7 @@ class ChatController extends Controller
             ];
         }
 
-        // Sort by last message time
+        // Sort by last message time (most recent first)
         usort($conversations, function($a, $b) {
             return $b['last_message_time'] <=> $a['last_message_time'];
         });
