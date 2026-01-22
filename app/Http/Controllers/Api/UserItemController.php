@@ -1093,17 +1093,53 @@ class UserItemController extends Controller
                         continue;
                     }
                     
-                    // Calculate similarity
+                    // Calculate similarity - compare all images from user item against all images from other item
                     try {
-                        $userItemPath = $this->getItemFilePath($userItem);
-                        $otherItemPath = $this->getItemFilePath($otherItem);
+                        $maxVisualSimilarity = 0.0;
+                        $userItemImages = $userItemGroup->filter(function($item) {
+                            return $this->getItemFilePath($item) !== null;
+                        });
+                        $otherItemImages = $otherItemGroup->filter(function($item) {
+                            return $this->getItemFilePath($item) !== null;
+                        });
                         
-                        if (!$userItemPath || !$otherItemPath) {
+                        if ($userItemImages->isEmpty() || $otherItemImages->isEmpty()) {
+                            Log::debug('Skipping similarity check - no valid images', [
+                                'user_item' => $userItem->upload_id,
+                                'user_images_count' => $userItemImages->count(),
+                                'other_item' => $otherItem->upload_id,
+                                'other_images_count' => $otherItemImages->count(),
+                            ]);
                             continue;
                         }
                         
-                        // Calculate similarity
-                        $visualSimilarity = $this->calculateImageSimilarity($userItemPath, $otherItemPath);
+                        // Compare all images and take the maximum similarity
+                        foreach ($userItemImages as $userImg) {
+                            $userItemPath = $this->getItemFilePath($userImg);
+                            if (!$userItemPath) continue;
+                            
+                            foreach ($otherItemImages as $otherImg) {
+                                $otherItemPath = $this->getItemFilePath($otherImg);
+                                if (!$otherItemPath) continue;
+                                
+                                $visualSimilarity = $this->calculateImageSimilarity($userItemPath, $otherItemPath);
+                                $maxVisualSimilarity = max($maxVisualSimilarity, $visualSimilarity);
+                            }
+                        }
+                        
+                        if ($maxVisualSimilarity === 0.0) {
+                            Log::debug('Skipping - visual similarity is 0', [
+                                'user_item' => $userItem->upload_id,
+                                'other_item' => $otherItem->upload_id,
+                            ]);
+                            continue;
+                        }
+                        
+                        Log::debug('Similarity calculation', [
+                            'user_item' => $userItem->upload_id,
+                            'other_item' => $otherItem->upload_id,
+                            'visual_similarity' => $maxVisualSimilarity,
+                        ]);
                         
                         // Calculate text similarity
                         $userTags = is_array($userItem->tags) ? $userItem->tags : (is_string($userItem->tags) ? json_decode($userItem->tags, true) : []);
@@ -1127,35 +1163,164 @@ class UserItemController extends Controller
                         
                         // Calculate overall similarity (weighted average)
                         $textSimilarity = ($tagOverlap * 0.4) + ($descOverlap * 0.6);
-                        $overallSimilarity = ($textSimilarity * 0.3) + ($visualSimilarity * 0.7);
+                        $overallSimilarity = ($textSimilarity * 0.3) + ($maxVisualSimilarity * 0.7);
                         
-                        // Use same threshold as notification service to ensure consistency
-                        // This ensures items that trigger notifications also show on claim-verify page
-                        $visualThreshold = config('similarity.thresholds.visual', 0.5); // Lower threshold for matching on claim-verify
+                        // Use a lower threshold (0.5) for claim-verify to ensure all notified items show
+                        // Notification service uses 0.7-0.8, so items that trigger notifications (>=0.7) will definitely show here (>=0.5)
+                        // This ensures items that were notified also appear on claim-verify page
+                        $visualThreshold = 0.5; // Lower threshold to show more matches including all notified ones
                         
                         // If similarity meets threshold, add to matched items
                         // This works bidirectionally: when User A views the page, they see User B's items that match User A's items
                         // When User B views the page, they see User A's items that match User B's items
                         // Since similarity is symmetric, both users will see the match
                         if ($overallSimilarity >= $visualThreshold) {
+                            Log::info('Match found on claim-verify', [
+                                'current_user' => $user->email,
+                                'user_item' => $userItem->upload_id,
+                                'user_item_status' => $userItem->status,
+                                'matched_item' => $otherUploadId,
+                                'matched_item_status' => $otherItem->status,
+                                'matched_item_owner' => $otherItem->uploader_email,
+                                'similarity' => $overallSimilarity,
+                                'visual_similarity' => $maxVisualSimilarity,
+                                'text_similarity' => $textSimilarity,
+                                'threshold' => $visualThreshold
+                            ]);
+                            
                             $matchedUploadIds[] = $otherUploadId;
                             $matchedItems[$otherUploadId] = [
                                 'item' => $otherItemGroup,
                                 'similarity' => $overallSimilarity,
                                 'matched_with' => $userItem->upload_id
                             ];
+                            
+                            // Notify both users about the match when viewing claim-verify
+                            try {
+                                // Notify the other user (owner of matched item) about the match
+                                if ($otherItem->uploader_email && $otherItem->uploader_email !== $user->email) {
+                                    $otherUser = \App\Models\User::where('email', $otherItem->uploader_email)->first();
+                                    if ($otherUser) {
+                                        $similarityPercent = round($overallSimilarity * 100, 2);
+                                        $matchType = ($userItem->status === 'lost' && $otherItem->status === 'found') ? 
+                                                    'Someone found an item that matches your lost item!' : 
+                                                    'Someone lost an item that matches your found item!';
+                                        
+                                        // Check if notification already exists to avoid duplicates
+                                        $existingNotification = \App\Models\Notification::where('user_id', $otherUser->id)
+                                            ->where('type', 'item_matched')
+                                            ->where('data->new_item_upload_id', $userItem->upload_id)
+                                            ->where('data->matched_item_upload_id', $otherItem->upload_id)
+                                            ->first();
+                                        
+                                        if (!$existingNotification) {
+                                            \App\Models\Notification::create([
+                                                'user_id' => $otherUser->id,
+                                                'type' => 'item_matched',
+                                                'title' => 'Item Match Found!',
+                                                'message' => $matchType . ' (Similarity: ' . $similarityPercent . '%)',
+                                                'data' => [
+                                                    'matched_item_upload_id' => $otherItem->upload_id,
+                                                    'matched_item_id' => $otherItem->id,
+                                                    'matched_item_type' => $otherItem->status,
+                                                    'matched_item_description' => $otherItem->description,
+                                                    'matched_item_location' => $otherItem->location,
+                                                    'new_item_upload_id' => $userItem->upload_id,
+                                                    'new_item_id' => $userItem->id,
+                                                    'new_item_type' => $userItem->status,
+                                                    'new_item_description' => $userItem->description,
+                                                    'new_item_location' => $userItem->location,
+                                                    'similarity_score' => $overallSimilarity,
+                                                    'similarity_percent' => $similarityPercent,
+                                                ],
+                                            ]);
+                                            
+                                            Log::info('Match notification created for other user', [
+                                                'owner_email' => $otherItem->uploader_email,
+                                                'matched_item' => $otherItem->upload_id,
+                                                'user_item' => $userItem->upload_id,
+                                                'similarity' => $overallSimilarity
+                                            ]);
+                                        }
+                                    }
+                                }
+                                
+                                // Also notify the current user about the match
+                                $similarityPercent = round($overallSimilarity * 100, 2);
+                                $matchType = ($userItem->status === 'lost' && $otherItem->status === 'found') ? 
+                                            'Found item matches your lost item!' : 
+                                            'Lost item matches your found item!';
+                                
+                                // Check if notification already exists
+                                $existingNotification = \App\Models\Notification::where('user_id', $user->id)
+                                    ->where('type', 'item_matched')
+                                    ->where('data->new_item_upload_id', $otherItem->upload_id)
+                                    ->where('data->matched_item_upload_id', $userItem->upload_id)
+                                    ->first();
+                                
+                                if (!$existingNotification) {
+                                    \App\Models\Notification::create([
+                                        'user_id' => $user->id,
+                                        'type' => 'item_matched',
+                                        'title' => 'Item Match Found!',
+                                        'message' => $matchType . ' (Similarity: ' . $similarityPercent . '%)',
+                                        'data' => [
+                                            'matched_item_upload_id' => $userItem->upload_id,
+                                            'matched_item_id' => $userItem->id,
+                                            'matched_item_type' => $userItem->status,
+                                            'matched_item_description' => $userItem->description,
+                                            'matched_item_location' => $userItem->location,
+                                            'new_item_upload_id' => $otherItem->upload_id,
+                                            'new_item_id' => $otherItem->id,
+                                            'new_item_type' => $otherItem->status,
+                                            'new_item_description' => $otherItem->description,
+                                            'new_item_location' => $otherItem->location,
+                                            'similarity_score' => $overallSimilarity,
+                                            'similarity_percent' => $similarityPercent,
+                                        ],
+                                    ]);
+                                    
+                                    Log::info('Match notification created for current user', [
+                                        'user_email' => $user->email,
+                                        'matched_item' => $userItem->upload_id,
+                                        'other_item' => $otherItem->upload_id,
+                                        'similarity' => $overallSimilarity
+                                    ]);
+                                }
+                            } catch (\Exception $e) {
+                                Log::warning('Failed to create match notification', [
+                                    'error' => $e->getMessage(),
+                                    'trace' => $e->getTraceAsString()
+                                ]);
+                            }
+                        } else {
+                            Log::debug('Similarity below threshold', [
+                                'user_item' => $userItem->upload_id,
+                                'other_item' => $otherItem->upload_id,
+                                'overall_similarity' => $overallSimilarity,
+                                'threshold' => $visualThreshold,
+                            ]);
                         }
                     } catch (\Exception $e) {
                         Log::warning('Error calculating similarity for matching items', [
                             'user_item' => $userItem->upload_id,
                             'other_item' => $otherItem->upload_id,
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
+                            'trace' => $e->getTraceAsString()
                         ]);
                         continue;
                     }
                 }
             }
             
+            // Log matching results for debugging
+            Log::info('Claim-verify matching results', [
+                'current_user' => $user->email,
+                'user_items_count' => $userItems->count(),
+                'other_items_count' => $allOtherItems->count(),
+                'matches_found' => count($matchedItems),
+                'matched_upload_ids' => array_keys($matchedItems)
+            ]);
             
             // If no matches found, return empty array
             if (empty($matchedItems)) {
@@ -1325,15 +1490,63 @@ class UserItemController extends Controller
      */
     private function getItemFilePath(ImageMetadata $item): ?string
     {
-        // Check if it's a user item or reference image
-        if (str_contains($item->file_path, 'user-items')) {
-            $filename = basename($item->file_path);
-            $path = storage_path('app/public/user-items/' . $filename);
-        } else {
-            $path = storage_path('app/public/reference-images/' . $item->filename);
+        // Try multiple path formats to find the file
+        $possiblePaths = [];
+        
+        // If we have a filename, try direct path
+        if ($item->filename) {
+            $possiblePaths[] = storage_path('app/public/user-items/' . $item->filename);
+            $possiblePaths[] = storage_path('app/public/reference-images/' . $item->filename);
         }
-
-        return file_exists($path) ? $path : null;
+        
+        // If we have file_path, extract filename and try
+        if ($item->file_path) {
+            // Handle different path formats: /storage/user-items/file.jpg, storage/user-items/file.jpg, user-items/file.jpg
+            $filePath = $item->file_path;
+            
+            // Remove /storage/ prefix if present
+            if (str_starts_with($filePath, '/storage/')) {
+                $filePath = substr($filePath, 9); // Remove '/storage/'
+            } elseif (str_starts_with($filePath, 'storage/')) {
+                $filePath = substr($filePath, 8); // Remove 'storage/'
+            }
+            
+            // Extract just the filename
+            $filename = basename($filePath);
+            
+            // Try user-items first (most common)
+            $possiblePaths[] = storage_path('app/public/user-items/' . $filename);
+            $possiblePaths[] = storage_path('app/public/reference-images/' . $filename);
+            
+            // Also try with the full relative path
+            if (str_contains($filePath, 'user-items')) {
+                $possiblePaths[] = storage_path('app/public/' . $filePath);
+            }
+        }
+        
+        // Check each possible path
+        foreach ($possiblePaths as $path) {
+            if (file_exists($path)) {
+                Log::debug('Found file path for item', [
+                    'item_id' => $item->id,
+                    'upload_id' => $item->upload_id,
+                    'file_path' => $item->file_path,
+                    'filename' => $item->filename,
+                    'resolved_path' => $path
+                ]);
+                return $path;
+            }
+        }
+        
+        Log::warning('Could not find file path for item', [
+            'item_id' => $item->id,
+            'upload_id' => $item->upload_id,
+            'file_path' => $item->file_path,
+            'filename' => $item->filename,
+            'tried_paths' => $possiblePaths
+        ]);
+        
+        return null;
     }
     
     /**
