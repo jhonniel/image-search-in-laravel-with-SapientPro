@@ -158,29 +158,30 @@
             <div class="px-6 py-4 border-b border-gray-200">
                 <h3 class="text-lg font-semibold text-gray-900">Recent Activity</h3>
             </div>
-            <div class="overflow-x-auto">
-                <table class="w-full">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posted Date</th>
-                        </tr>
-                    </thead>
+            <div class="overflow-x-auto -mx-3 sm:-mx-6">
+                <div class="inline-block min-w-full align-middle">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Location</th>
+                                <th class="px-3 sm:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">Posted Date</th>
+                            </tr>
+                        </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
                         @forelse($recentActivity as $activity)
                         <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['name'] }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['item_name'] }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
+                            <td class="px-3 sm:px-6 py-4 text-sm text-gray-900">{{ $activity['name'] }}</td>
+                            <td class="px-3 sm:px-6 py-4 text-sm text-gray-900">{{ Str::limit($activity['item_name'], 20) }}</td>
+                            <td class="px-3 sm:px-6 py-4">
                                 <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $activity['item_type'] === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">
                                     {{ ucfirst($activity['item_type']) }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['location'] }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{{ $activity['posted_date']->format('M d, Y') }}</td>
+                            <td class="px-3 sm:px-6 py-4 text-sm text-gray-900 hidden sm:table-cell">{{ Str::limit($activity['location'], 15) }}</td>
+                            <td class="px-3 sm:px-6 py-4 text-sm text-gray-500 hidden md:table-cell">{{ $activity['posted_date']->format('M d, Y') }}</td>
                         </tr>
                         @empty
                         <tr>

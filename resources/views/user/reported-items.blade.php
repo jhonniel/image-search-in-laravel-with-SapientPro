@@ -28,13 +28,13 @@
             </div>
         </div>
 
-        <form id="item-upload-form" class="p-6 space-y-6">
+        <form id="item-upload-form" class="p-4 sm:p-6 space-y-4 sm:space-y-6">
             @csrf
 
             <!-- Item Type -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Item Type</label>
-                <div class="flex space-x-4">
+                <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4">
                     <label class="flex items-center">
                         <input type="radio" name="item_type" value="lost" class="mr-2" checked>
                         <span class="text-sm text-gray-700">Lost Item</span>
@@ -61,7 +61,7 @@
                            name="province" 
                            @if($provinceFieldRequired ?? true) required @endif
                            autocomplete="off"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                            placeholder="Enter your province name">
                     <!-- Autocomplete dropdown -->
                     <div id="province-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -92,7 +92,7 @@
                            name="city" 
                            @if($cityFieldRequired ?? true) required @endif
                            autocomplete="off"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                            placeholder="Enter your city name">
                     <!-- Autocomplete dropdown -->
                     <div id="city-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -114,7 +114,7 @@
                 <div class="flex gap-2 mb-2 relative">
                     <div class="flex-1 relative">
                         <input type="text" id="location" name="location" required autocomplete="off"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
                         <!-- Location autocomplete dropdown -->
                         <div id="location-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-purple-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
@@ -166,7 +166,7 @@
                 <!-- Tag Dropdown -->
                 <div class="relative mb-2">
                     <select id="tags-dropdown" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                         <option value="">Select a tag...</option>
                         <!-- Options will be loaded dynamically -->
                     </select>
@@ -252,6 +252,16 @@
                     </div>
                     <div class="w-full bg-gray-200 rounded-full h-2.5">
                         <div id="upload-progress-bar" class="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                    </div>
+                    
+                    <!-- Warning Note -->
+                    <div id="processing-warning-note" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div class="flex items-start space-x-2">
+                            <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
+                            <p class="text-xs sm:text-sm text-yellow-800">
+                                <strong>Please do not refresh or reload this page.</strong> The system is checking for similar items. Please wait for it to complete - you will be routed to the reported items page when done.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -356,7 +366,7 @@
                            name="province" 
                            @if($provinceFieldRequired ?? true) required @endif
                            autocomplete="off"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                            placeholder="Enter your province name">
                     <!-- Autocomplete dropdown -->
                     <div id="edit-province-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -387,7 +397,7 @@
                            name="city" 
                            @if($cityFieldRequired ?? true) required @endif
                            autocomplete="off"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                            placeholder="Enter your city name">
                     <!-- Autocomplete dropdown -->
                     <div id="edit-city-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-gray-300 rounded-lg shadow-xl max-h-60 overflow-y-auto">
@@ -409,7 +419,7 @@
                 <div class="flex gap-2 mb-2 relative">
                     <div class="flex-1 relative">
                         <input type="text" id="edit-location" name="location" required autocomplete="off"
-                               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                               class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                                placeholder="Where was this item found/lost? (e.g., Street name, Building, etc.)">
                         <!-- Location autocomplete dropdown -->
                         <div id="edit-location-autocomplete" class="hidden absolute z-50 w-full mt-1 bg-white border-2 border-purple-300 rounded-lg shadow-2xl max-h-60 overflow-y-auto">
@@ -461,7 +471,7 @@
                 <!-- Tag Dropdown -->
                 <div class="relative mb-2">
                     <select id="edit-tags-dropdown" 
-                            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            class="w-full px-3 sm:px-4 py-2.5 sm:py-3 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                         <option value="">Select a tag...</option>
                         <!-- Options will be loaded dynamically -->
                     </select>

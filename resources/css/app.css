@@ -16,3 +16,115 @@
     --color-blue-primary: #3B82F6;
     --color-blue-light: #60A5FA;
 }
+
+/* Responsive Enhancements */
+/* Ensure images are responsive by default */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Better touch targets for mobile */
+@media (max-width: 640px) {
+    button, a, input[type="button"], input[type="submit"], .btn {
+        min-height: 44px; /* iOS recommended touch target size */
+        min-width: 44px;
+    }
+    
+    /* Improve form inputs on mobile */
+    input, textarea, select {
+        font-size: 16px; /* Prevents zoom on iOS */
+    }
+}
+
+/* Responsive table wrapper */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table-responsive table {
+    min-width: 640px;
+}
+
+/* Mobile-friendly cards */
+@media (max-width: 640px) {
+    .card {
+        margin-left: -1rem;
+        margin-right: -1rem;
+        border-radius: 0;
+    }
+}
+
+/* Prevent horizontal scroll on mobile */
+html, body {
+    overflow-x: hidden;
+    max-width: 100%;
+}
+
+/* Better text wrapping */
+p, span, div, h1, h2, h3, h4, h5, h6 {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Responsive containers */
+.container {
+    width: 100%;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+@media (min-width: 640px) {
+    .container {
+        padding-left: 1.5rem;
+        padding-right: 1.5rem;
+    }
+}
+
+/* Mobile menu improvements */
+@media (max-width: 1024px) {
+    .mobile-menu-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 40;
+    }
+}
+
+/* Responsive grid improvements */
+@media (max-width: 640px) {
+    .grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Better spacing on mobile */
+@media (max-width: 640px) {
+    .space-y-6 > * + * {
+        margin-top: 1rem;
+    }
+    
+    .space-x-4 > * + * {
+        margin-left: 0.5rem;
+    }
+}
+
+/* Responsive text sizes */
+@media (max-width: 640px) {
+    .text-2xl { font-size: 1.5rem; }
+    .text-3xl { font-size: 1.875rem; }
+    .text-4xl { font-size: 2.25rem; }
+    .text-5xl { font-size: 3rem; }
+}
+
+/* Improve modal responsiveness */
+@media (max-width: 640px) {
+    .modal {
+        margin: 0.5rem;
+        max-width: calc(100% - 1rem);
+    }
+}

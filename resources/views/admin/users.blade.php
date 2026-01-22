@@ -46,8 +46,9 @@
 
     <!-- Users Table -->
     <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
+        <div class="overflow-x-auto -mx-3 sm:-mx-6">
+            <div class="inline-block min-w-full align-middle">
+                <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-gray-50">
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -150,7 +151,8 @@
                     </tr>
                     @endforelse
                 </tbody>
-            </table>
+                </table>
+            </div>
         </div>
     </div>
 

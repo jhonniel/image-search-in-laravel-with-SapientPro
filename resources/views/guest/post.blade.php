@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Post a {{ $itemType === 'found' ? 'Found' : 'Lost' }} Item - FindITFast</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="alternate icon" href="{{ asset('favicon.ico') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -426,6 +428,16 @@
                                 <p class="text-xs sm:text-sm text-gray-500" id="processing-message">
                                     Please wait while we process your item...
                                 </p>
+                                
+                                <!-- Warning Note -->
+                                <div id="processing-warning-note" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                                    <div class="flex items-start space-x-2">
+                                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
+                                        <p class="text-xs sm:text-sm text-yellow-800">
+                                            <strong>Please do not refresh or reload this page.</strong> The system is checking for similar items. Please wait for it to complete - you will be routed to the reported items page when done.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1026,10 +1038,10 @@ document.addEventListener('DOMContentLoaded', function() {
             currentStatusText.textContent = 'Matching similar items...';
             processingMessage.textContent = 'Searching for similar items in our database...';
         } else {
-            // Almost complete (90-100%)
-            currentStatusIcon.className = 'fas fa-check-circle text-green-600 text-sm';
-            currentStatusText.textContent = 'Finalizing...';
-            processingMessage.textContent = 'Almost done! Preparing to redirect...';
+            // Almost complete (90-100%) - Still checking for similarity
+            currentStatusIcon.className = 'fas fa-search text-pink-600 text-sm fa-spin';
+            currentStatusText.textContent = 'Checking for similar items...';
+            processingMessage.textContent = 'Scanning database for similar items. Please wait...';
         }
     }
     
@@ -1095,15 +1107,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Upload complete, simulate server processing (90-100%)
                     updateProgress(90);
                     
-                    // Simulate final processing
+                    // Simulate final processing - keep showing similarity check
                     let currentProgress = 90;
                     const processingInterval = setInterval(() => {
                         currentProgress += 2;
                         if (currentProgress >= 100) {
                             clearInterval(processingInterval);
                             updateProgress(100);
-                            processingTitle.textContent = 'Complete!';
-                            processingMessage.textContent = 'Redirecting...';
+                            // Keep showing similarity checking animation until redirect
+                            processingTitle.textContent = 'Checking for similar items...';
+                            processingMessage.textContent = 'Finalizing similarity check. Redirecting to reported items...';
                             
                             // Redirect after a brief moment
                             setTimeout(() => {

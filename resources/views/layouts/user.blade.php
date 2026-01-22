@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'FindITFast')</title>
+    <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
+    <link rel="alternate icon" href="{{ asset('favicon.ico') }}">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -241,8 +243,10 @@
             </header>
 
             <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6">
-                @yield('content')
+            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 overflow-x-hidden">
+                <div class="max-w-full">
+                    @yield('content')
+                </div>
             </main>
         </div>
     </div>
