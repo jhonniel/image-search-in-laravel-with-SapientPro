@@ -1050,34 +1050,12 @@ class UserItemController extends Controller
             }
             
             // Get items from other users, grouped by upload_id
-            // Include items that are unclaimed, rejected, OR have a pending claim by the current user
+            // For matching purposes, include ALL items (even claimed ones) so both users can see matches
+            // We'll filter by claim status later when displaying, but include all for similarity checking
             $allOtherItems = ImageMetadata::where('uploader_email', '!=', $user->email)
-                ->where(function($query) use ($user) {
-                    $query->where(function($q) {
-                        // Not claimed (including NULL) and no pending claim
-                        $q->where(function($r){
-                            $r->where('is_claimed', false)
-                              ->orWhereNull('is_claimed');
-                        })
-                          ->where(function($subQ) {
-                              $subQ->whereNull('claim_verification_status')
-                                   ->orWhere('claim_verification_status', '!=', 'pending');
-                          });
-                    })
-                    ->orWhere(function($q) {
-                        // Claimed but rejected (can be claimed again)
-                        $q->where('is_claimed', true)
-                          ->where('claim_verification_status', 'rejected');
-                    })
-                    ->orWhere(function($q) {
-                        // Pending claim by anyone (visible, but not claimable unless it's yours)
-                        $q->where(function($r){
-                            $r->where('is_claimed', false)
-                              ->orWhereNull('is_claimed');
-                        })
-                          ->where('claim_verification_status', 'pending');
-                    });
-                })
+                ->whereNotNull('uploader_email')
+                ->whereNotNull('file_path')
+                ->whereNotNull('filename')
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
@@ -1188,8 +1166,40 @@ class UserItemController extends Controller
                 ]);
             }
             
+            // Filter matched items to exclude claimed and verified items
+            // Only show items that are unclaimed, rejected, or pending
+            $claimableMatchedItems = [];
+            foreach ($matchedItems as $otherUploadId => $matchData) {
+                $group = $matchData['item'];
+                $firstItem = $group->first();
+                
+                // Exclude items that are claimed and verified
+                $isClaimed = $firstItem->is_claimed ?? false;
+                $claimStatus = $firstItem->claim_verification_status;
+                
+                // Only show if:
+                // 1. Not claimed (or NULL) and no pending/verified status
+                // 2. Claimed but rejected (can be claimed again)
+                // 3. Pending claim (visible but shows status)
+                // Exclude: Verified/claimed items
+                $shouldShow = false;
+                if ($claimStatus === 'verified') {
+                    $shouldShow = false; // Exclude verified items
+                } elseif (!$isClaimed && ($claimStatus === null || $claimStatus === '')) {
+                    $shouldShow = true; // Unclaimed - can be claimed
+                } elseif ($claimStatus === 'rejected') {
+                    $shouldShow = true; // Rejected - can be claimed again
+                } elseif ($claimStatus === 'pending') {
+                    $shouldShow = true; // Pending - show but indicate status
+                }
+                
+                if ($shouldShow) {
+                    $claimableMatchedItems[$otherUploadId] = $matchData;
+                }
+            }
+            
             // Format matched items
-            $items = collect($matchedItems)
+            $items = collect($claimableMatchedItems)
                 ->map(function ($matchData) use ($user, $userItems) {
                     $group = $matchData['item'];
                     $firstItem = $group->first();
