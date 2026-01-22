@@ -182,44 +182,44 @@ function displayOtherUsersItems(items) {
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
                         <!-- User's Matched Item (Left Side) -->
                         ${item.user_matched_item ? `
-                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                                <div class="p-4 bg-blue-50 border-b border-blue-200">
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
+                                <div class="p-4 bg-blue-50 border-b border-blue-200 flex-shrink-0">
                                     <div class="flex items-center space-x-2">
                                         <i class="fas fa-user text-blue-600"></i>
                                         <h4 class="font-semibold text-blue-900">Your Reported Item</h4>
                                     </div>
                                 </div>
-                                <div class="p-4">
-                                    <div class="mb-3">
+                                <div class="p-4 flex flex-col flex-1 min-h-0">
+                                    <div class="mb-3 flex-shrink-0">
                                         <span class="px-3 py-1 rounded-full text-xs font-medium ${item.user_matched_item.item_type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
                                             ${item.user_matched_item.item_type === 'lost' ? 'Lost' : 'Found'}
                                         </span>
                                     </div>
-                                    <p class="text-gray-700 mb-2 text-sm"><strong>Description:</strong> ${item.user_matched_item.description || 'No description provided'}</p>
-                                    <p class="text-gray-700 mb-2 text-sm"><strong>Location:</strong> ${item.user_matched_item.location || 'No location specified'}</p>
+                                    <p class="text-gray-700 mb-2 text-sm flex-shrink-0"><strong>Description:</strong> ${item.user_matched_item.description || 'No description provided'}</p>
+                                    <p class="text-gray-700 mb-2 text-sm flex-shrink-0"><strong>Location:</strong> ${item.user_matched_item.location || 'No location specified'}</p>
                                     ${item.user_matched_item.tags && item.user_matched_item.tags.length > 0 ? `
-                                        <div class="flex flex-wrap gap-2 mb-3">
+                                        <div class="flex flex-wrap gap-2 mb-3 flex-shrink-0">
                                             <strong class="text-gray-700 text-sm">Tags:</strong>
                                             ${item.user_matched_item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
                                         </div>
                                     ` : ''}
                                     ${item.user_matched_item.images && item.user_matched_item.images.length > 0 ? `
-                                        <div class="mt-3">
-                                            <div class="relative">
-                                                <div class="carousel-container overflow-hidden rounded-lg" style="height: 192px;">
-                                                    <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-user-${item.upload_id}" style="height: 192px;">
+                                        <div class="mt-3 flex-1 min-h-0 flex flex-col">
+                                            <div class="relative flex-1 min-h-0">
+                                                <div class="carousel-container overflow-hidden rounded-lg h-full">
+                                                    <div class="carousel-track flex transition-transform duration-300 ease-in-out h-full" id="carousel-user-${item.upload_id}">
                                                         ${item.user_matched_item.images.map((image, index) => `
-                                                            <div class="carousel-slide flex-shrink-0 w-full" style="background-color: #f3f4f6; height: 192px; width: 100%;">
+                                                            <div class="carousel-slide flex-shrink-0 w-full h-full">
                                                                 <div class="relative group w-full h-full" style="background-color: #f3f4f6;">
                                                                     <img src="${image.path || image.file_path || ''}" 
                                                                          alt="${image.original_name || 'Item image'}" 
-                                                                         class="w-full h-full object-cover rounded-lg border border-gray-200 cursor-pointer"
-                                                                         style="background-color: #f3f4f6; width: 100%; height: 192px; object-fit: cover; display: block; position: relative; z-index: 1;"
+                                                                         class="w-full h-full object-contain rounded-lg border border-gray-200 cursor-pointer"
+                                                                         style="background-color: #f3f4f6; width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;"
                                                                          onclick="viewImage('${image.path || image.file_path || ''}')"
                                                                          onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
                                                                          onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
                                                                          loading="lazy">
-                                                                    <div class="hidden w-full h-48 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
+                                                                    <div class="hidden w-full h-full bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
                                                                         <div class="text-center text-gray-400">
                                                                             <i class="fas fa-image text-4xl mb-2"></i>
                                                                             <p class="text-sm">Image not available</p>
@@ -239,7 +239,7 @@ function displayOtherUsersItems(items) {
 
                                                 ${item.user_matched_item.images.length > 1 ? `
                                                     <!-- Carousel Navigation -->
-                                                    <div class="flex items-center justify-between mt-4">
+                                                    <div class="flex items-center justify-between mt-4 flex-shrink-0">
                                                         <button onclick="previousSlide('user-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
                                                             <i class="fas fa-chevron-left text-gray-600"></i>
                                                         </button>
@@ -263,10 +263,10 @@ function displayOtherUsersItems(items) {
                                             </div>
                                         </div>
                                     ` : `
-                                        <div class="mt-3">
-                                            <div class="relative">
-                                                <div class="carousel-container overflow-hidden rounded-lg" style="height: 192px;">
-                                                    <div class="w-full h-48 bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center" style="min-height: 192px; max-height: 192px; height: 192px;">
+                                        <div class="mt-3 flex-1 min-h-0">
+                                            <div class="relative h-full">
+                                                <div class="carousel-container overflow-hidden rounded-lg h-full">
+                                                    <div class="w-full h-full bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
                                                         <div class="text-center text-gray-400">
                                                             <i class="fas fa-image text-4xl mb-2"></i>
                                                             <p class="text-sm">No image available</p>
@@ -454,7 +454,7 @@ function displayOtherUsersItems(items) {
                                 `)}
                             </div>
                         </div>
-                    </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -768,7 +768,7 @@ async function claimItem(uploadId) {
                 }, 1000);
             } else {
                 // Fallback: reload items if redirect info not available
-                loadOtherUsersItems();
+            loadOtherUsersItems();
             }
         } else {
             showToast(data.error || 'Error claiming item. Please try again.', 'error');
