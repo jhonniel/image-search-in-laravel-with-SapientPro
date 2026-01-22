@@ -274,28 +274,28 @@
             @else
                 <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-8 sm:mb-12 px-4 sm:px-0">New Reported Items</h2>
                 <!-- Show fresh reports grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             @endif
 
                 @forelse($freshReports as $report)
-                <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
+                <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
                     <!-- Content Section -->
                     <div class="p-6">
-                        <div class="flex items-center justify-between mb-3">
-                            <h3 class="text-lg font-bold text-gray-900 line-clamp-2">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
+                        <div class="flex items-start justify-between mb-4 gap-3">
+                            <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
                             <!-- Status Badge -->
-                            <span class="px-3 py-1 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-xs font-semibold uppercase shadow-md shrink-0 ml-2">
+                            <span class="px-3 py-1 {{ $report['type'] === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white' }} rounded-full text-xs font-medium shrink-0">
                                 {{ ucfirst($report['type']) }}
                             </span>
                         </div>
-                        <div class="space-y-2 text-sm text-gray-600 mb-4">
-                            <div class="flex items-center">
-                                <i class="fas fa-map-marker-alt text-purple-primary mr-2"></i>
-                                <span class="line-clamp-1">{{ \Illuminate\Support\Str::limit($report['location'], 25) }}</span>
+                        <div class="space-y-3 mb-4">
+                            <div class="flex items-start space-x-2 bg-purple-50 rounded-lg p-3 border border-purple-100">
+                                <i class="fas fa-map-marker-alt text-purple-600 mt-0.5 text-sm flex-shrink-0"></i>
+                                <span class="text-sm text-gray-700 font-medium line-clamp-2 leading-relaxed">{{ \Illuminate\Support\Str::limit($report['location'], 40) }}</span>
                             </div>
-                            <div class="flex items-center">
-                                <i class="fas fa-clock text-purple-primary mr-2"></i>
-                                <span>{{ $report['time_ago'] }}</span>
+                            <div class="flex items-center text-xs text-gray-600 pt-2 border-t border-gray-100">
+                                <i class="fas fa-clock text-purple-600 mr-2 text-sm"></i>
+                                <span class="font-semibold">{{ $report['time_ago'] }}</span>
                             </div>
                         </div>
                     @if(isset($report['upload_id']) && !empty($report['upload_id']))
@@ -774,26 +774,32 @@
                     const imageError = "this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3ENo Image%3C/text%3E%3C/svg%3E';";
 
                     html += `
-                        <div class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow">
-                            <div class="relative h-48 bg-gray-100">
+                        <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
+                            <div class="relative h-48 bg-gray-100 group overflow-hidden">
                                 ${imagePath ?
-                                    `<img src="${imagePath}" alt="${escapeHtml(report.title)}" class="w-full h-full object-cover" onerror="${imageError}">` :
-                                    `<div class="w-full h-full flex items-center justify-center bg-gray-100"><i class="fas fa-image text-gray-400 text-4xl"></i></div>`
+                                    `<img src="${imagePath}" alt="${escapeHtml(report.title)}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onerror="${imageError}">` :
+                                    `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200"><i class="fas fa-image text-gray-400 text-5xl"></i></div>`
                                 }
-                                <span class="absolute top-3 right-3 px-3 py-1 ${typeClass} rounded-full text-xs font-semibold uppercase shadow-md">
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                <span class="absolute top-2 left-2 px-3 py-1 ${report.type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'} rounded-full text-xs font-medium z-10">
                                     ${report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                                 </span>
                             </div>
                             <div class="p-6">
-                                <h3 class="text-lg font-bold text-gray-900 mb-4 line-clamp-2">${escapeHtml(report.title)}</h3>
-                                <div class="space-y-2 text-sm text-gray-600">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-map-marker-alt text-purple-primary mr-2"></i>
-                                        <span class="line-clamp-1">${escapeHtml(report.location)}</span>
+                                <div class="flex items-start justify-between mb-4 gap-3">
+                                    <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">${escapeHtml(report.title)}</h3>
+                                    <span class="px-3 py-1 ${report.type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'} rounded-full text-xs font-medium shrink-0">
+                                        ${report.type.charAt(0).toUpperCase() + report.type.slice(1)}
+                                    </span>
+                                </div>
+                                <div class="space-y-3">
+                                    <div class="flex items-start space-x-2 bg-purple-50 rounded-lg p-3 border border-purple-100">
+                                        <i class="fas fa-map-marker-alt text-purple-600 mt-0.5 text-sm flex-shrink-0"></i>
+                                        <span class="text-sm text-gray-700 font-medium line-clamp-2 leading-relaxed">${escapeHtml(report.location)}</span>
                                     </div>
-                                    <div class="flex items-center">
-                                        <i class="fas fa-clock text-purple-primary mr-2"></i>
-                                        <span>${escapeHtml(report.time_ago)}</span>
+                                    <div class="flex items-center text-xs text-gray-600 pt-2 border-t border-gray-100">
+                                        <i class="fas fa-clock text-purple-600 mr-2 text-sm"></i>
+                                        <span class="font-semibold">${escapeHtml(report.time_ago)}</span>
                                     </div>
                                 </div>
                             </div>

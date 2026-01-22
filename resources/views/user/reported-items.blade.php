@@ -1684,8 +1684,8 @@ function displayUserItems(items) {
                              onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3EImage not available%3C/text%3E%3C/svg%3E'; this.parentElement.classList.add('flex', 'items-center', 'justify-center');"
                              onclick="openImageModal('${escapedImageUrl}', ${allImageUrlsJson})">
                         ${item.images && item.images.length > 1 ? '<div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded"><i class="fas fa-images mr-1"></i>' + item.images.length + ' images</div>' : ''}
-                        <div class="absolute top-2 left-2">
-                            <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                        <div class="absolute top-3 left-3 z-10">
+                            <span class="px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide shadow-lg ${item.item_type === 'lost' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}">
                                 ${item.item_type === 'lost' ? 'Lost' : 'Found'}
                             </span>
                         </div>
@@ -1697,8 +1697,8 @@ function displayUserItems(items) {
                             <i class="fas fa-image text-gray-400 text-4xl mb-2"></i>
                             <p class="text-xs text-gray-500">No image</p>
                         </div>
-                        <div class="absolute top-2 left-2">
-                            <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}">
+                        <div class="absolute top-3 left-3 z-10">
+                            <span class="px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide shadow-lg ${item.item_type === 'lost' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}">
                                 ${item.item_type === 'lost' ? 'Lost' : 'Found'}
                             </span>
                         </div>
