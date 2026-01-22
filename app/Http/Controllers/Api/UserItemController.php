@@ -1098,6 +1098,21 @@ class UserItemController extends Controller
                     
                     $otherItem = $otherItemGroup->first();
                     
+                    // Only match Lost with Found and Found with Lost (opposite types)
+                    $userItemStatus = $userItem->status;
+                    $otherItemStatus = $otherItem->status;
+                    
+                    // Skip if both items have the same status (Lost-Lost or Found-Found)
+                    if ($userItemStatus === $otherItemStatus) {
+                        continue;
+                    }
+                    
+                    // Ensure opposite types: Lost ↔ Found
+                    if (!(($userItemStatus === 'lost' && $otherItemStatus === 'found') || 
+                          ($userItemStatus === 'found' && $otherItemStatus === 'lost'))) {
+                        continue;
+                    }
+                    
                     // Calculate similarity
                     try {
                         $userItemPath = $this->getItemFilePath($userItem);
@@ -1167,7 +1182,7 @@ class UserItemController extends Controller
             
             // Format matched items
             $items = collect($matchedItems)
-                ->map(function ($matchData) use ($user) {
+                ->map(function ($matchData) use ($user, $userItems) {
                     $group = $matchData['item'];
                     $firstItem = $group->first();
                     $tags = $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [];
@@ -1178,6 +1193,46 @@ class UserItemController extends Controller
                     // Check if current user has claimed this item
                     $userHasClaimed = $firstItem->claim_verification_status === 'pending' 
                         && $firstItem->claimed_by_email === $user->email;
+
+                    // Get the user's matched item details
+                    $matchedWithUploadId = $matchData['matched_with'];
+                    $userMatchedItem = null;
+                    if ($matchedWithUploadId && isset($userItems[$matchedWithUploadId])) {
+                        $userItemGroup = $userItems[$matchedWithUploadId];
+                        $userFirstItem = $userItemGroup->first();
+                        $userTags = $userFirstItem->tags ? (is_string($userFirstItem->tags) ? json_decode($userFirstItem->tags, true) : $userFirstItem->tags) : [];
+                        
+                        $userMatchedItem = [
+                            'upload_id' => $matchedWithUploadId,
+                            'item_type' => $userFirstItem->status,
+                            'description' => $userFirstItem->description,
+                            'location' => $userFirstItem->location ?? 'Location not specified',
+                            'province' => $userFirstItem->province ?? null,
+                            'city' => $userFirstItem->city ?? null,
+                            'tags' => is_array($userTags) ? $userTags : [],
+                            'created_at' => $userFirstItem->created_at,
+                            'images' => $userItemGroup->map(function ($item) {
+                                $filePath = $item->file_path;
+                                
+                                if (empty($filePath)) {
+                                    $imagePath = '';
+                                } elseif (str_starts_with($filePath, '/storage/')) {
+                                    $imagePath = $filePath;
+                                } elseif (str_starts_with($filePath, 'storage/')) {
+                                    $imagePath = '/' . $filePath;
+                                } elseif (str_starts_with($filePath, 'http')) {
+                                    $imagePath = $filePath;
+                                } else {
+                                    $imagePath = Storage::url($filePath);
+                                }
+
+                                return [
+                                    'path' => $imagePath,
+                                    'original_name' => $item->original_name ?? basename($filePath)
+                                ];
+                            })->toArray()
+                        ];
+                    }
 
                     return [
                         'upload_id' => $firstItem->upload_id,
@@ -1196,7 +1251,8 @@ class UserItemController extends Controller
                         'claim_status' => $firstItem->claim_verification_status,
                         'claimed_by_email' => $firstItem->claimed_by_email,
                         'similarity_score' => round($matchData['similarity'] * 100, 2),
-                        'matched_with_upload_id' => $matchData['matched_with'],
+                        'matched_with_upload_id' => $matchedWithUploadId,
+                        'user_matched_item' => $userMatchedItem, // Add user's matched item details
                         'images' => $group->map(function ($item) {
                             // Handle file path - ensure it's a valid URL
                             $filePath = $item->file_path;
@@ -1541,7 +1597,9 @@ class UserItemController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Item claim request sent! The item owner has been notified and will verify your claim. You can message them to discuss the details.',
-                'owner_name' => $itemOwner->name
+                'owner_name' => $itemOwner->name,
+                'owner_id' => $itemOwner->id,
+                'upload_id' => $uploadId
             ]);
 
         } catch (\Exception $e) {

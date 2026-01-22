@@ -153,9 +153,78 @@ function displayOtherUsersItems(items) {
                 Similar items found! These available items match your reported items based on image and text similarity.
             </p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 gap-6">
             ${items.map(item => `
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                <!-- Similarity Match Container -->
+                <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border-2 border-purple-200 overflow-hidden">
+                    <!-- Similarity Header -->
+                    <div class="p-4 bg-purple-100 border-b border-purple-200">
+                        <div class="flex items-center justify-between flex-wrap gap-2">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center">
+                                    <i class="fas fa-link text-white"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-purple-900">Similarity Match Found</h3>
+                                    <p class="text-sm text-purple-700">Match Score: <span class="font-bold text-lg">${item.similarity_score}%</span></p>
+                                </div>
+                            </div>
+                            ${item.matched_with_upload_id ? `
+                                <div class="text-xs text-purple-600 bg-white px-3 py-1 rounded-full">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Matched with your item: ${item.matched_with_upload_id}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <!-- Side by Side Items -->
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+                        <!-- User's Matched Item (Left Side) -->
+                        ${item.user_matched_item ? `
+                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                                <div class="p-4 bg-blue-50 border-b border-blue-200">
+                                    <div class="flex items-center space-x-2">
+                                        <i class="fas fa-user text-blue-600"></i>
+                                        <h4 class="font-semibold text-blue-900">Your Reported Item</h4>
+                                    </div>
+                                </div>
+                                <div class="p-4">
+                                    <div class="mb-3">
+                                        <span class="px-3 py-1 rounded-full text-xs font-medium ${item.user_matched_item.item_type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
+                                            ${item.user_matched_item.item_type === 'lost' ? 'Lost' : 'Found'}
+                                        </span>
+                                    </div>
+                                    <p class="text-gray-700 mb-2 text-sm"><strong>Description:</strong> ${item.user_matched_item.description || 'No description provided'}</p>
+                                    <p class="text-gray-700 mb-2 text-sm"><strong>Location:</strong> ${item.user_matched_item.location || 'No location specified'}</p>
+                                    ${item.user_matched_item.tags && item.user_matched_item.tags.length > 0 ? `
+                                        <div class="flex flex-wrap gap-2 mb-3">
+                                            <strong class="text-gray-700 text-sm">Tags:</strong>
+                                            ${item.user_matched_item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
+                                        </div>
+                                    ` : ''}
+                                    ${item.user_matched_item.images && item.user_matched_item.images.length > 0 ? `
+                                        <div class="mt-3">
+                                            <div class="grid grid-cols-2 gap-2">
+                                                ${item.user_matched_item.images.slice(0, 4).map((image, idx) => `
+                                                    <img src="${image.path || image.file_path || ''}" 
+                                                         alt="${image.original_name || 'Item image'}" 
+                                                         class="w-full h-24 object-cover rounded-lg border border-gray-200 cursor-pointer"
+                                                         onclick="viewImage('${image.path || image.file_path || ''}')"
+                                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                                    <div class="hidden w-full h-24 bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
+                                                        <i class="fas fa-image text-gray-400"></i>
+                                                    </div>
+                                                `).join('')}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
+                        <!-- Matched Item from Other User (Right Side) -->
+                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                     <!-- Item Header -->
                     <div class="p-6 border-b border-gray-200">
                         <div class="flex items-start justify-between mb-4">
@@ -327,6 +396,8 @@ function displayOtherUsersItems(items) {
                                     </button>
                                 `)}
                             </div>
+                        </div>
+                    </div>
                         </div>
                     </div>
                 </div>
@@ -626,9 +697,17 @@ async function claimItem(uploadId) {
         const data = await response.json();
 
         if (data.success) {
-            showToast('Item claimed successfully!', 'success');
-            // Reload items to update the button to "Cancel Claim"
-            loadOtherUsersItems();
+            showToast('Item claimed successfully! Redirecting to chat...', 'success');
+            
+            // Redirect to chat with the item owner
+            if (data.owner_id && data.upload_id) {
+                setTimeout(() => {
+                    window.location.href = `/chat?user=${data.owner_id}&item=${data.upload_id}`;
+                }, 1000);
+            } else {
+                // Fallback: reload items if redirect info not available
+                loadOtherUsersItems();
+            }
         } else {
             showToast(data.error || 'Error claiming item. Please try again.', 'error');
         }

@@ -1,21 +1,21 @@
 @extends('layouts.user')
 
 @section('content')
-<div class="p-6 h-full">
+<div class="p-3 sm:p-6 h-full">
     <!-- Header -->
-    <div class="mb-6">
-        <h1 class="text-3xl font-bold text-gray-900">Messages</h1>
-        <p class="text-gray-600 mt-2">Chat with other users in the system</p>
+    <div class="mb-4 sm:mb-6">
+        <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Messages</h1>
+        <p class="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">Chat with other users in the system</p>
     </div>
 
-    <div class="bg-white rounded-lg shadow-sm border h-[calc(100vh-200px)] flex">
+    <div class="bg-white rounded-lg shadow-sm border h-[calc(100vh-180px)] sm:h-[calc(100vh-200px)] flex flex-col lg:flex-row relative overflow-hidden">
         <!-- Users List Sidebar -->
-        <div class="w-1/3 border-r border-gray-200 flex flex-col">
+        <div id="users-sidebar" class="w-full lg:w-1/3 border-r border-gray-200 flex flex-col absolute lg:relative inset-0 z-10 lg:z-auto bg-white transition-transform duration-300 ease-in-out lg:translate-x-0">
             <!-- Search -->
-            <div class="p-4 border-b border-gray-200">
+            <div class="p-3 sm:p-4 border-b border-gray-200">
                 <div class="relative">
                     <input type="text" id="user-search" placeholder="Search users..."
-                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                           class="w-full pl-10 pr-4 py-2 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
                     <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <i class="fas fa-search text-gray-400"></i>
                     </div>
@@ -28,9 +28,9 @@
                 @if($conversations->count() > 0)
                 <div class="p-4">
                     <h3 class="text-sm font-medium text-gray-500 mb-3">Conversations</h3>
-                    <div class="space-y-2">
+                    <div class="space-y-1 sm:space-y-2">
                         @foreach($conversations as $conversation)
-                        <div class="user-item flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors"
+                        <div class="user-item flex items-center p-2 sm:p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors active:bg-gray-100"
                              data-user-id="{{ $conversation['user']->id }}">
                             <div class="flex-shrink-0">
                                 @if($conversation['user']->profile_picture)
@@ -85,33 +85,37 @@
         </div>
 
         <!-- Chat Area -->
-        <div class="flex-1 flex flex-col">
+        <div id="chat-area" class="flex-1 flex flex-col hidden lg:flex">
             <!-- Chat Header -->
-            <div id="chat-header" class="p-4 border-b border-gray-200 bg-white hidden">
+            <div id="chat-header" class="p-3 sm:p-4 border-b border-gray-200 bg-white">
                 <div class="flex items-center justify-between mb-2">
-                    <div class="flex items-center">
+                    <div class="flex items-center flex-1 min-w-0">
+                        <!-- Back Button (Mobile Only) -->
+                        <button id="back-to-users" onclick="showUsersList()" class="lg:hidden mr-3 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors">
+                            <i class="fas fa-arrow-left"></i>
+                        </button>
                         <div class="flex-shrink-0">
                             <div id="chat-user-avatar" class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
                                 <span id="chat-user-initials" class="text-sm font-medium text-purple-600"></span>
                             </div>
                         </div>
-                        <div class="ml-3">
+                        <div class="ml-3 flex-1 min-w-0">
                             <div class="flex items-center gap-2">
-                                <h3 id="chat-user-name" class="text-lg font-medium text-gray-900"></h3>
-                                <span id="chat-user-verified-badge" class="hidden inline-flex items-center justify-center w-5 h-5" title="Verified Profile">
+                                <h3 id="chat-user-name" class="text-base sm:text-lg font-medium text-gray-900 truncate"></h3>
+                                <span id="chat-user-verified-badge" class="hidden inline-flex items-center justify-center w-5 h-5 flex-shrink-0" title="Verified Profile">
                                     <img src="{{ asset('images/icons/verify.png') }}" alt="Verified" class="w-5 h-5">
                                 </span>
                             </div>
-                            <p id="chat-user-status" class="text-sm text-gray-500">Online</p>
+                            <p id="chat-user-status" class="text-xs sm:text-sm text-gray-500">Online</p>
                         </div>
                     </div>
                 </div>
                 <!-- Item Context Info (shown when chatting about an item) -->
-                <div id="item-context-info" class="hidden mt-3 pt-3 border-t border-gray-200 bg-purple-50 rounded-lg p-3">
+                <div id="item-context-info" class="hidden mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 bg-purple-50 rounded-lg p-2 sm:p-3">
                     <div class="flex items-start space-x-2">
-                        <i class="fas fa-info-circle text-purple-500 mt-0.5"></i>
+                        <i class="fas fa-info-circle text-purple-500 mt-0.5 text-sm sm:text-base"></i>
                         <div class="flex-1">
-                            <p class="text-sm font-semibold text-purple-900" id="item-context-title">About Item</p>
+                            <p class="text-xs sm:text-sm font-semibold text-purple-900" id="item-context-title">About Item</p>
                             <p class="text-xs text-purple-700 mt-1" id="item-context-details">Item details will appear here</p>
                         </div>
                     </div>
@@ -119,26 +123,26 @@
             </div>
 
             <!-- Messages Area -->
-            <div id="messages-container" class="flex-1 overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-gray-50 to-white hidden">
-                <div id="messages-list" class="space-y-1">
+            <div id="messages-container" class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 bg-gradient-to-b from-gray-50 to-white">
+                <div id="messages-list" class="space-y-1 sm:space-y-2">
                     <!-- Messages will be loaded here -->
                 </div>
             </div>
 
             <!-- Message Input -->
-            <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden">
+            <div id="message-input-container" class="p-3 sm:p-4 border-t border-gray-200 bg-white">
                 <!-- Privacy Warning -->
-                <div id="privacy-warning" class="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
+                <div id="privacy-warning" class="mb-3 sm:mb-4 p-2 sm:p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg">
                     <div class="flex items-start">
                         <div class="flex-shrink-0">
-                            <i class="fas fa-exclamation-triangle text-yellow-600 text-lg"></i>
+                            <i class="fas fa-exclamation-triangle text-yellow-600 text-base sm:text-lg"></i>
                         </div>
-                        <div class="ml-3 flex-1">
-                            <p class="text-sm font-medium text-yellow-800">
+                        <div class="ml-2 sm:ml-3 flex-1">
+                            <p class="text-xs sm:text-sm font-medium text-yellow-800">
                                 <strong>Privacy Notice:</strong> Please do not share personal information such as phone numbers, addresses, email addresses, or financial details in your messages. Keep your conversations focused on the items you're discussing.
                             </p>
                         </div>
-                        <div class="ml-3 flex-shrink-0">
+                        <div class="ml-2 sm:ml-3 flex-shrink-0">
                             <button type="button" 
                                     onclick="hidePrivacyWarning()" 
                                     class="text-yellow-600 hover:text-yellow-800 transition-colors p-1 rounded-full hover:bg-yellow-100"
@@ -150,81 +154,81 @@
                 </div>
 
                 <!-- Item Context Message -->
-                <div id="item-context-message" class="mb-4 p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl shadow-sm hidden">
+                <div id="item-context-message" class="mb-3 sm:mb-4 p-2 sm:p-3 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-lg sm:rounded-xl shadow-sm hidden">
                     <div class="flex items-center justify-between mb-2">
-                        <h4 class="text-sm font-semibold text-purple-900 flex items-center">
-                            <i class="fas fa-info-circle mr-2"></i>Chatting about this item:
+                        <h4 class="text-xs sm:text-sm font-semibold text-purple-900 flex items-center">
+                            <i class="fas fa-info-circle mr-1 sm:mr-2 text-xs sm:text-sm"></i>Chatting about this item:
                         </h4>
-                        <button onclick="clearItemContext()" class="text-purple-600 hover:text-purple-800 transition-colors p-1 rounded-full hover:bg-purple-100">
-                            <i class="fas fa-times text-sm"></i>
+                        <button onclick="clearItemContext()" class="text-purple-600 hover:text-purple-800 transition-colors p-1 rounded-full hover:bg-purple-100 min-w-[32px] min-h-[32px] flex items-center justify-center">
+                            <i class="fas fa-times text-xs sm:text-sm"></i>
                         </button>
                     </div>
-                    <div id="item-context-content" class="text-sm text-purple-700">
+                    <div id="item-context-content" class="text-xs sm:text-sm text-purple-700">
                         <!-- Item details will be loaded here -->
                     </div>
                 </div>
 
                 <!-- Image Upload Preview (Hidden by default) -->
-                <div id="image-preview-container" class="mb-4 hidden">
+                <div id="image-preview-container" class="mb-3 sm:mb-4 hidden">
                     <div class="relative inline-block">
-                        <img id="image-preview" src="" alt="Preview" class="max-w-xs max-h-48 rounded-lg border-2 border-purple-300">
-                        <button type="button" onclick="removeImagePreview()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600">
+                        <img id="image-preview" src="" alt="Preview" class="max-w-full sm:max-w-xs max-h-40 sm:max-h-48 rounded-lg border-2 border-purple-300">
+                        <button type="button" onclick="removeImagePreview()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 sm:p-2 hover:bg-red-600 min-w-[32px] min-h-[32px] flex items-center justify-center">
                             <i class="fas fa-times text-xs"></i>
                         </button>
                     </div>
                     <!-- View Option Selection -->
                     <div class="mt-2">
-                        <label class="block text-sm font-medium text-gray-700 mb-2">Image View Option:</label>
-                        <div class="flex gap-3">
+                        <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-2">Image View Option:</label>
+                        <div class="flex flex-wrap gap-2 sm:gap-3">
                             <label class="flex items-center">
-                                <input type="radio" name="view_option" value="once" class="mr-2" checked>
-                                <span class="text-sm">View Once</span>
+                                <input type="radio" name="view_option" value="once" class="mr-1 sm:mr-2" checked>
+                                <span class="text-xs sm:text-sm">View Once</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="radio" name="view_option" value="twice" class="mr-2">
-                                <span class="text-sm">View Twice</span>
+                                <input type="radio" name="view_option" value="twice" class="mr-1 sm:mr-2">
+                                <span class="text-xs sm:text-sm">View Twice</span>
                             </label>
                             <label class="flex items-center">
-                                <input type="radio" name="view_option" value="keep" class="mr-2">
-                                <span class="text-sm">Keep in Chat</span>
+                                <input type="radio" name="view_option" value="keep" class="mr-1 sm:mr-2">
+                                <span class="text-xs sm:text-sm">Keep in Chat</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
-                <form id="message-form" class="flex items-end gap-3" enctype="multipart/form-data">
+                <form id="message-form" class="flex items-end gap-2 sm:gap-3" enctype="multipart/form-data">
                     <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
                     <div class="flex-1 relative">
                         <textarea id="message-input" 
                                   placeholder="Type a message..."
                                   rows="1"
-                                  class="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden transition-all"
+                                  class="w-full px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 text-base border-2 border-gray-200 rounded-xl sm:rounded-2xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none overflow-hidden transition-all"
                                   maxlength="1000"
-                                  style="min-height: 48px; max-height: 120px;"></textarea>
-                        <div class="absolute bottom-2 right-2 flex items-center gap-2">
-                            <span id="char-count" class="text-xs text-gray-400 hidden">0/1000</span>
-                            <button type="button" onclick="document.getElementById('image-input').click()" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 rounded-full hover:bg-purple-50" title="Upload image">
-                                <i class="fas fa-image text-lg"></i>
+                                  style="min-height: 44px; max-height: 120px;"></textarea>
+                        <div class="absolute bottom-1.5 sm:bottom-2 right-1.5 sm:right-2 flex items-center gap-1 sm:gap-2">
+                            <span id="char-count" class="text-xs text-gray-400 hidden sm:inline">0/1000</span>
+                            <button type="button" onclick="document.getElementById('image-input').click()" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 sm:p-2 rounded-full hover:bg-purple-50 min-w-[44px] min-h-[44px] flex items-center justify-center" title="Upload image">
+                                <i class="fas fa-image text-base sm:text-lg"></i>
                             </button>
-                            <button type="button" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 rounded-full hover:bg-purple-50" title="Add emoji">
-                                <i class="fas fa-smile text-lg"></i>
+                            <button type="button" class="text-gray-400 hover:text-purple-500 transition-colors p-1.5 sm:p-2 rounded-full hover:bg-purple-50 min-w-[44px] min-h-[44px] flex items-center justify-center hidden sm:flex" title="Add emoji">
+                                <i class="fas fa-smile text-base sm:text-lg"></i>
                             </button>
                         </div>
                     </div>
                     <button type="submit"
-                            class="px-5 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-2xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                            class="px-4 sm:px-5 py-2.5 sm:py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl sm:rounded-2xl hover:from-purple-600 hover:to-purple-700 transition-all duration-200 flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none min-w-[44px] min-h-[44px]"
                             title="Send message">
-                        <i class="fas fa-paper-plane"></i>
+                        <i class="fas fa-paper-plane text-sm sm:text-base"></i>
                     </button>
                 </form>
             </div>
 
             <!-- Empty State -->
-            <div id="empty-state" class="flex-1 flex items-center justify-center">
-                <div class="text-center">
-                    <i class="fas fa-comments text-6xl text-gray-300 mb-4"></i>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">Start a Conversation</h3>
-                    <p class="text-gray-500">Select a user from the list to start chatting</p>
+            <div id="empty-state" class="flex-1 flex items-center justify-center hidden lg:flex">
+                <div class="text-center px-4">
+                    <i class="fas fa-comments text-4xl sm:text-6xl text-gray-300 mb-4"></i>
+                    <h3 class="text-base sm:text-lg font-medium text-gray-900 mb-2">Start a Conversation</h3>
+                    <p class="text-sm sm:text-base text-gray-500">Select a user from the list to start chatting</p>
                 </div>
             </div>
         </div>
@@ -331,6 +335,12 @@ function selectUser(userId) {
             console.log('Showed message input container');
         }
         
+        // Show chat area on mobile
+        const chatArea = document.getElementById('chat-area');
+        if (chatArea) {
+            chatArea.classList.remove('hidden');
+        }
+        
         // Show privacy warning when opening conversation
         if (typeof showPrivacyWarning === 'function') {
             showPrivacyWarning();
@@ -347,10 +357,10 @@ function selectUser(userId) {
         if (selectedUserItem) {
             selectedUserItem.classList.add('bg-purple-50', 'border-purple-200');
         } else {
-            console.warn('Could not find user item with data-user-id:', userId);
+            console.warn('Could not find user item with data-user-id:', userId, '- User may not be in conversations list yet, but chat will still work');
         }
 
-        // Load messages
+        // Load messages (this will also update the chat header with user info)
         loadMessages(userId);
 
         // Stop polling since we're using WebSocket now
@@ -358,10 +368,65 @@ function selectUser(userId) {
             clearInterval(messageInterval);
             messageInterval = null;
         }
+        
+        // On mobile, hide sidebar and show chat area
+        if (window.innerWidth < 1024) {
+            showChatArea();
+        }
     } catch (error) {
         console.error('Error in selectUser:', error);
     }
 }
+
+// Mobile navigation functions
+function showUsersList() {
+    const sidebar = document.getElementById('users-sidebar');
+    const chatArea = document.getElementById('chat-area');
+    
+    if (sidebar) {
+        sidebar.classList.remove('-translate-x-full');
+        sidebar.classList.add('translate-x-0');
+    }
+    
+    if (chatArea) {
+        chatArea.classList.add('hidden');
+    }
+}
+
+function showChatArea() {
+    const sidebar = document.getElementById('users-sidebar');
+    const chatArea = document.getElementById('chat-area');
+    
+    if (sidebar) {
+        sidebar.classList.add('-translate-x-full');
+        sidebar.classList.remove('translate-x-0');
+    }
+    
+    if (chatArea) {
+        chatArea.classList.remove('hidden');
+    }
+}
+
+// Handle window resize
+let resizeTimer;
+window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(function() {
+        // On desktop, always show both
+        if (window.innerWidth >= 1024) {
+            const sidebar = document.getElementById('users-sidebar');
+            const chatArea = document.getElementById('chat-area');
+            
+            if (sidebar) {
+                sidebar.classList.remove('-translate-x-full', 'translate-x-0');
+            }
+            
+            if (chatArea) {
+                chatArea.classList.remove('hidden');
+            }
+        }
+    }, 250);
+});
 
 // Load messages for selected user
 async function loadMessages(userId) {
@@ -668,9 +733,9 @@ function createMessageElement(message) {
     
     messageDiv.innerHTML = `
         ${avatarHtml}
-        <div class="flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[70%] sm:max-w-[65%] lg:max-w-[55%]">
+        <div class="flex flex-col ${isOwnMessage ? 'items-end' : 'items-start'} max-w-[85%] sm:max-w-[70%] md:max-w-[65%] lg:max-w-[55%]">
             ${!isOwnMessage ? `<span class="text-xs text-gray-500 mb-1 px-2">${escapeHtml(senderName)}</span>` : ''}
-            <div class="${bubbleClass} px-4 py-2.5 relative group">
+            <div class="${bubbleClass} px-3 sm:px-4 py-2 sm:py-2.5 relative group">
                 ${imageHtml}
                 ${message.message && message.message.trim() ? `<p class="text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHtml(message.message)}</p>` : ''}
                 ${itemContextHtml}
@@ -1112,16 +1177,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (userId) {
-        selectUser(parseInt(userId));
-        // Show item context if available and not verified
-        if (itemContext) {
-            // Check if item is verified - if so, don't show context
-            if (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified') {
-                hideItemContext();
-            } else {
-            setTimeout(() => showItemContext(), 100);
+        // Wait a bit for DOM to be fully ready, then select user
+        setTimeout(() => {
+            selectUser(parseInt(userId));
+            // Show item context if available and not verified
+            if (itemContext) {
+                // Check if item is verified - if so, don't show context
+                if (itemContext.claim_status === 'verified' || itemContext.claimStatus === 'verified') {
+                    hideItemContext();
+                } else {
+                    setTimeout(() => showItemContext(), 100);
+                }
             }
-        }
+        }, 100);
     }
     
     // Show privacy warning when conversation opens

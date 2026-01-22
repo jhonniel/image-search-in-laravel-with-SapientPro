@@ -597,10 +597,14 @@ class SimilarityNotificationService
             
             // Get existing items with limit and ordering (most recent first for better matches)
             // Only get items that have file paths (to avoid file_exists checks on null paths)
+            // Only match Lost with Found and Found with Lost (opposite types)
+            $oppositeStatus = ($newItem->status === 'lost') ? 'found' : 'lost';
+            
             $existingItemsQuery = ImageMetadata::where('uploader_email', '!=', $userEmail)
                 ->whereNotNull('uploader_email')
                 ->whereNotNull('file_path')
                 ->whereNotNull('filename')
+                ->where('status', $oppositeStatus) // Only check items with opposite status
                 ->orderBy('created_at', 'desc') // Check recent items first (more likely to be relevant)
                 ->limit($maxItemsToCheck);
 
@@ -637,6 +641,21 @@ class SimilarityNotificationService
                     }
                     
                     $itemsChecked++;
+                    
+                    // Only match Lost with Found and Found with Lost (opposite types)
+                    $newItemStatus = $newItem->status;
+                    $existingItemStatus = $existingItem->status;
+                    
+                    // Skip if both items have the same status (Lost-Lost or Found-Found)
+                    if ($newItemStatus === $existingItemStatus) {
+                        continue;
+                    }
+                    
+                    // Ensure opposite types: Lost ↔ Found
+                    if (!(($newItemStatus === 'lost' && $existingItemStatus === 'found') || 
+                          ($newItemStatus === 'found' && $existingItemStatus === 'lost'))) {
+                        continue;
+                    }
                     
                     // Get the file path for comparison
                     $newItemPath = $this->getItemFilePath($newItem);
@@ -681,7 +700,9 @@ class SimilarityNotificationService
                                 'upload_id' => $existingItem->upload_id
                             ];
 
-                            Log::info('Similar item found for user upload', [
+                            Log::info('Similar item found for user upload (opposite type match)', [
+                                'new_item_status' => $newItemStatus,
+                                'existing_item_status' => $existingItemStatus,
                                 'existing_item' => $existingItem->original_name,
                                 'similarity' => $overallSimilarity
                             ]);

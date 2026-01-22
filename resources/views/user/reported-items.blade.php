@@ -4,6 +4,16 @@
 
 @section('content')
 @csrf
+
+@if(session('success'))
+    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+        <div class="flex items-center space-x-2">
+            <i class="fas fa-check-circle text-green-600"></i>
+            <p class="text-green-800 font-medium">{{ session('success') }}</p>
+        </div>
+    </div>
+@endif
+
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -1337,7 +1347,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             stopSimulatedProgress();
             updateUploadProgress(100);
             hideUploadProgress();
-            showToast('Upload completed! Reloading items...', 'success');
+            showToast('Item uploaded successfully! We are checking for matching items and will notify you if any matches are found.', 'success');
             this.reset();
             resetImageUpload();
             // Reload items to show the newly uploaded item
@@ -1445,7 +1455,7 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             if (response.status === 200 || response.status === 201) {
                 console.log('Assuming success based on HTTP status code');
                 hideUploadProgress();
-                showToast('Item reported successfully!', 'success');
+                showToast('Item reported successfully! We are checking for matching items and will notify you if any matches are found.', 'success');
                 this.reset();
                 resetImageUpload();
                 loadItems().then(() => {
@@ -1478,7 +1488,10 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             }
             
             hideUploadProgress(); // Hide progress bar on success
-            showToast('Item reported successfully! We are checking for matching items and will notify you if any matches are found.', 'success');
+            
+            // Show success notification with message from API or default message
+            const successMessage = data.message || 'Item reported successfully! We are checking for matching items and will notify you if any matches are found.';
+            showToast(successMessage, 'success');
             
             // Reset form immediately
             this.reset();
@@ -1892,17 +1905,28 @@ function hideLoadingAnimation() {
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 px-6 py-3 rounded-lg shadow-lg text-white font-medium transition-all duration-300 transform translate-x-full`;
+    toast.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-xl text-white font-medium transition-all duration-300 transform translate-x-full flex items-center space-x-3 max-w-md`;
 
     if (type === 'success') {
         toast.classList.add('bg-green-500');
+        toast.innerHTML = `
+            <i class="fas fa-check-circle text-xl flex-shrink-0"></i>
+            <span>${message}</span>
+        `;
     } else if (type === 'error') {
         toast.classList.add('bg-red-500');
+        toast.innerHTML = `
+            <i class="fas fa-exclamation-circle text-xl flex-shrink-0"></i>
+            <span>${message}</span>
+        `;
     } else {
         toast.classList.add('bg-blue-500');
+        toast.innerHTML = `
+            <i class="fas fa-info-circle text-xl flex-shrink-0"></i>
+            <span>${message}</span>
+        `;
     }
 
-    toast.textContent = message;
     document.body.appendChild(toast);
 
     // Animate in
@@ -1910,13 +1934,14 @@ function showToast(message, type = 'info') {
         toast.classList.remove('translate-x-full');
     }, 100);
 
-    // Remove after 3 seconds
+    // Remove after 5 seconds for success messages, 4 seconds for others
+    const duration = type === 'success' ? 5000 : 4000;
     setTimeout(() => {
         toast.classList.add('translate-x-full');
         setTimeout(() => {
             toast.remove();
         }, 300);
-    }, 3000);
+    }, duration);
 }
 
 // Carousel functions

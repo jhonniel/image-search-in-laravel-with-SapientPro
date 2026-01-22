@@ -1107,6 +1107,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Upload complete, simulate server processing (90-100%)
                     updateProgress(90);
                     
+                    // Show success message
+                    processingTitle.textContent = 'Upload Successful!';
+                    processingMessage.textContent = 'Your item has been uploaded successfully. Checking for similar items...';
+                    
                     // Simulate final processing - keep showing similarity check
                     let currentProgress = 90;
                     const processingInterval = setInterval(() => {
@@ -1115,8 +1119,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             clearInterval(processingInterval);
                             updateProgress(100);
                             // Keep showing similarity checking animation until redirect
-                            processingTitle.textContent = 'Checking for similar items...';
-                            processingMessage.textContent = 'Finalizing similarity check. Redirecting to reported items...';
+                            processingTitle.textContent = 'Upload Successful!';
+                            processingMessage.textContent = 'Your item has been uploaded successfully. Checking for similar items. Redirecting to reported items...';
                             
                             // Redirect after a brief moment
                             setTimeout(() => {

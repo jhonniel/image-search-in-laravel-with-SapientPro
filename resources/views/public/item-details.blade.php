@@ -268,8 +268,13 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    alert('Item claimed successfully!');
-                    window.location.reload();
+                    alert('Item claimed successfully! Redirecting to chat...');
+                    // Redirect to chat with the item owner
+                    if (data.owner_id && data.upload_id) {
+                        window.location.href = `/chat?user=${data.owner_id}&item=${data.upload_id}`;
+                    } else {
+                        window.location.reload();
+                    }
                 } else {
                     alert(data.error || 'Error claiming item. Please try again.');
                 }
