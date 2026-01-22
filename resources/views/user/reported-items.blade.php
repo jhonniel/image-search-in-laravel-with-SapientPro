@@ -1239,8 +1239,33 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         return;
     }
 
-    // Show upload progress
+    // Show upload progress with matching check message
     showUploadProgress();
+    
+    // Update progress message to show matching check
+    const progressText = document.querySelector('#upload-progress-text');
+    if (progressText) {
+        progressText.textContent = 'Uploading...';
+    }
+    
+    // Show matching check message after upload starts
+    setTimeout(() => {
+        const progressContainer = document.getElementById('upload-progress-container');
+        if (progressContainer) {
+            const matchingMessage = document.createElement('div');
+            matchingMessage.id = 'matching-check-message';
+            matchingMessage.className = 'mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg';
+            matchingMessage.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-search text-blue-600 animate-pulse"></i>
+                    <span class="text-sm text-blue-800">
+                        <strong>Checking for matching items...</strong> The system will notify you later when there is a match.
+                    </span>
+                </div>
+            `;
+            progressContainer.appendChild(matchingMessage);
+        }
+    }, 2000); // Show after 2 seconds
 
     // Create FormData
     const formData = new FormData();
@@ -1351,6 +1376,20 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
 
         // Complete progress to 100% immediately when response arrives
         updateUploadProgress(100);
+        
+        // Update matching check message to show it's complete
+        const matchingMessage = document.getElementById('matching-check-message');
+        if (matchingMessage) {
+            matchingMessage.innerHTML = `
+                <div class="flex items-center space-x-2">
+                    <i class="fas fa-check-circle text-green-600"></i>
+                    <span class="text-sm text-green-800">
+                        <strong>Upload complete!</strong> Checking for matches in the background. You will be notified if any matches are found.
+                    </span>
+                </div>
+            `;
+            matchingMessage.className = 'mt-3 p-3 bg-green-50 border border-green-200 rounded-lg';
+        }
 
         // Check if response is OK
         if (!response.ok) {
@@ -1422,8 +1461,14 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         }
 
         if (data && data.success) {
+            // Remove matching check message if it exists
+            const matchingMessage = document.getElementById('matching-check-message');
+            if (matchingMessage) {
+                matchingMessage.remove();
+            }
+            
             hideUploadProgress(); // Hide progress bar on success
-            showToast('Item reported successfully!', 'success');
+            showToast('Item reported successfully! We are checking for matching items and will notify you if any matches are found.', 'success');
             
             // Reset form immediately
             this.reset();

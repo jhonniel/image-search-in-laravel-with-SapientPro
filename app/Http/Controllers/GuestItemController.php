@@ -235,36 +235,41 @@ class GuestItemController extends Controller
                 ]);
 
                 // Check for similar images and notify involved users
-                // Run with timeout to prevent blocking the response
-                // Note: This runs synchronously but with a timeout to prevent hanging
+                // Run asynchronously in background to prevent blocking the response
                 try {
-                    $startTime = microtime(true);
-                    $maxTime = 10; // Maximum 10 seconds for similarity check
-                    
-                    // Set a shorter time limit for this operation
-                    $originalTimeLimit = ini_get('max_execution_time');
-                    set_time_limit($maxTime);
-                    
-                    $similarityService->checkAndNotifySimilarities($metadata, $user->email);
-                    
-                    $elapsed = microtime(true) - $startTime;
-                    Log::info('Similarity check completed', [
-                        'upload_id' => $uploadId,
-                        'metadata_id' => $metadata->id,
-                        'elapsed_seconds' => round($elapsed, 2)
-                    ]);
-                    
-                    // Restore original time limit
-                    if ($originalTimeLimit) {
-                        set_time_limit($originalTimeLimit);
-                    }
+                    // Use register_shutdown_function to run after response is sent
+                    register_shutdown_function(function() use ($similarityService, $metadata, $user, $uploadId) {
+                        try {
+                            // Set time limit for background processing
+                            set_time_limit(60); // 60 seconds for background similarity check
+                            
+                            Log::info('Starting background similarity check for guest post', [
+                                'upload_id' => $uploadId,
+                                'metadata_id' => $metadata->id,
+                                'user_email' => $user->email
+                            ]);
+                            
+                            $similarityService->checkAndNotifySimilarities($metadata, $user->email);
+                            
+                            Log::info('Background similarity check completed', [
+                                'upload_id' => $uploadId,
+                                'metadata_id' => $metadata->id
+                            ]);
+                        } catch (\Throwable $e) {
+                            Log::error('Background similarity check failed: ' . $e->getMessage(), [
+                                'upload_id' => $uploadId,
+                                'metadata_id' => $metadata->id ?? null,
+                                'error_type' => get_class($e),
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                        }
+                    });
                 } catch (\Throwable $e) {
-                    Log::error('Similarity check failed: ' . $e->getMessage(), [
+                    Log::error('Failed to register similarity check: ' . $e->getMessage(), [
                         'upload_id' => $uploadId,
-                        'metadata_id' => $metadata->id,
-                        'error_type' => get_class($e)
+                        'metadata_id' => $metadata->id ?? null
                     ]);
-                    // Don't fail the upload if similarity check fails
+                    // Don't fail the upload if we can't register the check
                 }
             }
 

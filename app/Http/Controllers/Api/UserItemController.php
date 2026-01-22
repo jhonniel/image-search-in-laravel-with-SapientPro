@@ -297,12 +297,41 @@ class UserItemController extends Controller
                     'size' => $image->getSize(),
                 ];
 
-                // Check for similarities with existing items
+                // Check for similarities with existing items - run asynchronously
+                // This prevents blocking the upload response
                 try {
-                    $similarityService->checkAndNotifySimilarities($imageMetadata, $user->email);
+                    // Use register_shutdown_function to run after response is sent
+                    // This allows the upload to complete immediately while similarity check runs in background
+                    register_shutdown_function(function() use ($similarityService, $imageMetadata, $user) {
+                        try {
+                            // Set time limit for background processing
+                            set_time_limit(60); // 60 seconds for background similarity check
+                            
+                            Log::info('Starting background similarity check', [
+                                'upload_id' => $imageMetadata->upload_id,
+                                'user_email' => $user->email
+                            ]);
+                            
+                            $similarityService->checkAndNotifySimilarities($imageMetadata, $user->email);
+                            
+                            Log::info('Background similarity check completed', [
+                                'upload_id' => $imageMetadata->upload_id
+                            ]);
+                        } catch (\Throwable $e) {
+                            Log::error('Background similarity check failed: ' . $e->getMessage(), [
+                                'upload_id' => $imageMetadata->upload_id ?? null,
+                                'trace' => $e->getTraceAsString()
+                            ]);
+                        }
+                    });
+                    
+                    // Also try fastcgi_finish_request if available (for better async execution)
+                    if (function_exists('fastcgi_finish_request')) {
+                        // This will be called after the response is sent
+                    }
                 } catch (\Exception $e) {
                     // Log error but don't fail the upload
-                    \Log::error('Similarity check failed for user upload: ' . $e->getMessage());
+                    Log::error('Failed to register similarity check: ' . $e->getMessage());
                 }
             }
 

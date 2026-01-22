@@ -590,76 +590,118 @@ class SimilarityNotificationService
     public function checkAndNotifySimilarities(ImageMetadata $newItem, string $userEmail): array
     {
         try {
-            // Get all existing items (both reference images and user items)
-            $existingItems = ImageMetadata::where('uploader_email', '!=', $userEmail)
+            // Performance optimization: Limit the number of items to check
+            // In production with many items, checking all items is too slow
+            $maxItemsToCheck = $this->config['max_items_to_check'] ?? 500; // Default: check max 500 items
+            $chunkSize = 50; // Process in chunks to avoid memory issues
+            
+            // Get existing items with limit and ordering (most recent first for better matches)
+            // Only get items that have file paths (to avoid file_exists checks on null paths)
+            $existingItemsQuery = ImageMetadata::where('uploader_email', '!=', $userEmail)
                 ->whereNotNull('uploader_email')
-                ->get();
+                ->whereNotNull('file_path')
+                ->whereNotNull('filename')
+                ->orderBy('created_at', 'desc') // Check recent items first (more likely to be relevant)
+                ->limit($maxItemsToCheck);
+
+            $totalExistingItems = ImageMetadata::where('uploader_email', '!=', $userEmail)
+                ->whereNotNull('uploader_email')
+                ->count();
 
             $similarItems = [];
             $notificationsSent = [];
+            $itemsChecked = 0;
+            $startTime = microtime(true);
+            $maxExecutionTime = 25; // Maximum 25 seconds for similarity check
 
             Log::info('Checking similarities for user item', [
                 'new_item' => $newItem->original_name,
                 'user_email' => $userEmail,
-                'existing_items_count' => $existingItems->count()
+                'total_existing_items' => $totalExistingItems,
+                'max_items_to_check' => $maxItemsToCheck,
+                'chunk_size' => $chunkSize
             ]);
 
-            foreach ($existingItems as $existingItem) {
-                // Get the file path for comparison
-                $newItemPath = $this->getItemFilePath($newItem);
-                $existingItemPath = $this->getItemFilePath($existingItem);
-
-                if (!$newItemPath || !$existingItemPath) {
-                    Log::warning('File path not found for similarity comparison', [
-                        'new_item_id' => $newItem->id,
-                        'new_item_file_path' => $newItem->file_path,
-                        'new_item_filename' => $newItem->filename,
-                        'new_item_path_resolved' => $newItemPath,
-                        'existing_item_id' => $existingItem->id,
-                        'existing_item_file_path' => $existingItem->file_path,
-                        'existing_item_filename' => $existingItem->filename,
-                        'existing_item_path_resolved' => $existingItemPath,
-                    ]);
-                    continue;
-                }
-
-                try {
-                    // Calculate similarities
-                    $visualSimilarity = $this->calculateVisualSimilarity($newItemPath, $existingItemPath);
-                    $textSimilarity = $this->calculateTextSimilarity([
-                        'description' => $newItem->description,
-                        'tags' => $newItem->tags
-                    ], $existingItem);
-                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
-
-                    // Get threshold from config - check both old and new config structure
-                    $visualThreshold = $this->config['thresholds']['visual'] ?? 
-                                       $this->config['threshold'] ?? 
-                                       0.7;
-
-                    if ($overallSimilarity >= $visualThreshold) {
-                        $similarItems[] = [
-                            'description' => $existingItem->description,
-                            'status' => $existingItem->status,
-                            'uploader_email' => $existingItem->uploader_email,
-                            'tags' => $existingItem->tags,
-                            'similarity' => $overallSimilarity,
-                            'item_id' => $existingItem->id,
-                            'upload_id' => $existingItem->upload_id
-                        ];
-
-                        Log::info('Similar item found for user upload', [
-                            'existing_item' => $existingItem->original_name,
-                            'similarity' => $overallSimilarity
+            // Process in chunks to avoid memory issues and allow early exit
+            $existingItemsQuery->chunk($chunkSize, function ($itemsChunk) use (&$similarItems, &$itemsChecked, &$notificationsSent, $newItem, $userEmail, $startTime, $maxExecutionTime) {
+                foreach ($itemsChunk as $existingItem) {
+                    // Check execution time - exit if taking too long
+                    $elapsed = microtime(true) - $startTime;
+                    if ($elapsed > $maxExecutionTime) {
+                        Log::warning('Similarity check timeout - stopping early', [
+                            'items_checked' => $itemsChecked,
+                            'elapsed_seconds' => round($elapsed, 2),
+                            'max_execution_time' => $maxExecutionTime
                         ]);
+                        return false; // Stop chunking
                     }
-                } catch (\Exception $e) {
-                    Log::error('Error calculating similarity for item: ' . $existingItem->original_name, [
-                        'error' => $e->getMessage()
-                    ]);
-                    continue;
+                    
+                    $itemsChecked++;
+                    
+                    // Get the file path for comparison
+                    $newItemPath = $this->getItemFilePath($newItem);
+                    $existingItemPath = $this->getItemFilePath($existingItem);
+
+                    if (!$newItemPath || !$existingItemPath) {
+                        Log::warning('File path not found for similarity comparison', [
+                            'new_item_id' => $newItem->id,
+                            'new_item_file_path' => $newItem->file_path,
+                            'new_item_filename' => $newItem->filename,
+                            'new_item_path_resolved' => $newItemPath,
+                            'existing_item_id' => $existingItem->id,
+                            'existing_item_file_path' => $existingItem->file_path,
+                            'existing_item_filename' => $existingItem->filename,
+                            'existing_item_path_resolved' => $existingItemPath,
+                        ]);
+                        continue;
+                    }
+
+                    try {
+                        // Calculate similarities
+                        $visualSimilarity = $this->calculateVisualSimilarity($newItemPath, $existingItemPath);
+                        $textSimilarity = $this->calculateTextSimilarity([
+                            'description' => $newItem->description,
+                            'tags' => $newItem->tags
+                        ], $existingItem);
+                        $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
+
+                        // Get threshold from config - check both old and new config structure
+                        $visualThreshold = $this->config['thresholds']['visual'] ?? 
+                                           $this->config['threshold'] ?? 
+                                           0.7;
+
+                        if ($overallSimilarity >= $visualThreshold) {
+                            $similarItems[] = [
+                                'description' => $existingItem->description,
+                                'status' => $existingItem->status,
+                                'uploader_email' => $existingItem->uploader_email,
+                                'tags' => $existingItem->tags,
+                                'similarity' => $overallSimilarity,
+                                'item_id' => $existingItem->id,
+                                'upload_id' => $existingItem->upload_id
+                            ];
+
+                            Log::info('Similar item found for user upload', [
+                                'existing_item' => $existingItem->original_name,
+                                'similarity' => $overallSimilarity
+                            ]);
+                        }
+                    } catch (\Exception $e) {
+                        Log::error('Error calculating similarity for item: ' . $existingItem->original_name, [
+                            'error' => $e->getMessage()
+                        ]);
+                        continue;
+                    }
                 }
-            }
+            });
+
+            $elapsed = microtime(true) - $startTime;
+            Log::info('Similarity check completed', [
+                'items_checked' => $itemsChecked,
+                'similar_items_found' => count($similarItems),
+                'elapsed_seconds' => round($elapsed, 2),
+                'total_existing_items' => $totalExistingItems
+            ]);
 
             // Send notification to the user
             if (count($similarItems) > 0) {
