@@ -322,7 +322,8 @@
                                     `;
                                     viewButton = `
                                         <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
-                                                class="mt-2 px-3 py-1 bg-purple-500 text-white text-xs rounded hover:bg-purple-600 transition-colors">
+                                                class="mt-2 px-3 py-1.5 bg-purple-500 text-white text-xs font-medium rounded hover:bg-purple-600 transition-colors"
+                                                style="background-color: #8B5CF6 !important; color: white !important; opacity: 1 !important; visibility: visible !important; display: inline-block !important;">
                                             View in Claim & Verify
                                         </button>
                                     `;
@@ -340,7 +341,8 @@
                                     `;
                                     viewButton = `
                                         <button onclick="event.stopPropagation(); window.location.href='${itemUrl}'; markNotificationRead(${n.id});" 
-                                                class="mt-2 px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors">
+                                                class="mt-2 px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded hover:bg-blue-600 transition-colors"
+                                                style="background-color: #3B82F6 !important; color: white !important; opacity: 1 !important; visibility: visible !important; display: inline-block !important;">
                                             View in Claim & Verify
                                         </button>
                                     `;

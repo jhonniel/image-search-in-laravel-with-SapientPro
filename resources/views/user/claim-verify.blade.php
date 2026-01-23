@@ -101,6 +101,8 @@ let allItems = [];
 let filteredItems = [];
 
 // Load items from other users
+// This function is called automatically when the page loads
+// It checks for similar items, creates notifications, and displays matches
 async function loadOtherUsersItems() {
     try {
         const response = await fetch('/api/items/other-users', {
@@ -425,22 +427,43 @@ function displayOtherUsersItems(items) {
                                     <i class="fas fa-comments mr-1"></i>
                                     Message Owner
                                 </button>
-                                ${item.user_has_claimed ? `
-                                    <button onclick="cancelClaim('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
+                                ${(() => {
+                                    // Determine if user can claim based on item types
+                                    // User with LOST item can CLAIM FOUND items
+                                    // User with FOUND item can only MESSAGE (not claim) LOST items
+                                    const userItemType = item.user_matched_item?.item_type || '';
+                                    const matchedItemType = item.item_type || '';
+                                    const canClaim = userItemType === 'lost' && matchedItemType === 'found';
+                                    
+                                    if (item.user_has_claimed) {
+                                        return `<button onclick="cancelClaim('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
                                         <i class="fas fa-times-circle mr-1"></i>
                                         Cancel Claim
-                                    </button>
-                                ` : (item.claim_status === 'pending' ? `
-                                    <button disabled class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed text-sm font-medium">
+                                        </button>`;
+                                    } else if (item.claim_status === 'verified') {
+                                        return `<button disabled class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg cursor-not-allowed text-sm font-medium">
+                                            <i class="fas fa-check-circle mr-1"></i>
+                                            Already Claimed & Verified
+                                        </button>`;
+                                    } else if (item.claim_status === 'pending') {
+                                        return `<button disabled class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed text-sm font-medium">
                                         <i class="fas fa-hourglass-half mr-1"></i>
                                         Pending Verification
-                                    </button>
-                                ` : `
-                                    <button onclick="claimItem('${item.upload_id}')" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium">
+                                        </button>`;
+                                    } else if (!canClaim) {
+                                        // User has FOUND item, matched item is LOST - can only message, not claim
+                                        return `<button disabled class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed text-sm font-medium" title="You can only message the owner to notify them that you found their lost item">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            Message to Notify
+                                        </button>`;
+                                    } else {
+                                        // User has LOST item, matched item is FOUND - can claim
+                                        return `<button onclick="claimItem('${item.upload_id}')" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium">
                                         <i class="fas fa-hand-holding mr-1"></i>
                                         Claim Item
-                                    </button>
-                                `)}
+                                        </button>`;
+                                    }
+                                })()}
                             </div>
                         </div>
                             </div>

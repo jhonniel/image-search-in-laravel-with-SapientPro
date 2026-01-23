@@ -1034,6 +1034,11 @@ class UserItemController extends Controller
         $user = Auth::user();
 
         try {
+            // IMPORTANT: This function is called every time a user visits the claim-verify page
+            // It checks all user's reported items against all other users' items for matches
+            // If matches are found, notifications are created for both users
+            // All matched items are then listed in "Available Items" section
+            
             // First, get user's reported items
             $userItems = ImageMetadata::where('uploader_email', $user->email)
                 ->orderBy('created_at', 'desc')
@@ -1319,8 +1324,19 @@ class UserItemController extends Controller
                 'user_items_count' => $userItems->count(),
                 'other_items_count' => $allOtherItems->count(),
                 'matches_found' => count($matchedItems),
-                'matched_upload_ids' => array_keys($matchedItems)
+                'matched_upload_ids' => array_keys($matchedItems),
+                'timestamp' => now()->toDateTimeString()
             ]);
+            
+            // Summary: Every time user visits claim-verify, we check all their items against all other items
+            // and create notifications for both users if matches are found
+            if (count($matchedItems) > 0) {
+                Log::info('Matches found on claim-verify page visit', [
+                    'user' => $user->email,
+                    'total_matches' => count($matchedItems),
+                    'notifications_created' => 'Both users notified if notifications did not already exist'
+                ]);
+            }
             
             // If no matches found, return empty array
             if (empty($matchedItems)) {
@@ -1331,36 +1347,75 @@ class UserItemController extends Controller
                 ]);
             }
             
-            // Filter matched items to exclude claimed and verified items
-            // Only show items that are unclaimed, rejected, or pending
+            // Also check for items that have "Item Match Found!" notifications for the current user
+            // This ensures items that triggered notifications are always shown on claim-verify
+            $userNotifications = \App\Models\Notification::where('type', 'item_matched')
+                ->where('user_id', $user->id)
+                ->whereNotNull('data')
+                ->get();
+            
+            // Add notified matches to the matched items list if they're not already included
+            foreach ($userNotifications as $notification) {
+                $notifData = $notification->data ?? [];
+                $newItemUploadId = $notifData['new_item_upload_id'] ?? null; // Other user's item
+                $matchedItemUploadId = $notifData['matched_item_upload_id'] ?? null; // Current user's item
+                
+                // The "new_item_upload_id" is the other user's item that we want to show on claim-verify
+                if ($newItemUploadId && !isset($matchedItems[$newItemUploadId])) {
+                    // Get the other user's item group
+                    $otherItemGroup = $allOtherItems->get($newItemUploadId);
+                    if ($otherItemGroup) {
+                        $otherItem = $otherItemGroup->first();
+                        
+                        // Verify it's still a valid match (opposite types)
+                        $userItemForMatch = null;
+                        if ($matchedItemUploadId && isset($userItems[$matchedItemUploadId])) {
+                            $userItemForMatch = $userItems[$matchedItemUploadId]->first();
+                        }
+                        
+                        // Only add if it's a valid match (Lost ↔ Found) or if we can't verify (include anyway)
+                        if (!$userItemForMatch || 
+                            ($userItemForMatch->status === 'lost' && $otherItem->status === 'found') ||
+                            ($userItemForMatch->status === 'found' && $otherItem->status === 'lost')) {
+                            
+                            $matchedItems[$newItemUploadId] = [
+                                'item' => $otherItemGroup,
+                                'similarity' => $notifData['similarity_score'] ?? 0.5,
+                                'matched_with' => $matchedItemUploadId ?? $userItems->keys()->first(),
+                                'from_notification' => true // Flag to indicate this came from a notification
+                            ];
+                            
+                            Log::info('Added notified match to claim-verify', [
+                                'notification_id' => $notification->id,
+                                'other_item_upload_id' => $newItemUploadId,
+                                'user_item_upload_id' => $matchedItemUploadId,
+                                'user_id' => $user->id,
+                                'similarity' => $notifData['similarity_score'] ?? 0.5
+                            ]);
+                        }
+                    }
+                }
+            }
+            
+            // Show ALL matched items regardless of claim status
+            // This ensures all similar and matched items are visible on the claim-verify page
+            // The frontend will display the claim status so users know which items are available
             $claimableMatchedItems = [];
             foreach ($matchedItems as $otherUploadId => $matchData) {
                 $group = $matchData['item'];
                 $firstItem = $group->first();
                 
-                // Exclude items that are claimed and verified
-                $isClaimed = $firstItem->is_claimed ?? false;
-                $claimStatus = $firstItem->claim_verification_status;
+                // Include ALL matched items - don't filter by claim status
+                // This ensures all similar items are listed, even if they're claimed/verified
+                // The UI will show the status so users can see which items are available
+                $claimableMatchedItems[$otherUploadId] = $matchData;
                 
-                // Only show if:
-                // 1. Not claimed (or NULL) and no pending/verified status
-                // 2. Claimed but rejected (can be claimed again)
-                // 3. Pending claim (visible but shows status)
-                // Exclude: Verified/claimed items
-                $shouldShow = false;
-                if ($claimStatus === 'verified') {
-                    $shouldShow = false; // Exclude verified items
-                } elseif (!$isClaimed && ($claimStatus === null || $claimStatus === '')) {
-                    $shouldShow = true; // Unclaimed - can be claimed
-                } elseif ($claimStatus === 'rejected') {
-                    $shouldShow = true; // Rejected - can be claimed again
-                } elseif ($claimStatus === 'pending') {
-                    $shouldShow = true; // Pending - show but indicate status
-                }
-                
-                if ($shouldShow) {
-                    $claimableMatchedItems[$otherUploadId] = $matchData;
-                }
+                Log::debug('Including matched item in claim-verify', [
+                    'upload_id' => $otherUploadId,
+                    'claim_status' => $firstItem->claim_verification_status,
+                    'is_claimed' => $firstItem->is_claimed ?? false,
+                    'similarity' => $matchData['similarity'] ?? 0
+                ]);
             }
             
             // Format matched items
@@ -1593,6 +1648,41 @@ class UserItemController extends Controller
                 return response()->json([
                     'success' => false,
                     'error' => 'You cannot claim your own item'
+                ], 400);
+            }
+            
+            // Verify that the user has a LOST item and the item to claim is FOUND
+            // Users with FOUND items can only message, not claim
+            $itemToClaim = ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', '!=', $user->email)
+                ->first();
+            
+            if (!$itemToClaim) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Item not found.'
+                ], 404);
+            }
+            
+            // Check if user has a LOST item that matches this FOUND item
+            $userItems = ImageMetadata::where('uploader_email', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('upload_id');
+            
+            $hasLostItem = false;
+            foreach ($userItems as $userUploadId => $userItemGroup) {
+                $userItem = $userItemGroup->first();
+                if ($userItem->status === 'lost' && $itemToClaim->status === 'found') {
+                    $hasLostItem = true;
+                    break;
+                }
+            }
+            
+            if (!$hasLostItem) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'You can only claim items if you have a lost item. If you found an item, please message the owner to notify them.'
                 ], 400);
             }
 
