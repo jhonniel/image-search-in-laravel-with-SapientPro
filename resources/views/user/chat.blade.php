@@ -288,7 +288,15 @@ function selectUser(userId) {
     showPrivacyNotice();
 
     // Load messages (this will also restore item context if available)
-        loadMessages(userId);
+    loadMessages(userId);
+    
+    // If item context is available (from claim redirect), show it immediately
+    if (itemContext) {
+        setTimeout(() => {
+            showItemContext();
+            showChatItemContext();
+        }, 300);
+    }
 }
 
 // Load messages
@@ -875,11 +883,26 @@ function initializeChat() {
     const urlParams = new URLSearchParams(window.location.search);
     const userId = urlParams.get('user');
     const itemId = urlParams.get('item');
+    const selectedUserId = urlParams.get('user');
 
-    // Load item context if itemId is provided
+    // Load item context if itemId is provided (from claim-verify redirect)
     @if(isset($itemContextData) && $itemContextData)
         itemContext = @json($itemContextData);
+        console.log('Item context loaded from claim:', itemContext);
     @endif
+    
+    // Auto-select user if provided in URL (from claim-verify redirect)
+    if (selectedUserId) {
+        // Wait for DOM to be ready, then select the user
+        setTimeout(() => {
+            selectUser(parseInt(selectedUserId));
+            // Show item context if available
+            if (itemContext) {
+                showItemContext();
+                showChatItemContext();
+            }
+        }, 100);
+    }
     
     // Restore privacy notice preference on page load
     const privacyNoticeHidden = localStorage.getItem('privacy-notice-hidden') === 'true';
