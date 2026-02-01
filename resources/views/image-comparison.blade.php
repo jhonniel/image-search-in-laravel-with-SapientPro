@@ -45,6 +45,9 @@
                     <button id="manage-tab" class="tab-btn px-6 py-2 rounded-md text-sm font-medium transition-colors">
                         Manage References
                     </button>
+                    <button id="analyze-tab" class="tab-btn px-6 py-2 rounded-md text-sm font-medium transition-colors">
+                        Analyze Image
+                    </button>
                 </div>
             </div>
 
@@ -137,7 +140,11 @@
                         </div>
                     </div>
 
-                    <div class="flex justify-center">
+                    <div class="flex justify-center items-center space-x-4">
+                        <label class="flex items-center space-x-2 cursor-pointer">
+                            <input type="checkbox" id="use-google-vision-url" class="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Use Google Vision API</span>
+                        </label>
                         <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
                             Compare Images
                         </button>
@@ -261,6 +268,59 @@
                 </form>
             </div>
 
+            <!-- Analyze Image Tab -->
+            <div id="analyze-content" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">
+                        <i class="fas fa-eye mr-2 text-blue-600"></i>
+                        Analyze Image with Google Vision API
+                    </h2>
+                    <p class="text-sm text-gray-600 mb-6">
+                        Upload an image to detect labels, objects, text, colors, and more using Google Vision API.
+                    </p>
+
+                    <form id="analyze-form" class="space-y-6">
+                        <div class="space-y-4">
+                            <label class="block text-sm font-medium text-gray-700">Image to Analyze</label>
+                            <div id="analyze-drop-zone" class="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center transition-all duration-200 hover:border-blue-400 hover:bg-blue-50 cursor-pointer">
+                                <input id="analyze-image" name="image" type="file" class="hidden" accept="image/*">
+                                
+                                <div id="analyze-drop-zone-content" class="space-y-4">
+                                    <div class="flex justify-center">
+                                        <div class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-cloud-upload-alt text-blue-600 text-2xl"></i>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p class="text-lg font-medium text-gray-700 mb-1">
+                                            <span class="text-blue-600">Click to upload</span> or drag and drop
+                                        </p>
+                                        <p class="text-sm text-gray-500">PNG, JPG, GIF up to 10MB</p>
+                                    </div>
+                                    <button type="button" onclick="document.getElementById('analyze-image').click()" 
+                                            class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium">
+                                        <i class="fas fa-folder-open mr-2"></i>
+                                        Browse Files
+                                    </button>
+                                </div>
+                                
+                                <img id="analyze-preview" class="hidden max-w-full h-auto rounded mt-4 mx-auto max-h-64" alt="Preview">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center">
+                            <input type="checkbox" id="use-google-vision-analyze" class="form-checkbox h-5 w-5 text-blue-600" checked>
+                            <label for="use-google-vision-analyze" class="ml-2 text-gray-700">Use Google Vision API</label>
+                        </div>
+
+                        <button type="submit" class="w-full px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center">
+                            <i class="fas fa-search mr-2"></i>
+                            Analyze Image
+                        </button>
+                    </form>
+                </div>
+            </div>
+
             <!-- Manage References Tab -->
             <div id="manage-content" class="tab-content hidden">
                 <div class="space-y-6">
@@ -381,7 +441,7 @@
             <!-- Results Section -->
             <div id="results" class="hidden mt-8">
                 <div class="bg-white rounded-lg shadow-sm p-6">
-                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Comparison Results</h3
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Comparison Results</h3>
                     <div class="space-y-4">
                         <div class="flex items-center justify-between">
                             <span class="text-gray-600">Similarity Score:</span>
@@ -391,6 +451,16 @@
                             <div id="similarity-bar" class="bg-blue-600 h-4 rounded-full transition-all duration-500" style="width: 0%"></div>
                         </div>
                         <div id="result-message" class="text-sm text-gray-600"></div>
+                        <!-- Google Vision API Results -->
+                        <div id="vision-results" class="hidden mt-6 space-y-4">
+                            <div class="border-t pt-4">
+                                <h4 class="text-md font-semibold text-gray-700 mb-3">Google Vision API Analysis</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div id="vision-image1" class="space-y-2"></div>
+                                    <div id="vision-image2" class="space-y-2"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -428,7 +498,8 @@
             upload: { tab: document.getElementById('upload-tab'), content: document.getElementById('upload-content') },
             url: { tab: document.getElementById('url-tab'), content: document.getElementById('url-content') },
             match: { tab: document.getElementById('match-tab'), content: document.getElementById('match-content') },
-            manage: { tab: document.getElementById('manage-tab'), content: document.getElementById('manage-content') }
+            manage: { tab: document.getElementById('manage-tab'), content: document.getElementById('manage-content') },
+            analyze: { tab: document.getElementById('analyze-tab'), content: document.getElementById('analyze-content') }
         };
 
         function switchTab(activeTabName) {
@@ -660,7 +731,12 @@
             for (let [key, value] of formData.entries()) {
                 console.log(key, ':', value instanceof File ? `File: ${value.name} (${value.size} bytes)` : value);
             }
-            await submitForm('/api/v1/compare/upload', formData);
+            
+            // Check if Google Vision API is enabled
+            const useGoogleVision = document.getElementById('use-google-vision-upload')?.checked || false;
+            const endpoint = useGoogleVision ? '/api/compare-images-vision' : '/api/v1/compare/upload';
+            
+            await submitForm(endpoint, formData);
         });
 
         document.getElementById('url-form').addEventListener('submit', async (e) => {
@@ -670,7 +746,32 @@
                 url1: formData.get('url1'),
                 url2: formData.get('url2')
             };
-            await submitForm('/api/v1/compare/urls', urlData, true);
+            
+            // Check if Google Vision API is enabled
+            const useGoogleVision = document.getElementById('use-google-vision-url')?.checked || false;
+            const endpoint = useGoogleVision ? '/api/compare-urls-vision' : '/api/v1/compare/urls';
+            
+            await submitForm(endpoint, urlData, true);
+        });
+
+        // Analyze form submission
+        document.getElementById('analyze-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const imageFile = document.getElementById('analyze-image').files[0];
+            
+            if (!imageFile) {
+                showError('Please select an image to analyze.');
+                return;
+            }
+            
+            const useGoogleVision = document.getElementById('use-google-vision-analyze')?.checked || false;
+            if (!useGoogleVision) {
+                showError('Google Vision API is required for image analysis. Please enable it.');
+                return;
+            }
+            
+            await submitForm('/api/analyze-image-vision', formData);
         });
 
         // Match form submission
@@ -827,8 +928,16 @@
                     } else if (url.includes('reference-images/upload')) {
                         showUploadSuccess(responseData.data);
                         loadReferenceImages(); // Refresh the reference images list
+                    } else if (url.includes('analyze-image-vision')) {
+                        showAnalysisResults(responseData);
                     } else {
-                        showResults(responseData.data.similarity_percentage, responseData.message);
+                        // Check if Google Vision API was used
+                        const isGoogleVision = url.includes('vision');
+                        if (isGoogleVision && responseData.vision_data) {
+                            showVisionResults(responseData.similarity_percentage, responseData.message, responseData.vision_data);
+                        } else {
+                            showResults(responseData.data?.similarity_percentage || responseData.similarity_percentage, responseData.message);
+                        }
                     }
                 } else {
                     // Handle validation errors
@@ -861,6 +970,84 @@
             document.getElementById('similarity-score').textContent = percentage + '%';
             document.getElementById('similarity-bar').style.width = percentage + '%';
             document.getElementById('result-message').textContent = message;
+            // Hide vision results if showing regular results
+            document.getElementById('vision-results').classList.add('hidden');
+        }
+
+        function showVisionResults(percentage, message, visionData) {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('similarity-score').textContent = percentage + '%';
+            document.getElementById('similarity-bar').style.width = percentage + '%';
+            document.getElementById('result-message').textContent = message;
+            
+            // Show Google Vision API results
+            const visionResults = document.getElementById('vision-results');
+            visionResults.classList.remove('hidden');
+            
+            // Display Image 1 Vision Data
+            const visionImage1 = document.getElementById('vision-image1');
+            visionImage1.innerHTML = `
+                <h5 class="font-semibold text-gray-700 mb-2">Image 1 Analysis</h5>
+                ${visionData.image1.labels && visionData.image1.labels.length > 0 ? `
+                    <div class="mb-3">
+                        <p class="text-sm font-medium text-gray-600 mb-1">Labels:</p>
+                        <div class="flex flex-wrap gap-1">
+                            ${visionData.image1.labels.slice(0, 5).map(label => 
+                                `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${label.description} (${(label.score * 100).toFixed(0)}%)</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${visionData.image1.objects && visionData.image1.objects.length > 0 ? `
+                    <div class="mb-3">
+                        <p class="text-sm font-medium text-gray-600 mb-1">Objects:</p>
+                        <div class="flex flex-wrap gap-1">
+                            ${visionData.image1.objects.slice(0, 3).map(obj => 
+                                `<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">${obj.name} (${(obj.score * 100).toFixed(0)}%)</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${visionData.image1.texts && visionData.image1.texts.length > 0 ? `
+                    <div class="mb-3">
+                        <p class="text-sm font-medium text-gray-600 mb-1">Detected Text:</p>
+                        <p class="text-xs text-gray-600 bg-gray-50 p-2 rounded">${visionData.image1.texts[0].description.substring(0, 100)}...</p>
+                    </div>
+                ` : ''}
+            `;
+            
+            // Display Image 2 Vision Data
+            const visionImage2 = document.getElementById('vision-image2');
+            visionImage2.innerHTML = `
+                <h5 class="font-semibold text-gray-700 mb-2">Image 2 Analysis</h5>
+                ${visionData.image2.labels && visionData.image2.labels.length > 0 ? `
+                    <div class="mb-3">
+                        <p class="text-sm font-medium text-gray-600 mb-1">Labels:</p>
+                        <div class="flex flex-wrap gap-1">
+                            ${visionData.image2.labels.slice(0, 5).map(label => 
+                                `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">${label.description} (${(label.score * 100).toFixed(0)}%)</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${visionData.image2.objects && visionData.image2.objects.length > 0 ? `
+                    <div class="mb-3">
+                        <p class="text-sm font-medium text-gray-600 mb-1">Objects:</p>
+                        <div class="flex flex-wrap gap-1">
+                            ${visionData.image2.objects.slice(0, 3).map(obj => 
+                                `<span class="px-2 py-1 bg-green-100 text-green-800 rounded text-xs">${obj.name} (${(obj.score * 100).toFixed(0)}%)</span>`
+                            ).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+                ${visionData.image2.texts && visionData.image2.texts.length > 0 ? `
+                    <div class="mb-3">
+                        <p class="text-sm font-medium text-gray-600 mb-1">Detected Text:</p>
+                        <p class="text-xs text-gray-600 bg-gray-50 p-2 rounded">${visionData.image2.texts[0].description.substring(0, 100)}...</p>
+                    </div>
+                ` : ''}
+            `;
         }
 
         function showError(message) {
@@ -996,6 +1183,141 @@
                             </div>
                         </div>
                     ` : ''}
+                </div>
+            `;
+        }
+
+        function showAnalysisResults(data) {
+            hideAllStates();
+            document.getElementById('results').classList.remove('hidden');
+            
+            const resultsContainer = document.getElementById('results');
+            const visionData = data.vision_data || data;
+            
+            let labelsHtml = '';
+            if (visionData.labels && visionData.labels.length > 0) {
+                labelsHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-tags mr-2 text-blue-600"></i>
+                            Detected Labels (${visionData.labels.length})
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${visionData.labels.map(label => `
+                                <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                                    ${label.description || label} ${label.score ? `(${(label.score * 100).toFixed(1)}%)` : ''}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let objectsHtml = '';
+            if (visionData.objects && visionData.objects.length > 0) {
+                objectsHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-cube mr-2 text-green-600"></i>
+                            Detected Objects (${visionData.objects.length})
+                        </h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${visionData.objects.map(obj => `
+                                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+                                    ${obj.name || obj} ${obj.score ? `(${(obj.score * 100).toFixed(1)}%)` : ''}
+                                </span>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let textHtml = '';
+            if (visionData.texts && visionData.texts.length > 0) {
+                const detectedText = visionData.texts[0]?.description || '';
+                textHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-font mr-2 text-purple-600"></i>
+                            Detected Text
+                        </h4>
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                            <p class="text-sm text-gray-800 whitespace-pre-wrap">${detectedText}</p>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let colorsHtml = '';
+            if (visionData.image_properties && visionData.image_properties.dominant_colors && visionData.image_properties.dominant_colors.length > 0) {
+                colorsHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-palette mr-2 text-pink-600"></i>
+                            Dominant Colors
+                        </h4>
+                        <div class="flex flex-wrap gap-3">
+                            ${visionData.image_properties.dominant_colors.slice(0, 5).map(color => {
+                                const rgb = `rgb(${color.red || 0}, ${color.green || 0}, ${color.blue || 0})`;
+                                return `
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-12 h-12 rounded border border-gray-300" style="background-color: ${rgb}"></div>
+                                        <div class="text-xs">
+                                            <div class="font-medium">RGB(${color.red || 0}, ${color.green || 0}, ${color.blue || 0})</div>
+                                            <div class="text-gray-500">${((color.score || 0) * 100).toFixed(1)}%</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            let safeSearchHtml = '';
+            if (visionData.safe_search) {
+                const safeSearch = visionData.safe_search;
+                const getLevel = (value) => {
+                    if (value === 'VERY_UNLIKELY' || value === 'UNLIKELY') return { text: 'Safe', color: 'green' };
+                    if (value === 'POSSIBLE') return { text: 'Possible', color: 'yellow' };
+                    if (value === 'LIKELY' || value === 'VERY_LIKELY') return { text: 'Warning', color: 'red' };
+                    return { text: 'Unknown', color: 'gray' };
+                };
+                
+                safeSearchHtml = `
+                    <div class="mb-4">
+                        <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center">
+                            <i class="fas fa-shield-alt mr-2 text-orange-600"></i>
+                            Safe Search Detection
+                        </h4>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-2">
+                            ${['adult', 'spoof', 'medical', 'violence', 'racy'].map(type => {
+                                const level = getLevel(safeSearch[type]);
+                                return `
+                                    <div class="bg-${level.color}-50 border border-${level.color}-200 rounded-lg p-2 text-center">
+                                        <div class="text-xs font-medium text-${level.color}-800 capitalize">${type}</div>
+                                        <div class="text-xs text-${level.color}-600 mt-1">${level.text}</div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            resultsContainer.innerHTML = `
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                        <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                        Image Analysis Results
+                    </h3>
+                    <div class="space-y-4">
+                        ${labelsHtml}
+                        ${objectsHtml}
+                        ${textHtml}
+                        ${colorsHtml}
+                        ${safeSearchHtml}
+                    </div>
                 </div>
             `;
         }

@@ -214,14 +214,45 @@ class AdminController extends Controller
             ->groupBy('upload_id');
 
         $formattedItems = [];
+        $itemsAnalyzed = 0;
+        $maxItemsToAnalyze = 10; // Limit to prevent timeout - analyze max 10 items per page load
+        
         foreach ($items as $uploadId => $itemGroup) {
             $firstItem = $itemGroup->first();
+            
+            // Check if detected_objects is missing and analyze if needed (limit to prevent timeout)
+            $detectedObjects = $this->parseDetectedObjects($firstItem->detected_objects);
+            if (empty($detectedObjects) && !empty($firstItem->file_path) && $itemsAnalyzed < $maxItemsToAnalyze) {
+                // Try to analyze the image if Google Vision is enabled
+                try {
+                    $detectedObjects = $this->analyzeItemForObjects($firstItem);
+                    if (!empty($detectedObjects)) {
+                        // Update all items with the same upload_id
+                        ImageMetadata::where('upload_id', $uploadId)->update([
+                            'detected_objects' => json_encode($detectedObjects)
+                        ]);
+                        $firstItem->detected_objects = $detectedObjects;
+                        $itemsAnalyzed++;
+                        
+                        \Log::info('Analyzed item for detected objects', [
+                            'upload_id' => $uploadId,
+                            'objects_count' => count($detectedObjects)
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    \Log::warning('Failed to analyze item for objects: ' . $e->getMessage(), [
+                        'upload_id' => $uploadId
+                    ]);
+                }
+            }
+            
             $formattedItems[] = [
                 'upload_id' => $uploadId,
                 'item_type' => $firstItem->status,
-                'location' => $firstItem->description, // Using description as location for now
+                'location' => $firstItem->location ?? $firstItem->description,
                 'description' => $firstItem->description,
                 'tags' => $this->parseTags($firstItem->tags),
+                'detected_objects' => $this->parseDetectedObjects($firstItem->detected_objects),
                 'uploader_email' => $firstItem->uploader_email,
                 'created_at' => $firstItem->created_at,
                 'images' => $itemGroup->map(function ($item) {
@@ -284,6 +315,182 @@ class AdminController extends Controller
         if (is_string($tags)) {
             $decoded = json_decode($tags, true);
             return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
+    }
+
+    /**
+     * Analyze an item's image to detect objects using Google Vision API
+     */
+    private function analyzeItemForObjects(ImageMetadata $item): array
+    {
+        try {
+            // Check if Google Vision is enabled
+            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            if (!$isEnabled) {
+                return [];
+            }
+
+            // Get API key from settings
+            $apiKey = \App\Models\Setting::get('google_vision_api_key', '');
+            if (empty($apiKey)) {
+                return [];
+            }
+
+            // Get the image file path
+            $filePath = $this->getItemImagePath($item);
+            if (empty($filePath) || !file_exists($filePath)) {
+                return [];
+            }
+
+            // Use REST API with API key
+            $url = 'https://vision.googleapis.com/v1/images:annotate?key=' . urlencode($apiKey);
+            
+            $imageContent = file_get_contents($filePath);
+            if ($imageContent === false) {
+                return [];
+            }
+            
+            $data = [
+                'requests' => [
+                    [
+                        'image' => [
+                            'content' => base64_encode($imageContent)
+                        ],
+                        'features' => [
+                            ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 20],
+                            ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
+                        ]
+                    ]
+                ]
+            ];
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                return [];
+            }
+
+            $responseData = json_decode($response, true);
+            $annotations = $responseData['responses'][0] ?? [];
+
+            // Extract objects
+            $objects = [];
+            if (isset($annotations['localizedObjectAnnotations'])) {
+                foreach ($annotations['localizedObjectAnnotations'] as $object) {
+                    $objects[] = [
+                        'name' => $object['name'] ?? '',
+                        'score' => $object['score'] ?? 0.0,
+                    ];
+                }
+            }
+
+            return $objects;
+        } catch (\Exception $e) {
+            \Log::error('Google Vision API analysis error: ' . $e->getMessage());
+            return [];
+        }
+    }
+
+    /**
+     * Get the file path for an item's image
+     */
+    private function getItemImagePath(ImageMetadata $item): ?string
+    {
+        // Try file_path first
+        if (!empty($item->file_path)) {
+            $filePath = $item->file_path;
+            
+            // Handle different path formats
+            if (str_starts_with($filePath, '/storage/')) {
+                $filePath = substr($filePath, 10); // Remove '/storage/'
+            } elseif (str_starts_with($filePath, 'storage/')) {
+                $filePath = substr($filePath, 9); // Remove 'storage/'
+            } elseif (str_starts_with($filePath, 'http://') || str_starts_with($filePath, 'https://')) {
+                // For URLs, we can't analyze directly - skip
+                return null;
+            }
+            
+            // Try public storage path
+            $fullPath = storage_path('app/public/' . $filePath);
+            if (file_exists($fullPath)) {
+                return $fullPath;
+            }
+            
+            // Try user-items directory
+            $fullPath = storage_path('app/public/user-items/' . basename($filePath));
+            if (file_exists($fullPath)) {
+                return $fullPath;
+            }
+        }
+
+        // Fallback to filename in user-items directory
+        if (!empty($item->filename)) {
+            $fullPath = storage_path('app/public/user-items/' . $item->filename);
+            if (file_exists($fullPath)) {
+                return $fullPath;
+            }
+            
+            // Try reference-images directory
+            $fullPath = storage_path('app/public/reference-images/' . $item->filename);
+            if (file_exists($fullPath)) {
+                return $fullPath;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Safely parse detected objects from database
+     */
+    private function parseDetectedObjects($detectedObjects)
+    {
+        if (empty($detectedObjects)) {
+            return [];
+        }
+
+        if (is_array($detectedObjects)) {
+            // Ensure each object has the correct structure
+            return array_map(function($obj) {
+                if (is_array($obj)) {
+                    return [
+                        'name' => $obj['name'] ?? (is_string($obj) ? $obj : ''),
+                        'score' => $obj['score'] ?? 0.0,
+                    ];
+                }
+                return [
+                    'name' => is_string($obj) ? $obj : '',
+                    'score' => 0.0,
+                ];
+            }, $detectedObjects);
+        }
+
+        if (is_string($detectedObjects)) {
+            $decoded = json_decode($detectedObjects, true);
+            if (is_array($decoded)) {
+                return array_map(function($obj) {
+                    if (is_array($obj)) {
+                        return [
+                            'name' => $obj['name'] ?? (is_string($obj) ? $obj : ''),
+                            'score' => $obj['score'] ?? 0.0,
+                        ];
+                    }
+                    return [
+                        'name' => is_string($obj) ? $obj : '',
+                        'score' => 0.0,
+                    ];
+                }, $decoded);
+            }
         }
 
         return [];
@@ -836,6 +1043,28 @@ class AdminController extends Controller
         // Determine which tab is being saved so we can scope validation and saving
         $activeTab = $request->input('active_tab', 'general');
 
+        // Save Google Vision API settings
+        if ($activeTab === 'google-vision') {
+            $request->validate([
+                'google_vision_enabled' => 'boolean',
+                'google_vision_api_key' => 'nullable|string|max:500',
+            ]);
+
+            Setting::set('google_vision_enabled', $request->has('google_vision_enabled'), 'boolean', 'Enable Google Vision API');
+            
+            // Only update API key if provided (to allow clearing it)
+            if ($request->filled('google_vision_api_key')) {
+                Setting::set('google_vision_api_key', $request->google_vision_api_key, 'string', 'Google Vision API key');
+            }
+            
+            return redirect()->route('settings', ['tab' => 'google-vision'])->with('success', 'Google Vision API settings updated successfully!');
+        }
+        
+        // Test Google Vision API connection
+        if ($request->has('test_vision_connection')) {
+            return $this->testGoogleVisionConnection($request);
+        }
+
         // Only validate and save email settings when the Email tab is being updated
         if ($activeTab === 'email') {
             $request->validate([
@@ -1200,6 +1429,80 @@ class AdminController extends Controller
 
         return redirect()->route('settings', ['tab' => $activeTab])
             ->with('success', 'Settings updated successfully!');
+    }
+
+    /**
+     * Test Google Vision API connection
+     */
+    public function testGoogleVisionConnection(Request $request)
+    {
+        try {
+            // Check if enabled
+            $isEnabled = Setting::get('google_vision_enabled', false);
+            if (!$isEnabled) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Google Vision API is not enabled. Please enable it first.'
+                ]);
+            }
+
+            // Get API key
+            $apiKey = Setting::get('google_vision_api_key', '');
+            
+            if (empty($apiKey)) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'API key not configured. Please enter your Google Vision API key.'
+                ]);
+            }
+
+            // Test API key by making a simple request
+            $testImageContent = base64_encode(base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='));
+            
+            // Use REST API to test the key
+            $url = 'https://vision.googleapis.com/v1/images:annotate?key=' . urlencode($apiKey);
+            $data = [
+                'requests' => [
+                    [
+                        'image' => [
+                            'content' => $testImageContent
+                        ],
+                        'features' => [
+                            ['type' => 'LABEL_DETECTION', 'maxResults' => 1]
+                        ]
+                    ]
+                ]
+            ];
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+
+            if ($httpCode === 200) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Google Vision API connection successful! The API key is valid and working.'
+                ]);
+            } else {
+                $errorData = json_decode($response, true);
+                $errorMessage = $errorData['error']['message'] ?? 'Unknown error';
+                return response()->json([
+                    'success' => false,
+                    'error' => 'API key validation failed: ' . $errorMessage
+                ]);
+            }
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Connection test failed: ' . $e->getMessage()
+            ]);
+        }
     }
 
     /**

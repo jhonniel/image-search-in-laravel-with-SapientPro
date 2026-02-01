@@ -265,6 +265,36 @@ class UserItemController extends Controller
                 $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
+                // Analyze image with Google Vision API to detect objects
+                $detectedObjects = null;
+                try {
+                    $isVisionEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+                    if ($isVisionEnabled) {
+                        $imagePath = $image->getPathname();
+                        $visionData = $this->analyzeImageWithGoogleVision($imagePath);
+                        
+                        // Extract detected objects
+                        if (isset($visionData['objects']) && !empty($visionData['objects'])) {
+                            $detectedObjects = array_map(function($obj) {
+                                return [
+                                    'name' => $obj['name'] ?? '',
+                                    'score' => $obj['score'] ?? 0.0,
+                                ];
+                            }, $visionData['objects']);
+                        }
+                        
+                        Log::info('Google Vision API analysis completed', [
+                            'upload_id' => $uploadId,
+                            'objects_count' => $detectedObjects ? count($detectedObjects) : 0
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    // Log error but don't fail the upload
+                    Log::warning('Google Vision API analysis failed: ' . $e->getMessage(), [
+                        'upload_id' => $uploadId
+                    ]);
+                }
+
                 // Create image metadata record
                 $metadataData = [
                     'filename' => $filename,
@@ -274,6 +304,7 @@ class UserItemController extends Controller
                     'description' => $request->description,
                     'location' => $request->location, // Save location field
                     'tags' => $this->processTags($request->tags),
+                    'detected_objects' => $detectedObjects,
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
                     'status' => $request->item_type, // 'lost' or 'found'
@@ -1424,6 +1455,7 @@ class UserItemController extends Controller
                     $group = $matchData['item'];
                     $firstItem = $group->first();
                     $tags = $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [];
+                    $detectedObjects = $firstItem->detected_objects ? (is_string($firstItem->detected_objects) ? json_decode($firstItem->detected_objects, true) : $firstItem->detected_objects) : [];
 
                     // Get the user who uploaded this item
                     $uploader = \App\Models\User::where('email', $firstItem->uploader_email)->first();
@@ -1440,6 +1472,8 @@ class UserItemController extends Controller
                         $userFirstItem = $userItemGroup->first();
                         $userTags = $userFirstItem->tags ? (is_string($userFirstItem->tags) ? json_decode($userFirstItem->tags, true) : $userFirstItem->tags) : [];
                         
+                        $userDetectedObjects = $userFirstItem->detected_objects ? (is_string($userFirstItem->detected_objects) ? json_decode($userFirstItem->detected_objects, true) : $userFirstItem->detected_objects) : [];
+                        
                         $userMatchedItem = [
                             'upload_id' => $matchedWithUploadId,
                             'item_type' => $userFirstItem->status,
@@ -1448,6 +1482,7 @@ class UserItemController extends Controller
                             'province' => $userFirstItem->province ?? null,
                             'city' => $userFirstItem->city ?? null,
                             'tags' => is_array($userTags) ? $userTags : [],
+                            'detected_objects' => is_array($userDetectedObjects) ? $userDetectedObjects : [],
                             'created_at' => $userFirstItem->created_at,
                             'images' => $userItemGroup->map(function ($item) {
                                 $filePath = $item->file_path;
@@ -1480,6 +1515,7 @@ class UserItemController extends Controller
                         'province' => $firstItem->province ?? null,
                         'city' => $firstItem->city ?? null,
                         'tags' => is_array($tags) ? $tags : [],
+                        'detected_objects' => is_array($detectedObjects) ? $detectedObjects : [],
                         'uploader_email' => $firstItem->uploader_email,
                         'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
                         'uploader_profile_picture' => $uploader ? $uploader->profile_picture : null,
@@ -2054,6 +2090,96 @@ class UserItemController extends Controller
         return $errors[$errorCode] ?? 'Unknown upload error (code: ' . $errorCode . ')';
     }
     
+    /**
+     * Analyze image with Google Vision API to detect objects
+     */
+    private function analyzeImageWithGoogleVision(string $imagePath): array
+    {
+        try {
+            // Check if Google Vision is enabled
+            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            if (!$isEnabled) {
+                throw new \Exception('Google Vision API is not enabled.');
+            }
+
+            // Get API key from settings
+            $apiKey = \App\Models\Setting::get('google_vision_api_key', '');
+            
+            if (empty($apiKey)) {
+                throw new \Exception('Google Vision API key not configured.');
+            }
+
+            // Use REST API with API key
+            $url = 'https://vision.googleapis.com/v1/images:annotate?key=' . urlencode($apiKey);
+            
+            $imageContent = file_get_contents($imagePath);
+            
+            $data = [
+                'requests' => [
+                    [
+                        'image' => [
+                            'content' => base64_encode($imageContent)
+                        ],
+                        'features' => [
+                            ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 20],
+                            ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
+                        ]
+                    ]
+                ]
+            ];
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                $errorData = json_decode($response, true);
+                $errorMessage = $errorData['error']['message'] ?? ($curlError ?: 'Unknown error');
+                throw new \Exception('Google Vision API error: ' . $errorMessage);
+            }
+
+            $responseData = json_decode($response, true);
+            $annotations = $responseData['responses'][0] ?? [];
+
+            // Extract objects
+            $objects = [];
+            if (isset($annotations['localizedObjectAnnotations'])) {
+                foreach ($annotations['localizedObjectAnnotations'] as $object) {
+                    $objects[] = [
+                        'name' => $object['name'] ?? '',
+                        'score' => $object['score'] ?? 0.0,
+                    ];
+                }
+            }
+
+            // Extract labels as fallback
+            $labels = [];
+            if (isset($annotations['labelAnnotations'])) {
+                foreach ($annotations['labelAnnotations'] as $label) {
+                    $labels[] = [
+                        'description' => $label['description'] ?? '',
+                        'score' => $label['score'] ?? 0.0,
+                    ];
+                }
+            }
+
+            return [
+                'objects' => $objects,
+                'labels' => $labels,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Google Vision API analysis error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
     /**
      * Process tags from request (handles both JSON array and comma-separated string)
      * Also increments tag usage counts

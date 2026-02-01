@@ -86,8 +86,9 @@ Route::middleware(['auth'])->group(function () {
     Route::put('/users/{user}', [\App\Http\Controllers\AdminController::class, 'updateUser'])->name('users.update');
     Route::post('/users/{user}/toggle-verification', [\App\Http\Controllers\AdminController::class, 'toggleVerification'])->name('users.toggle-verification');
     Route::get('/insights', [\App\Http\Controllers\AdminController::class, 'insights'])->name('insights');
-        Route::get('/settings', [\App\Http\Controllers\AdminController::class, 'settings'])->name('settings');
-        Route::post('/settings', [\App\Http\Controllers\AdminController::class, 'updateSettings'])->name('settings.update');
+    Route::get('/settings', [\App\Http\Controllers\AdminController::class, 'settings'])->name('settings');
+    Route::post('/settings', [\App\Http\Controllers\AdminController::class, 'updateSettings'])->name('settings.update');
+    Route::post('/settings/test-vision', [\App\Http\Controllers\AdminController::class, 'testGoogleVisionConnection'])->name('settings.test-vision');
         Route::post('/settings/test-email', [\App\Http\Controllers\AdminController::class, 'testEmail'])->name('settings.test-email');
         Route::get('/settings/export-database', [\App\Http\Controllers\AdminController::class, 'exportDatabase'])->name('settings.export-database');
         Route::post('/settings/import-database', [\App\Http\Controllers\AdminController::class, 'importDatabase'])->name('settings.import-database');
@@ -169,6 +170,9 @@ Route::post('/post', [\App\Http\Controllers\GuestItemController::class, 'submit'
 // Image comparison routes
 Route::post('/api/compare-images', [ImageComparisonController::class, 'compare']);
 Route::post('/api/compare-urls', [ImageComparisonController::class, 'compareUrls']);
+Route::post('/api/compare-images-vision', [ImageComparisonController::class, 'compareWithGoogleVision']);
+Route::post('/api/compare-urls-vision', [ImageComparisonController::class, 'compareUrlsWithGoogleVision']);
+Route::post('/api/analyze-image-vision', [ImageComparisonController::class, 'analyzeImage']);
 
 // Notifications (user)
 Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);

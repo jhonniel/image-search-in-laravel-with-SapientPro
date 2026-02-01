@@ -26,6 +26,7 @@ class ImageMetadata extends Model
         'province',
         'city',
         'tags',
+        'detected_objects',
         'upload_id',
         'file_size',
         'mime_type',
@@ -43,6 +44,7 @@ class ImageMetadata extends Model
      */
     protected $casts = [
         'tags' => 'array',
+        'detected_objects' => 'array',
         'is_claimed' => 'boolean',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

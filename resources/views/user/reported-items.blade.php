@@ -1736,6 +1736,31 @@ function displayUserItems(items) {
                                 }
                                 return '';
                             })()}
+                            ${(() => {
+                                let objectsArray = [];
+                                if (item.detected_objects) {
+                                    if (Array.isArray(item.detected_objects)) {
+                                        objectsArray = item.detected_objects;
+                                    } else if (typeof item.detected_objects === 'string') {
+                                        try {
+                                            objectsArray = JSON.parse(item.detected_objects);
+                                        } catch (e) {
+                                            objectsArray = [];
+                                        }
+                                    }
+                                }
+                                if (objectsArray.length > 0) {
+                                    const objectsHtml = objectsArray.slice(0, 5).map(obj => {
+                                        const objName = obj.name || obj;
+                                        const score = obj.score ? (obj.score * 100).toFixed(0) : '';
+                                        const escapedObj = String(objName).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                                        return '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API' + (score ? ' (' + score + '% confidence)' : '') + '"><i class="fas fa-eye mr-1"></i>' + escapedObj + '</span>';
+                                    }).join('');
+                                    const moreHtml = objectsArray.length > 5 ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">+' + (objectsArray.length - 5) + ' more</span>' : '';
+                                    return '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 mb-1 flex items-center"><i class="fas fa-cube mr-1 text-blue-600"></i>Detected Objects:</div><div class="flex flex-wrap gap-2">' + objectsHtml + moreHtml + '</div></div>';
+                                }
+                                return '';
+                            })()}
                             <div class="text-xs text-gray-400">
                                 <i class="fas fa-clock mr-1"></i>
                                 ${new Date(item.created_at).toLocaleDateString()}

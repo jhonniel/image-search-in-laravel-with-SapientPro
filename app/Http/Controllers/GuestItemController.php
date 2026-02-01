@@ -200,6 +200,29 @@ class GuestItemController extends Controller
                 $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
+                // Analyze image with Google Vision API to detect objects
+                $detectedObjects = null;
+                try {
+                    $isVisionEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+                    if ($isVisionEnabled) {
+                        $imagePath = $image->getPathname();
+                        $visionData = $this->analyzeImageWithGoogleVision($imagePath);
+                        
+                        // Extract detected objects
+                        if (isset($visionData['objects']) && !empty($visionData['objects'])) {
+                            $detectedObjects = array_map(function($obj) {
+                                return [
+                                    'name' => $obj['name'] ?? '',
+                                    'score' => $obj['score'] ?? 0.0,
+                                ];
+                            }, $visionData['objects']);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    // Log error but don't fail the upload
+                    \Illuminate\Support\Facades\Log::warning('Google Vision API analysis failed: ' . $e->getMessage());
+                }
+
                 // Create image metadata record
                 $metadataData = [
                     'filename' => $filename,
@@ -209,6 +232,7 @@ class GuestItemController extends Controller
                     'description' => $validated['description'],
                     'location' => $validated['location'] ?? null,
                     'tags' => $this->processTags($validated['tags'] ?? ''),
+                    'detected_objects' => $detectedObjects,
                     'file_size' => $image->getSize(),
                     'mime_type' => $image->getMimeType(),
                     'status' => $validated['item_type'],
@@ -290,6 +314,96 @@ class GuestItemController extends Controller
             ]);
 
             return back()->withErrors(['error' => 'Failed to post item. Please try again.'])->withInput();
+        }
+    }
+
+    /**
+     * Analyze image with Google Vision API to detect objects
+     */
+    private function analyzeImageWithGoogleVision(string $imagePath): array
+    {
+        try {
+            // Check if Google Vision is enabled
+            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            if (!$isEnabled) {
+                throw new \Exception('Google Vision API is not enabled.');
+            }
+
+            // Get API key from settings
+            $apiKey = \App\Models\Setting::get('google_vision_api_key', '');
+            
+            if (empty($apiKey)) {
+                throw new \Exception('Google Vision API key not configured.');
+            }
+
+            // Use REST API with API key
+            $url = 'https://vision.googleapis.com/v1/images:annotate?key=' . urlencode($apiKey);
+            
+            $imageContent = file_get_contents($imagePath);
+            
+            $data = [
+                'requests' => [
+                    [
+                        'image' => [
+                            'content' => base64_encode($imageContent)
+                        ],
+                        'features' => [
+                            ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 20],
+                            ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
+                        ]
+                    ]
+                ]
+            ];
+
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_POST, true);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+
+            if ($httpCode !== 200) {
+                $errorData = json_decode($response, true);
+                $errorMessage = $errorData['error']['message'] ?? ($curlError ?: 'Unknown error');
+                throw new \Exception('Google Vision API error: ' . $errorMessage);
+            }
+
+            $responseData = json_decode($response, true);
+            $annotations = $responseData['responses'][0] ?? [];
+
+            // Extract objects
+            $objects = [];
+            if (isset($annotations['localizedObjectAnnotations'])) {
+                foreach ($annotations['localizedObjectAnnotations'] as $object) {
+                    $objects[] = [
+                        'name' => $object['name'] ?? '',
+                        'score' => $object['score'] ?? 0.0,
+                    ];
+                }
+            }
+
+            // Extract labels as fallback
+            $labels = [];
+            if (isset($annotations['labelAnnotations'])) {
+                foreach ($annotations['labelAnnotations'] as $label) {
+                    $labels[] = [
+                        'description' => $label['description'] ?? '',
+                        'score' => $label['score'] ?? 0.0,
+                    ];
+                }
+            }
+
+            return [
+                'objects' => $objects,
+                'labels' => $labels,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Google Vision API analysis error: ' . $e->getMessage());
+            throw $e;
         }
     }
 

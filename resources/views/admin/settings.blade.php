@@ -30,6 +30,7 @@
                     'general' => ['icon' => 'fas fa-cog', 'label' => 'General'],
                     'email' => ['icon' => 'fas fa-envelope', 'label' => 'Email'],
                     'locations' => ['icon' => 'fas fa-map-marker-alt', 'label' => 'Locations'],
+                    'google-vision' => ['icon' => 'fas fa-eye', 'label' => 'Google Vision API'],
                     'faqs' => ['icon' => 'fas fa-question', 'label' => 'FAQs'],
                 ];
             @endphp
@@ -736,6 +737,91 @@
                                 <i class="fas fa-info-circle mr-1"></i>
                                 <span id="selectedProvincesCount">{{ count($enabledProvinces ?? []) }}</span> province/provinces selected
                             </p>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                @if($activeTab === 'google-vision')
+                <!-- Google Vision API Tab Content -->
+                <div id="content-google-vision" class="space-y-6">
+                    <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                        <div class="px-6 py-5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-gray-200">
+                            <div class="flex items-center">
+                                <div class="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center mr-3">
+                                    <i class="fas fa-eye text-white"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-lg font-semibold text-gray-900">Google Vision API Configuration</h2>
+                                    <p class="text-sm text-gray-600">Configure Google Cloud Vision API for advanced image analysis</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-6 space-y-5">
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <div class="flex items-start">
+                                    <i class="fas fa-info-circle text-blue-600 mt-1 mr-2"></i>
+                                    <div class="text-sm text-blue-800">
+                                        <p class="font-medium mb-1">Setup Instructions:</p>
+                                        <ol class="list-decimal list-inside space-y-1 text-xs">
+                                            <li>Enable Cloud Vision API in Google Cloud Console</li>
+                                            <li>Create an API key from Credentials page</li>
+                                            <li>Enter the API key below (starts with AIzaSy...)</li>
+                                            <li>See <a href="{{ asset('GOOGLE_VISION_SETUP.md') }}" target="_blank" class="underline">setup guide</a> for detailed instructions</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Google Vision API Enabled
+                                </label>
+                                <label class="relative inline-flex items-center cursor-pointer">
+                                    <input type="checkbox" name="google_vision_enabled" value="1" 
+                                           {{ \App\Models\Setting::get('google_vision_enabled', false) ? 'checked' : '' }}
+                                           class="sr-only peer">
+                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                                    <span class="ml-3 text-sm text-gray-700">Enable Google Vision API for image comparison</span>
+                                </label>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Google Vision API Key <span class="text-red-500">*</span>
+                                </label>
+                                <input type="password" name="google_vision_api_key" 
+                                       value="{{ \App\Models\Setting::get('google_vision_api_key', '') }}"
+                                       placeholder="AIzaSy..."
+                                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent font-mono text-sm">
+                                <p class="text-xs text-gray-500 mt-1">Enter your Google Cloud Vision API key. Get it from <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="text-blue-600 underline">Google Cloud Console</a></p>
+                            </div>
+
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                                <div class="flex items-start">
+                                    <i class="fas fa-info-circle text-blue-600 mt-1 mr-2"></i>
+                                    <div class="text-sm text-blue-800">
+                                        <p class="font-medium mb-1">How to get your API Key:</p>
+                                        <ol class="list-decimal list-inside space-y-1 text-xs">
+                                            <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" class="underline">Google Cloud Console → APIs & Services → Credentials</a></li>
+                                            <li>Click "Create Credentials" → "API Key"</li>
+                                            <li>Copy the generated API key</li>
+                                            <li>Optionally restrict the API key to Cloud Vision API only</li>
+                                        </ol>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">
+                                    Test Connection
+                                </label>
+                                <button type="button" onclick="testGoogleVisionConnection()" 
+                                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                                    <i class="fas fa-plug mr-2"></i>Test Google Vision API Connection
+                                </button>
+                                <div id="vision-test-result" class="mt-2 hidden"></div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1886,6 +1972,37 @@ function exportDatabase() {
         if (exportBtn) exportBtn.disabled = false;
     });
 }
+
+    // Test Google Vision API Connection
+    function testGoogleVisionConnection() {
+        const resultDiv = document.getElementById('vision-test-result');
+        resultDiv.classList.remove('hidden');
+        resultDiv.innerHTML = '<div class="flex items-center text-blue-600"><div class="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>Testing connection...</div>';
+        
+        // Get form data
+        const form = document.querySelector('form[action="{{ route("settings.update") }}"]');
+        const formData = new FormData(form);
+        formData.append('test_vision_connection', '1');
+        
+        fetch('{{ route("settings.test-vision") }}', {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                resultDiv.innerHTML = '<div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg"><i class="fas fa-check-circle mr-2"></i>' + data.message + '</div>';
+            } else {
+                resultDiv.innerHTML = '<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg"><i class="fas fa-exclamation-circle mr-2"></i>' + (data.error || data.message || 'Connection test failed') + '</div>';
+            }
+        })
+        .catch(error => {
+            resultDiv.innerHTML = '<div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg"><i class="fas fa-exclamation-circle mr-2"></i>Error: ' + error.message + '</div>';
+        });
+    }
 </script>
 
 <!-- Edit City Modal -->

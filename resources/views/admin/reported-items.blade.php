@@ -128,6 +128,31 @@
                         @endforeach
                     </div>
                     @endif
+                    @if(!empty($item['detected_objects']) && is_array($item['detected_objects']) && count($item['detected_objects']) > 0)
+                    <div class="mb-2">
+                        <strong class="text-gray-700 flex items-center mb-1">
+                            <i class="fas fa-cube mr-1 text-blue-600"></i>
+                            Detected Objects ({{ count($item['detected_objects']) }}):
+                        </strong>
+                        <div class="flex flex-wrap gap-2">
+                            @foreach(array_slice($item['detected_objects'], 0, 5) as $obj)
+                            @php
+                                $objName = is_array($obj) ? ($obj['name'] ?? '') : (is_string($obj) ? $obj : '');
+                                $objScore = is_array($obj) ? ($obj['score'] ?? 0) : 0;
+                                $confidence = $objScore > 0 ? ' (' . round($objScore * 100) . '% confidence)' : '';
+                            @endphp
+                            @if(!empty($objName))
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API{{ $confidence }}">
+                                <i class="fas fa-eye mr-1"></i>{{ $objName }}
+                            </span>
+                            @endif
+                            @endforeach
+                            @if(count($item['detected_objects']) > 5)
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+{{ count($item['detected_objects']) - 5 }} more</span>
+                            @endif
+                        </div>
+                    </div>
+                    @endif
                 </div>
 
                 <div class="text-sm text-gray-500">

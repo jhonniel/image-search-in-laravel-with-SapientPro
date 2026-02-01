@@ -264,31 +264,44 @@ class SimilarityNotificationService
         $newDescription = $newMetadata['description'] ?? '';
         $newTags = $newMetadata['tags'] ?? [];
         $newTagsText = is_array($newTags) ? implode(' ', $newTags) : $newTags;
+        $newObjects = $newMetadata['detected_objects'] ?? [];
+        $newObjectsText = is_array($newObjects) ? implode(' ', array_map(function($obj) {
+            return is_array($obj) ? ($obj['name'] ?? '') : $obj;
+        }, $newObjects)) : '';
 
         $existingDescription = $existingImage->description ?? '';
         $existingTags = $existingImage->tags ?? [];
         $existingTagsText = is_array($existingTags) ? implode(' ', $existingTags) : $existingTags;
+        $existingObjects = $existingImage->detected_objects ?? [];
+        $existingObjectsText = is_array($existingObjects) ? implode(' ', array_map(function($obj) {
+            return is_array($obj) ? ($obj['name'] ?? '') : $obj;
+        }, $existingObjects)) : '';
 
-        // If both descriptions and tags are empty, return 0
-        if (empty($newDescription) && empty($newTagsText) && empty($existingDescription) && empty($existingTagsText)) {
+        // If all fields are empty, return 0
+        if (empty($newDescription) && empty($newTagsText) && empty($newObjectsText) && 
+            empty($existingDescription) && empty($existingTagsText) && empty($existingObjectsText)) {
             return 0.0;
         }
 
         // If one has content and the other doesn't, return 0
-        if ((empty($newDescription) && empty($newTagsText)) || (empty($existingDescription) && empty($existingTagsText))) {
+        if ((empty($newDescription) && empty($newTagsText) && empty($newObjectsText)) || 
+            (empty($existingDescription) && empty($existingTagsText) && empty($existingObjectsText))) {
             return 0.0;
         }
 
         $descriptionSimilarity = $this->calculateTextSimilarityScore($newDescription, $existingDescription);
         $tagsSimilarity = $this->calculateTextSimilarityScore($newTagsText, $existingTagsText);
+        $objectsSimilarity = $this->calculateTextSimilarityScore($newObjectsText, $existingObjectsText);
 
-        // Only return high similarity if both description and tags have meaningful similarity
-        if ($descriptionSimilarity > 0.5 && $tagsSimilarity > 0.5) {
-            return max($descriptionSimilarity, $tagsSimilarity);
+        // Calculate weighted average: description (40%), tags (30%), objects (30%)
+        $weightedSimilarity = ($descriptionSimilarity * 0.4) + ($tagsSimilarity * 0.3) + ($objectsSimilarity * 0.3);
+
+        // Boost similarity if objects match (objects are more reliable)
+        if ($objectsSimilarity > 0.5) {
+            $weightedSimilarity = max($weightedSimilarity, $objectsSimilarity * 1.2); // Boost by 20%
         }
 
-        // If only one aspect is similar, return a lower score
-        return max($descriptionSimilarity, $tagsSimilarity) * 0.5;
+        return min(1.0, $weightedSimilarity);
     }
 
     /**
@@ -680,7 +693,8 @@ class SimilarityNotificationService
                         $visualSimilarity = $this->calculateVisualSimilarity($newItemPath, $existingItemPath);
                         $textSimilarity = $this->calculateTextSimilarity([
                             'description' => $newItem->description,
-                            'tags' => $newItem->tags
+                            'tags' => $newItem->tags,
+                            'detected_objects' => $newItem->detected_objects
                         ], $existingItem);
                         $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
 
