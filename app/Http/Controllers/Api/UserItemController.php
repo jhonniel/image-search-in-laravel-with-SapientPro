@@ -1108,15 +1108,7 @@ class UserItemController extends Controller
                 'user_items_count' => count($userUploadIds),
                 'stored_matches_count' => $storedMatches->count()
             ]);
-            
-            if ($storedMatches->isEmpty()) {
-                return response()->json([
-                    'success' => true,
-                    'items' => [],
-                    'message' => 'No matching items found. Keep checking back as new items are posted!'
-                ]);
-            }
-            
+
             // Get the matched item upload IDs
             $matchedUploadIds = $storedMatches->pluck('matched_item_upload_id')->unique()->toArray();
             
@@ -1165,6 +1157,76 @@ class UserItemController extends Controller
                 'matched_items_count' => count($matchedItems),
                 'timestamp' => now()->toDateTimeString()
             ]);
+
+            // Also include matches that came from notifications (older matches or matches
+            // created before ItemMatch was introduced). This ensures that if the user
+            // sees "Item Match Found!" notifications, those items also appear here.
+            $userNotifications = \App\Models\Notification::where('type', 'item_matched')
+                ->where('user_id', $user->id)
+                ->whereNotNull('data')
+                ->get();
+
+            if ($userNotifications->isNotEmpty()) {
+                // Collect upload IDs for other users' items referenced in notifications
+                $notificationMatches = [];
+                foreach ($userNotifications as $notification) {
+                    $data = $notification->data ?? [];
+                    $otherUploadId = $data['new_item_upload_id'] ?? null;      // Other user's item
+                    $userUploadIdForMatch = $data['matched_item_upload_id'] ?? null; // Current user's item
+
+                    if (!$otherUploadId || isset($matchedItems[$otherUploadId])) {
+                        // Skip if no upload id or already included from ItemMatch
+                        continue;
+                    }
+
+                    $notificationMatches[$otherUploadId] = [
+                        'other_upload_id' => $otherUploadId,
+                        'user_upload_id' => $userUploadIdForMatch,
+                        'similarity' => $data['similarity_score'] ?? 0.5,
+                    ];
+                }
+
+                if (!empty($notificationMatches)) {
+                    $otherUploadIds = array_keys($notificationMatches);
+
+                    // Load the matched items for these upload IDs
+                    $notificationItemGroups = ImageMetadata::whereIn('upload_id', $otherUploadIds)
+                        ->where('uploader_email', '!=', $user->email)
+                        ->orderBy('created_at', 'desc')
+                        ->get()
+                        ->groupBy('upload_id');
+
+                    foreach ($notificationMatches as $otherUploadId => $matchInfo) {
+                        // Skip if we still don't have the group or it was added in the meantime
+                        if (isset($matchedItems[$otherUploadId])) {
+                            continue;
+                        }
+
+                        $matchedItemGroup = $notificationItemGroups->get($otherUploadId);
+                        if (!$matchedItemGroup) {
+                            continue;
+                        }
+
+                        // Get the user's item group this was matched with (if available)
+                        $userItemGroup = $matchInfo['user_upload_id']
+                            ? ($userItems->get($matchInfo['user_upload_id']) ?? null)
+                            : null;
+
+                        $matchedItems[$otherUploadId] = [
+                            'item' => $matchedItemGroup,
+                            'similarity' => (float) $matchInfo['similarity'],
+                            'matched_with' => $matchInfo['user_upload_id'] ?? ($userItems->keys()->first() ?? null),
+                            'from_notification' => true,
+                        ];
+                    }
+
+                    Log::info('Added notification-based matches to claim-verify', [
+                        'user_email' => $user->email,
+                        'notification_matches_count' => count($notificationMatches),
+                        'matched_items_count' => count($matchedItems),
+                    ]);
+                }
+            }
             
             // If no matches found, return empty array
             if (empty($matchedItems)) {
