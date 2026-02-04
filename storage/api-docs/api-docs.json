@@ -1,0 +1,612 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "SapientPro Image Comparison API",
+        "description": "RESTful API for comparing images using SapientPro ImageComparator",
+        "contact": {
+            "email": "support@example.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8000/api/v1",
+            "description": "Local Development Server"
+        }
+    ],
+    "paths": {
+        "/compare/upload": {
+            "post": {
+                "tags": [
+                    "Image Comparison"
+                ],
+                "summary": "Compare two uploaded images",
+                "description": "Upload two image files and get their similarity percentage",
+                "operationId": "compareUploadedImages",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "image1": {
+                                        "description": "First image file (max 10MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    },
+                                    "image2": {
+                                        "description": "Second image file (max 10MB)",
+                                        "type": "string",
+                                        "format": "binary"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Images compared successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "similarity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 0.85
+                                                },
+                                                "similarity_percentage": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 85
+                                                },
+                                                "comparison_id": {
+                                                    "type": "string",
+                                                    "example": "comp_abc123def4"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-01-01T12:00:00Z"
+                                                },
+                                                "method": {
+                                                    "type": "string",
+                                                    "example": "upload"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Images compared successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Validation failed"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "image1": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The image1 field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Internal server error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "An unexpected error occurred"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/compare/urls": {
+            "post": {
+                "tags": [
+                    "Image Comparison"
+                ],
+                "summary": "Compare images from URLs",
+                "description": "Compare two images by providing their URLs",
+                "operationId": "compareImagesFromUrls",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "url1",
+                                    "url2"
+                                ],
+                                "properties": {
+                                    "url1": {
+                                        "description": "First image URL",
+                                        "type": "string",
+                                        "format": "uri",
+                                        "example": "https://example.com/image1.jpg"
+                                    },
+                                    "url2": {
+                                        "description": "Second image URL",
+                                        "type": "string",
+                                        "format": "uri",
+                                        "example": "https://example.com/image2.jpg"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Images compared successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "similarity": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 0.75
+                                                },
+                                                "similarity_percentage": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 75
+                                                },
+                                                "comparison_id": {
+                                                    "type": "string",
+                                                    "example": "comp_xyz789abc1"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-01-01T12:00:00Z"
+                                                },
+                                                "method": {
+                                                    "type": "string",
+                                                    "example": "url"
+                                                },
+                                                "urls": {
+                                                    "properties": {
+                                                        "url1": {
+                                                            "type": "string",
+                                                            "example": "https://example.com/image1.jpg"
+                                                        },
+                                                        "url2": {
+                                                            "type": "string",
+                                                            "example": "https://example.com/image2.jpg"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Images compared successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Validation failed"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "url1": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "The url1 field is required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Internal server error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "An unexpected error occurred"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/compare/batch": {
+            "post": {
+                "tags": [
+                    "Image Comparison"
+                ],
+                "summary": "Compare multiple images in batch",
+                "description": "Upload multiple images (2-5) and compare all pairs",
+                "operationId": "batchCompare",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "multipart/form-data": {
+                            "schema": {
+                                "properties": {
+                                    "images[]": {
+                                        "description": "Array of image files (2-5 images, 10MB each)",
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "format": "binary"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Batch comparison completed",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "comparisons": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "image1": {
+                                                                "type": "string",
+                                                                "example": "image1.jpg"
+                                                            },
+                                                            "image2": {
+                                                                "type": "string",
+                                                                "example": "image2.jpg"
+                                                            },
+                                                            "similarity": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 0.85
+                                                            },
+                                                            "similarity_percentage": {
+                                                                "type": "number",
+                                                                "format": "float",
+                                                                "example": 85
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "batch_id": {
+                                                    "type": "string",
+                                                    "example": "batch_def456ghi7"
+                                                },
+                                                "total_comparisons": {
+                                                    "type": "integer",
+                                                    "example": 3
+                                                },
+                                                "timestamp": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-01-01T12:00:00Z"
+                                                },
+                                                "method": {
+                                                    "type": "string",
+                                                    "example": "batch"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Batch comparison completed"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Validation error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Validation failed"
+                                        },
+                                        "errors": {
+                                            "properties": {
+                                                "images": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "type": "string",
+                                                        "example": "At least 2 images are required."
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": false
+                                        },
+                                        "error": {
+                                            "type": "string",
+                                            "example": "Internal server error"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "An unexpected error occurred"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Get API health status",
+                "description": "Check if the API and its services are running properly",
+                "operationId": "getHealth",
+                "responses": {
+                    "200": {
+                        "description": "API is healthy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "healthy"
+                                                },
+                                                "version": {
+                                                    "type": "string",
+                                                    "example": "1.0.0"
+                                                },
+                                                "timestamp": {
+                                                    "type": "string",
+                                                    "format": "date-time",
+                                                    "example": "2024-01-01T12:00:00Z"
+                                                },
+                                                "services": {
+                                                    "properties": {
+                                                        "image_comparator": {
+                                                            "type": "string",
+                                                            "example": "available"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "API is healthy"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/docs": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Get API documentation",
+                "description": "Retrieve comprehensive API documentation and endpoint information",
+                "operationId": "getDocumentation",
+                "responses": {
+                    "200": {
+                        "description": "API documentation retrieved successfully",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "api_name": {
+                                                    "type": "string",
+                                                    "example": "SapientPro Image Comparison API"
+                                                },
+                                                "version": {
+                                                    "type": "string",
+                                                    "example": "1.0.0"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "example": "RESTful API for comparing images using SapientPro ImageComparator"
+                                                },
+                                                "endpoints": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "method": {
+                                                                "type": "string",
+                                                                "example": "POST"
+                                                            },
+                                                            "path": {
+                                                                "type": "string",
+                                                                "example": "/api/v1/compare/upload"
+                                                            },
+                                                            "description": {
+                                                                "type": "string",
+                                                                "example": "Compare two uploaded images"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "API documentation retrieved successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Image Comparison",
+            "description": "API Endpoints for image comparison operations"
+        },
+        {
+            "name": "System",
+            "description": "API system endpoints"
+        }
+    ]
+}

@@ -1,0 +1,28 @@
+#!/bin/bash
+
+# Wrapper script to start Laravel server with broken pipe error suppression
+# Usage: ./artisan-serve [--host=HOST] [--port=PORT]
+
+HOST="127.0.0.1"
+PORT="8000"
+
+# Parse arguments
+for arg in "$@"; do
+    case $arg in
+        --host=*)
+            HOST="${arg#*=}"
+            ;;
+        --port=*)
+            PORT="${arg#*=}"
+            ;;
+    esac
+done
+
+# Start server with error suppression
+# This suppresses broken pipe errors from Laravel's server.php
+exec php \
+    -d max_execution_time=300 \
+    -d default_socket_timeout=60 \
+    -d display_errors=0 \
+    -d error_reporting=0 \
+    artisan serve --host="$HOST" --port="$PORT" 2>/dev/null

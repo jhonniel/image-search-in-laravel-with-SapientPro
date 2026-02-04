@@ -1,0 +1,10 @@
+<svg width="80" height="80" viewBox="0 0 80 80" xmlns="http://www.w3.org/2000/svg">
+    <rect width="80" height="80" fill="#f3f4f6" rx="8"/>
+    <g transform="translate(20, 20)">
+        <!-- Hand holding cube -->
+        <rect x="15" y="25" width="20" height="20" fill="#1e3a8a" stroke="#3b82f6" stroke-width="1.5" rx="2"/>
+        <text x="25" y="37" text-anchor="middle" fill="#EC4899" font-family="Arial" font-size="16" font-weight="bold">?</text>
+        <path d="M 10 30 L 15 25 L 15 35 Z" fill="#EC4899" stroke="#EC4899" stroke-width="1"/>
+    </g>
+</svg>
+
