@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::table('image_metadata', function (Blueprint $table) {
             $table->json('detected_objects')->nullable()->after('tags');
-            $table->index('detected_objects', 'idx_detected_objects');
         });
     }
 
@@ -23,7 +22,6 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('image_metadata', function (Blueprint $table) {
-            $table->dropIndex('idx_detected_objects');
             $table->dropColumn('detected_objects');
         });
     }
