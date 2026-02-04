@@ -205,6 +205,7 @@ function displayOtherUsersItems(items) {
                                             ${item.user_matched_item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
                                         </div>
                                     ` : ''}
+<<<<<<< HEAD
                                     ${(() => {
                                         let objectsArray = [];
                                         if (item.user_matched_item && item.user_matched_item.detected_objects) {
@@ -250,6 +251,24 @@ function displayOtherUsersItems(items) {
                                         }
                                         return '';
                                     })()}
+=======
+                                    ${item.user_matched_item.detected_objects && item.user_matched_item.detected_objects.length > 0 ? `
+                                        <div class="mb-3 flex-shrink-0">
+                                            <strong class="text-gray-700 text-sm flex items-center mb-1">
+                                                <i class="fas fa-cube mr-1 text-blue-600"></i>
+                                                Detected Objects (${item.user_matched_item.detected_objects.length}):
+                                            </strong>
+                                            <div class="flex flex-wrap gap-2">
+                                                ${item.user_matched_item.detected_objects.slice(0, 5).map(obj => {
+                                                    const objName = obj.name || obj;
+                                                    const score = obj.score ? (obj.score * 100).toFixed(0) : '';
+                                                    return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
+                                                }).join('')}
+                                                ${item.user_matched_item.detected_objects.length > 5 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+${item.user_matched_item.detected_objects.length - 5} more</span>` : ''}
+                                            </div>
+                                        </div>
+                                    ` : ''}
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                                     ${item.user_matched_item.images && item.user_matched_item.images.length > 0 ? `
                                         <div class="mt-3 flex-1 min-h-0 flex flex-col">
                                             <div class="relative flex-1 min-h-0">
@@ -387,6 +406,7 @@ function displayOtherUsersItems(items) {
                                     ${item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
                                 </div>
                             ` : ''}
+<<<<<<< HEAD
                             ${(() => {
                                 let objectsArray = [];
                                 if (item.detected_objects) {
@@ -432,6 +452,24 @@ function displayOtherUsersItems(items) {
                                 }
                                 return '';
                             })()}
+=======
+                            ${item.detected_objects && item.detected_objects.length > 0 ? `
+                                <div class="mb-2 flex-shrink-0">
+                                    <strong class="text-gray-700 flex items-center mb-1">
+                                        <i class="fas fa-cube mr-1 text-blue-600"></i>
+                                        Detected Objects (${item.detected_objects.length}):
+                                    </strong>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${item.detected_objects.slice(0, 5).map(obj => {
+                                            const objName = obj.name || obj;
+                                            const score = obj.score ? (obj.score * 100).toFixed(0) : '';
+                                            return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
+                                        }).join('')}
+                                        ${item.detected_objects.length > 5 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+${item.detected_objects.length - 5} more</span>` : ''}
+                                    </div>
+                                </div>
+                            ` : ''}
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                         </div>
 
                         <div class="text-sm text-gray-500 flex-shrink-0">
@@ -762,12 +800,17 @@ function viewItemDetails(uploadId) {
             </div>
             ${item.tags && item.tags.length > 0 ? `
                 <div>
+<<<<<<< HEAD
                     <h4 class="font-semibold text-gray-900 mb-2">Tags</h4>
+=======
+                    <h4 class="font-semibold text-gray-900">Tags</h4>
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                     <div class="flex flex-wrap gap-2">
                         ${item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
                     </div>
                 </div>
             ` : ''}
+<<<<<<< HEAD
             ${(() => {
                 let objectsArray = [];
                 if (item.detected_objects) {
@@ -813,6 +856,8 @@ function viewItemDetails(uploadId) {
                 }
                 return '';
             })()}
+=======
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
         </div>
     `;
 

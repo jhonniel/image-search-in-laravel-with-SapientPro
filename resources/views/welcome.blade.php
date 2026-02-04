@@ -279,6 +279,7 @@
 
                 @forelse($freshReports as $report)
                 <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
+<<<<<<< HEAD
                     <!-- Image Section -->
                     @if(!empty($report['image_path']))
                     <div class="relative h-48 bg-gray-100 group overflow-hidden">
@@ -299,16 +300,25 @@
                         </span>
                     </div>
                     @endif
+=======
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                     <!-- Content Section -->
                     <div class="p-6">
                         <div class="flex items-start justify-between mb-4 gap-3">
                             <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
+<<<<<<< HEAD
                             @if(empty($report['image_path']))
                             <!-- Status Badge (only show if no image) -->
                             <span class="px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
                                 {{ ucfirst($report['type']) }}
                             </span>
                             @endif
+=======
+                            <!-- Status Badge -->
+                            <span class="px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
+                                {{ ucfirst($report['type']) }}
+                            </span>
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                         </div>
                         <div class="space-y-3 mb-4">
                             <div class="flex items-start space-x-2 bg-purple-50 rounded-lg p-3 border border-purple-100">

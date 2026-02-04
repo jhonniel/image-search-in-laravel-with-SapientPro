@@ -9,7 +9,10 @@ use App\Models\ImageMetadata;
 use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+<<<<<<< HEAD
 use Illuminate\Support\Facades\Storage;
+=======
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
 
 class WelcomeController extends Controller
 {
@@ -265,6 +268,7 @@ class WelcomeController extends Controller
         $firstImage = $itemGroup->first();
         $imagePath = null;
         
+<<<<<<< HEAD
         // Get image path - normalize using Storage::url() for consistent paths
         if ($firstImage->file_path && trim($firstImage->file_path) !== '') {
             $filePath = trim($firstImage->file_path);
@@ -294,6 +298,23 @@ class WelcomeController extends Controller
                         // Fallback: construct path from filename
                         $imagePath = '/storage/user-items/' . basename($filePath);
                     }
+=======
+        // Get image path - file_path should already be in format /storage/user-items/filename.jpg
+        // Storage::url() returns paths like /storage/path
+        // Always try to get a valid image path for public display
+        if ($firstImage->file_path && trim($firstImage->file_path) !== '') {
+            $imagePath = trim($firstImage->file_path);
+            // Ensure it starts with /storage/ (Storage::url() should already return this)
+            if (!str_starts_with($imagePath, '/storage/') && !str_starts_with($imagePath, 'http')) {
+                // If path doesn't start with /storage/, add it
+                if (str_starts_with($imagePath, 'storage/')) {
+                    $imagePath = '/' . $imagePath;
+                } elseif (str_contains($imagePath, 'user-items/')) {
+                    $imagePath = '/storage/' . ltrim(str_replace('storage/', '', $imagePath), '/');
+                } else {
+                    // Construct path from filename
+                    $imagePath = '/storage/user-items/' . basename($imagePath);
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                 }
             }
         } elseif ($firstImage->filename && trim($firstImage->filename) !== '') {
@@ -306,6 +327,7 @@ class WelcomeController extends Controller
             // Last resort: try to find any image in the group with a valid path
             foreach ($itemGroup as $item) {
                 if ($item->file_path && trim($item->file_path) !== '') {
+<<<<<<< HEAD
                     $filePath = trim($item->file_path);
                     
                     // Normalize the path
@@ -320,6 +342,14 @@ class WelcomeController extends Controller
                             $imagePath = '/storage/' . ltrim($filePath, '/');
                         } else {
                             $imagePath = '/storage/user-items/' . basename($filePath);
+=======
+                    $imagePath = trim($item->file_path);
+                    if (!str_starts_with($imagePath, '/storage/') && !str_starts_with($imagePath, 'http')) {
+                        if (str_starts_with($imagePath, 'storage/')) {
+                            $imagePath = '/' . $imagePath;
+                        } else {
+                            $imagePath = '/storage/user-items/' . basename($imagePath);
+>>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                         }
                     }
                     break;
