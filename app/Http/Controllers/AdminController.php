@@ -214,38 +214,10 @@ class AdminController extends Controller
             ->groupBy('upload_id');
 
         $formattedItems = [];
-        $itemsAnalyzed = 0;
-        $maxItemsToAnalyze = 10; // Limit to prevent timeout - analyze max 10 items per page load
         
         foreach ($items as $uploadId => $itemGroup) {
             $firstItem = $itemGroup->first();
-            
-            // Check if detected_objects is missing and analyze if needed (limit to prevent timeout)
-            $detectedObjects = $this->parseDetectedObjects($firstItem->detected_objects);
-            if (empty($detectedObjects) && !empty($firstItem->file_path) && $itemsAnalyzed < $maxItemsToAnalyze) {
-                // Try to analyze the image if Google Vision is enabled
-                try {
-                    $detectedObjects = $this->analyzeItemForObjects($firstItem);
-                    if (!empty($detectedObjects)) {
-                        // Update all items with the same upload_id
-                        ImageMetadata::where('upload_id', $uploadId)->update([
-                            'detected_objects' => json_encode($detectedObjects)
-                        ]);
-                        $firstItem->detected_objects = $detectedObjects;
-                        $itemsAnalyzed++;
-                        
-                        \Log::info('Analyzed item for detected objects', [
-                            'upload_id' => $uploadId,
-                            'objects_count' => count($detectedObjects)
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    \Log::warning('Failed to analyze item for objects: ' . $e->getMessage(), [
-                        'upload_id' => $uploadId
-                    ]);
-                }
-            }
-            
+
             $formattedItems[] = [
                 'upload_id' => $uploadId,
                 'item_type' => $firstItem->status,
