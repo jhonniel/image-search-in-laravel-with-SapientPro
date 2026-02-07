@@ -692,18 +692,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (form) {
             form.addEventListener('submit', function(e) {
                 const inputValue = provinceInput.value.trim();
-                const isValidProvince = enabledProvinces.some(province => 
-                    province.toLowerCase() === inputValue.toLowerCase()
-                );
                 
-                if (!isValidProvince) {
-                    e.preventDefault();
-                    if (provinceErrorMessage) {
-                        provinceErrorMessage.classList.remove('hidden');
-                        provinceErrorMessage.style.display = 'block';
+                // Only validate if field is required and has a value
+                const isRequired = provinceInput.hasAttribute('required');
+                if (!isRequired && !inputValue) {
+                    // Field is optional and empty, skip validation
+                    return true;
+                }
+                
+                // If field has a value, validate it's in the enabled list
+                if (inputValue && enabledProvinces.length > 0) {
+                    const isValidProvince = enabledProvinces.some(province => 
+                        province.toLowerCase() === inputValue.toLowerCase()
+                    );
+                    
+                    if (!isValidProvince) {
+                        e.preventDefault();
+                        if (provinceErrorMessage) {
+                            provinceErrorMessage.classList.remove('hidden');
+                            provinceErrorMessage.style.display = 'block';
+                        }
+                        provinceInput.focus();
+                        // Scroll to error
+                        provinceInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return false;
                     }
-                    provinceInput.focus();
-                    return false;
                 }
             });
         }
@@ -811,15 +824,31 @@ document.addEventListener('DOMContentLoaded', function() {
         if (form) {
             form.addEventListener('submit', function(e) {
                 const inputValue = cityInput.value.trim();
-                const isValidCity = enabledCities.some(city => 
-                    city.toLowerCase() === inputValue.toLowerCase()
-                );
                 
-                if (!isValidCity) {
-                    e.preventDefault();
-                    cityErrorMessage?.classList.remove('hidden');
-                    cityInput.focus();
-                    return false;
+                // Only validate if field is required and has a value
+                const isRequired = cityInput.hasAttribute('required');
+                if (!isRequired && !inputValue) {
+                    // Field is optional and empty, skip validation
+                    return true;
+                }
+                
+                // If field has a value, validate it's in the enabled list
+                if (inputValue && enabledCities.length > 0) {
+                    const isValidCity = enabledCities.some(city => 
+                        city.toLowerCase() === inputValue.toLowerCase()
+                    );
+                    
+                    if (!isValidCity) {
+                        e.preventDefault();
+                        if (cityErrorMessage) {
+                            cityErrorMessage.classList.remove('hidden');
+                            cityErrorMessage.style.display = 'block';
+                        }
+                        cityInput.focus();
+                        // Scroll to error
+                        cityInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return false;
+                    }
                 }
             });
         }
@@ -1060,6 +1089,12 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Validate form first
             if (!form.checkValidity()) {
+                // Find first invalid field and scroll to it
+                const firstInvalid = form.querySelector(':invalid');
+                if (firstInvalid) {
+                    firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    firstInvalid.focus();
+                }
                 return; // Let browser show validation errors
             }
             

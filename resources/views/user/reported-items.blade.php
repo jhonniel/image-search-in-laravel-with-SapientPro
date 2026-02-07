@@ -1291,12 +1291,12 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
     const formData = new FormData();
     formData.append('item_type', itemType.value);
     
-    // Only include city/province if fields are enabled
-    if (enableCityField && city) {
-        formData.append('city', city);
+    // Include city/province if fields are enabled (even if empty, so backend validation can handle it)
+    if (enableCityField) {
+        formData.append('city', city || '');
     }
-    if (enableProvinceField && province) {
-        formData.append('province', province);
+    if (enableProvinceField) {
+        formData.append('province', province || '');
     }
     
     formData.append('location', location);
@@ -1726,30 +1726,17 @@ function displayUserItems(items) {
                                         }
                                     }
                                 }
-<<<<<<< HEAD
                                 let tagsHtml = '';
                                 if (tagsArray.length > 0) {
                                     const tagsDisplay = tagsArray.slice(0, 3).map(tag => {
-=======
-                                if (tagsArray.length > 0) {
-                                    const tagsHtml = tagsArray.slice(0, 3).map(tag => {
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                                         const escapedTag = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
                                         return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">' + escapedTag + '</span>';
                                     }).join('');
                                     const moreHtml = tagsArray.length > 3 ? '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">+' + (tagsArray.length - 3) + ' more</span>' : '';
-<<<<<<< HEAD
                                     tagsHtml = '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 mb-1">Tags:</div><div class="flex flex-wrap gap-2">' + tagsDisplay + moreHtml + '</div></div>';
                                 }
                                 
                                 // Detected Objects - show below Tags
-=======
-                                    return '<div class="flex flex-wrap gap-2 mb-3">' + tagsHtml + moreHtml + '</div>';
-                                }
-                                return '';
-                            })()}
-                            ${(() => {
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                                 let objectsArray = [];
                                 if (item.detected_objects) {
                                     if (Array.isArray(item.detected_objects)) {
@@ -1762,7 +1749,6 @@ function displayUserItems(items) {
                                         }
                                     }
                                 }
-<<<<<<< HEAD
                                 
                                 // Get unique objects (by name) and limit to top 5
                                 const uniqueObjects = [];
@@ -1791,19 +1777,6 @@ function displayUserItems(items) {
                                 }
                                 
                                 return tagsHtml + objectsHtml;
-=======
-                                if (objectsArray.length > 0) {
-                                    const objectsHtml = objectsArray.slice(0, 5).map(obj => {
-                                        const objName = obj.name || obj;
-                                        const score = obj.score ? (obj.score * 100).toFixed(0) : '';
-                                        const escapedObj = String(objName).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                                        return '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API' + (score ? ' (' + score + '% confidence)' : '') + '"><i class="fas fa-eye mr-1"></i>' + escapedObj + '</span>';
-                                    }).join('');
-                                    const moreHtml = objectsArray.length > 5 ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">+' + (objectsArray.length - 5) + ' more</span>' : '';
-                                    return '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 mb-1 flex items-center"><i class="fas fa-cube mr-1 text-blue-600"></i>Detected Objects:</div><div class="flex flex-wrap gap-2">' + objectsHtml + moreHtml + '</div></div>';
-                                }
-                                return '';
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                             })()}
                             <div class="text-xs text-gray-400">
                                 <i class="fas fa-clock mr-1"></i>
@@ -2229,7 +2202,6 @@ function viewItemDetails(uploadId) {
                         }
                     }
                 }
-<<<<<<< HEAD
                 
                 let tagsHtml = '';
                 if (tagsArray.length > 0) {
@@ -2281,16 +2253,6 @@ function viewItemDetails(uploadId) {
                 }
                 
                 return tagsHtml + objectsHtml;
-=======
-                if (tagsArray.length > 0) {
-                    const tagsHtml = tagsArray.map(tag => {
-                        const escapedTag = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                        return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">' + escapedTag + '</span>';
-                    }).join('');
-                    return '<div><h4 class="font-semibold text-gray-900">Tags</h4><div class="flex flex-wrap gap-2">' + tagsHtml + '</div></div>';
-                }
-                return '';
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
             })()}
         </div>
     `;

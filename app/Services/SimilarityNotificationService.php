@@ -703,14 +703,10 @@ class SimilarityNotificationService
                                            $this->config['threshold'] ?? 
                                            0.7;
 
-<<<<<<< HEAD
                         // Use lower threshold (0.5) for storing matches - this ensures all items that should appear on claim-verify are stored
                         $matchThreshold = 0.5;
                         
                         if ($overallSimilarity >= $matchThreshold) {
-=======
-                        if ($overallSimilarity >= $visualThreshold) {
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                             $similarItems[] = [
                                 'description' => $existingItem->description,
                                 'status' => $existingItem->status,
@@ -718,7 +714,6 @@ class SimilarityNotificationService
                                 'tags' => $existingItem->tags,
                                 'similarity' => $overallSimilarity,
                                 'item_id' => $existingItem->id,
-<<<<<<< HEAD
                                 'upload_id' => $existingItem->upload_id,
                                 'visual_similarity' => $visualSimilarity,
                                 'text_similarity' => $textSimilarity
@@ -770,11 +765,6 @@ class SimilarityNotificationService
                                 Log::error('Failed to store match in database: ' . $e->getMessage());
                             }
 
-=======
-                                'upload_id' => $existingItem->upload_id
-                            ];
-
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                             Log::info('Similar item found for user upload (opposite type match)', [
                                 'new_item_status' => $newItemStatus,
                                 'existing_item_status' => $existingItemStatus,

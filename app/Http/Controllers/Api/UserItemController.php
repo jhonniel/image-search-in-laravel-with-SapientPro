@@ -441,7 +441,6 @@ class UserItemController extends Controller
                     $tags = $decodedTags !== null ? $decodedTags : (strpos($tags, ',') !== false ? explode(',', $tags) : [$tags]);
                 }
                 
-<<<<<<< HEAD
                 // Parse detected_objects if they're stored as JSON string
                 $detectedObjects = $firstItem->detected_objects;
                 if (is_string($detectedObjects)) {
@@ -451,8 +450,6 @@ class UserItemController extends Controller
                     $detectedObjects = [];
                 }
                 
-=======
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                 $formattedItems[] = [
                     'upload_id' => $uploadId,
                     'item_type' => $firstItem->status ?? 'lost',
@@ -461,10 +458,7 @@ class UserItemController extends Controller
                     'city' => $firstItem->city ?? null,
                     'description' => $firstItem->description ?? '',
                     'tags' => $tags ?? [],
-<<<<<<< HEAD
                     'detected_objects' => $detectedObjects ?? [],
-=======
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                     'contact_email' => $firstItem->uploader_email,
                     'images' => $itemGroup->map(function ($item) {
                         // Handle file path - ensure it's a valid URL
@@ -1075,26 +1069,16 @@ class UserItemController extends Controller
     
     /**
      * Get items from other users (not current user) that match user's reported items
-<<<<<<< HEAD
      * OPTIMIZED: Now uses pre-stored matches from database instead of real-time matching
-=======
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
      */
     public function getOtherUsersItems(Request $request)
     {
         $user = Auth::user();
 
         try {
-<<<<<<< HEAD
             // OPTIMIZED APPROACH: Get pre-stored matches from database instead of doing real-time matching
             // Matches are stored when items are uploaded (in SimilarityNotificationService)
             // This makes the claim-verify page load much faster
-=======
-            // IMPORTANT: This function is called every time a user visits the claim-verify page
-            // It checks all user's reported items against all other users' items for matches
-            // If matches are found, notifications are created for both users
-            // All matched items are then listed in "Available Items" section
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
             
             // First, get user's reported items
             $userItems = ImageMetadata::where('uploader_email', $user->email)
@@ -1111,7 +1095,6 @@ class UserItemController extends Controller
                 ]);
             }
             
-<<<<<<< HEAD
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
             $storedMatches = \App\Models\ItemMatch::where('user_email', $user->email)
@@ -1132,20 +1115,10 @@ class UserItemController extends Controller
             // Get the matched items from database
             $matchedItemGroups = ImageMetadata::whereIn('upload_id', $matchedUploadIds)
                 ->where('uploader_email', '!=', $user->email)
-=======
-            // Get items from other users, grouped by upload_id
-            // For matching purposes, include ALL items (even claimed ones) so both users can see matches
-            // We'll filter by claim status later when displaying, but include all for similarity checking
-            $allOtherItems = ImageMetadata::where('uploader_email', '!=', $user->email)
-                ->whereNotNull('uploader_email')
-                ->whereNotNull('file_path')
-                ->whereNotNull('filename')
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
             
-<<<<<<< HEAD
             $matchedItems = [];
             
             // Build matched items array from stored matches
@@ -1255,281 +1228,6 @@ class UserItemController extends Controller
                 }
             }
             
-=======
-            // Filter items to only show those that match user's reported items
-            // This includes both directions: user's items matching others AND others' items matching user's items
-            $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
-            $matchedItems = [];
-            $matchedUploadIds = [];
-            
-            // First pass: Check if user's items match other users' items (existing logic)
-            foreach ($userItems as $uploadId => $userItemGroup) {
-                $userItem = $userItemGroup->first();
-
-                foreach ($allOtherItems as $otherUploadId => $otherItemGroup) {
-                    // Skip if already matched
-                    if (in_array($otherUploadId, $matchedUploadIds)) {
-                        continue;
-                    }
-                    
-                    $otherItem = $otherItemGroup->first();
-                    
-                    // Only match Lost with Found and Found with Lost (opposite types)
-                    $userItemStatus = $userItem->status;
-                    $otherItemStatus = $otherItem->status;
-                    
-                    // Skip if both items have the same status (Lost-Lost or Found-Found)
-                    if ($userItemStatus === $otherItemStatus) {
-                        continue;
-                    }
-                    
-                    // Ensure opposite types: Lost ↔ Found
-                    if (!(($userItemStatus === 'lost' && $otherItemStatus === 'found') || 
-                          ($userItemStatus === 'found' && $otherItemStatus === 'lost'))) {
-                        continue;
-                    }
-                    
-                    // Calculate similarity - compare all images from user item against all images from other item
-                    try {
-                        $maxVisualSimilarity = 0.0;
-                        $userItemImages = $userItemGroup->filter(function($item) {
-                            return $this->getItemFilePath($item) !== null;
-                        });
-                        $otherItemImages = $otherItemGroup->filter(function($item) {
-                            return $this->getItemFilePath($item) !== null;
-                        });
-                        
-                        if ($userItemImages->isEmpty() || $otherItemImages->isEmpty()) {
-                            Log::debug('Skipping similarity check - no valid images', [
-                                'user_item' => $userItem->upload_id,
-                                'user_images_count' => $userItemImages->count(),
-                                'other_item' => $otherItem->upload_id,
-                                'other_images_count' => $otherItemImages->count(),
-                            ]);
-                            continue;
-                        }
-                        
-                        // Compare all images and take the maximum similarity
-                        foreach ($userItemImages as $userImg) {
-                            $userItemPath = $this->getItemFilePath($userImg);
-                            if (!$userItemPath) continue;
-                            
-                            foreach ($otherItemImages as $otherImg) {
-                                $otherItemPath = $this->getItemFilePath($otherImg);
-                                if (!$otherItemPath) continue;
-                                
-                                $visualSimilarity = $this->calculateImageSimilarity($userItemPath, $otherItemPath);
-                                $maxVisualSimilarity = max($maxVisualSimilarity, $visualSimilarity);
-                            }
-                        }
-                        
-                        if ($maxVisualSimilarity === 0.0) {
-                            Log::debug('Skipping - visual similarity is 0', [
-                                'user_item' => $userItem->upload_id,
-                                'other_item' => $otherItem->upload_id,
-                            ]);
-                            continue;
-                        }
-                        
-                        Log::debug('Similarity calculation', [
-                            'user_item' => $userItem->upload_id,
-                            'other_item' => $otherItem->upload_id,
-                            'visual_similarity' => $maxVisualSimilarity,
-                        ]);
-                        
-                        // Calculate text similarity
-                        $userTags = is_array($userItem->tags) ? $userItem->tags : (is_string($userItem->tags) ? json_decode($userItem->tags, true) : []);
-                        $otherTags = is_array($otherItem->tags) ? $otherItem->tags : (is_string($otherItem->tags) ? json_decode($otherItem->tags, true) : []);
-                        
-                        // Check for tag overlap
-                        $tagOverlap = 0;
-                        if (!empty($userTags) && !empty($otherTags)) {
-                            $commonTags = array_intersect($userTags, $otherTags);
-                            $tagOverlap = count($commonTags) / max(count($userTags), count($otherTags));
-                        }
-                        
-                        // Check description similarity (simple word overlap)
-                        $userDescWords = str_word_count(strtolower($userItem->description ?? ''), 1);
-                        $otherDescWords = str_word_count(strtolower($otherItem->description ?? ''), 1);
-                        $descOverlap = 0;
-                        if (!empty($userDescWords) && !empty($otherDescWords)) {
-                            $commonWords = array_intersect($userDescWords, $otherDescWords);
-                            $descOverlap = count($commonWords) / max(count($userDescWords), count($otherDescWords));
-                        }
-                        
-                        // Calculate overall similarity (weighted average)
-                        $textSimilarity = ($tagOverlap * 0.4) + ($descOverlap * 0.6);
-                        $overallSimilarity = ($textSimilarity * 0.3) + ($maxVisualSimilarity * 0.7);
-                        
-                        // Use a lower threshold (0.5) for claim-verify to ensure all notified items show
-                        // Notification service uses 0.7-0.8, so items that trigger notifications (>=0.7) will definitely show here (>=0.5)
-                        // This ensures items that were notified also appear on claim-verify page
-                        $visualThreshold = 0.5; // Lower threshold to show more matches including all notified ones
-                        
-                        // If similarity meets threshold, add to matched items
-                        // This works bidirectionally: when User A views the page, they see User B's items that match User A's items
-                        // When User B views the page, they see User A's items that match User B's items
-                        // Since similarity is symmetric, both users will see the match
-                        if ($overallSimilarity >= $visualThreshold) {
-                            Log::info('Match found on claim-verify', [
-                                'current_user' => $user->email,
-                                'user_item' => $userItem->upload_id,
-                                'user_item_status' => $userItem->status,
-                                'matched_item' => $otherUploadId,
-                                'matched_item_status' => $otherItem->status,
-                                'matched_item_owner' => $otherItem->uploader_email,
-                                'similarity' => $overallSimilarity,
-                                'visual_similarity' => $maxVisualSimilarity,
-                                'text_similarity' => $textSimilarity,
-                                'threshold' => $visualThreshold
-                            ]);
-                            
-                            $matchedUploadIds[] = $otherUploadId;
-                            $matchedItems[$otherUploadId] = [
-                                'item' => $otherItemGroup,
-                                'similarity' => $overallSimilarity,
-                                'matched_with' => $userItem->upload_id
-                            ];
-                            
-                            // Notify both users about the match when viewing claim-verify
-                            try {
-                                // Notify the other user (owner of matched item) about the match
-                                if ($otherItem->uploader_email && $otherItem->uploader_email !== $user->email) {
-                                    $otherUser = \App\Models\User::where('email', $otherItem->uploader_email)->first();
-                                    if ($otherUser) {
-                                        $similarityPercent = round($overallSimilarity * 100, 2);
-                                        $matchType = ($userItem->status === 'lost' && $otherItem->status === 'found') ? 
-                                                    'Someone found an item that matches your lost item!' : 
-                                                    'Someone lost an item that matches your found item!';
-                                        
-                                        // Check if notification already exists to avoid duplicates
-                                        $existingNotification = \App\Models\Notification::where('user_id', $otherUser->id)
-                                            ->where('type', 'item_matched')
-                                            ->where('data->new_item_upload_id', $userItem->upload_id)
-                                            ->where('data->matched_item_upload_id', $otherItem->upload_id)
-                                            ->first();
-                                        
-                                        if (!$existingNotification) {
-                                            \App\Models\Notification::create([
-                                                'user_id' => $otherUser->id,
-                                                'type' => 'item_matched',
-                                                'title' => 'Item Match Found!',
-                                                'message' => $matchType . ' (Similarity: ' . $similarityPercent . '%)',
-                                                'data' => [
-                                                    'matched_item_upload_id' => $otherItem->upload_id,
-                                                    'matched_item_id' => $otherItem->id,
-                                                    'matched_item_type' => $otherItem->status,
-                                                    'matched_item_description' => $otherItem->description,
-                                                    'matched_item_location' => $otherItem->location,
-                                                    'new_item_upload_id' => $userItem->upload_id,
-                                                    'new_item_id' => $userItem->id,
-                                                    'new_item_type' => $userItem->status,
-                                                    'new_item_description' => $userItem->description,
-                                                    'new_item_location' => $userItem->location,
-                                                    'similarity_score' => $overallSimilarity,
-                                                    'similarity_percent' => $similarityPercent,
-                                                ],
-                                            ]);
-                                            
-                                            Log::info('Match notification created for other user', [
-                                                'owner_email' => $otherItem->uploader_email,
-                                                'matched_item' => $otherItem->upload_id,
-                                                'user_item' => $userItem->upload_id,
-                                                'similarity' => $overallSimilarity
-                                            ]);
-                                        }
-                                    }
-                                }
-                                
-                                // Also notify the current user about the match
-                                $similarityPercent = round($overallSimilarity * 100, 2);
-                                $matchType = ($userItem->status === 'lost' && $otherItem->status === 'found') ? 
-                                            'Found item matches your lost item!' : 
-                                            'Lost item matches your found item!';
-                                
-                                // Check if notification already exists
-                                $existingNotification = \App\Models\Notification::where('user_id', $user->id)
-                                    ->where('type', 'item_matched')
-                                    ->where('data->new_item_upload_id', $otherItem->upload_id)
-                                    ->where('data->matched_item_upload_id', $userItem->upload_id)
-                                    ->first();
-                                
-                                if (!$existingNotification) {
-                                    \App\Models\Notification::create([
-                                        'user_id' => $user->id,
-                                        'type' => 'item_matched',
-                                        'title' => 'Item Match Found!',
-                                        'message' => $matchType . ' (Similarity: ' . $similarityPercent . '%)',
-                                        'data' => [
-                                            'matched_item_upload_id' => $userItem->upload_id,
-                                            'matched_item_id' => $userItem->id,
-                                            'matched_item_type' => $userItem->status,
-                                            'matched_item_description' => $userItem->description,
-                                            'matched_item_location' => $userItem->location,
-                                            'new_item_upload_id' => $otherItem->upload_id,
-                                            'new_item_id' => $otherItem->id,
-                                            'new_item_type' => $otherItem->status,
-                                            'new_item_description' => $otherItem->description,
-                                            'new_item_location' => $otherItem->location,
-                                            'similarity_score' => $overallSimilarity,
-                                            'similarity_percent' => $similarityPercent,
-                                        ],
-                                    ]);
-                                    
-                                    Log::info('Match notification created for current user', [
-                                        'user_email' => $user->email,
-                                        'matched_item' => $userItem->upload_id,
-                                        'other_item' => $otherItem->upload_id,
-                                        'similarity' => $overallSimilarity
-                                    ]);
-                                }
-                            } catch (\Exception $e) {
-                                Log::warning('Failed to create match notification', [
-                                    'error' => $e->getMessage(),
-                                    'trace' => $e->getTraceAsString()
-                                ]);
-                            }
-                        } else {
-                            Log::debug('Similarity below threshold', [
-                                'user_item' => $userItem->upload_id,
-                                'other_item' => $otherItem->upload_id,
-                                'overall_similarity' => $overallSimilarity,
-                                'threshold' => $visualThreshold,
-                            ]);
-                        }
-                    } catch (\Exception $e) {
-                        Log::warning('Error calculating similarity for matching items', [
-                            'user_item' => $userItem->upload_id,
-                            'other_item' => $otherItem->upload_id,
-                            'error' => $e->getMessage(),
-                            'trace' => $e->getTraceAsString()
-                        ]);
-                        continue;
-                    }
-                }
-            }
-            
-            // Log matching results for debugging
-            Log::info('Claim-verify matching results', [
-                'current_user' => $user->email,
-                'user_items_count' => $userItems->count(),
-                'other_items_count' => $allOtherItems->count(),
-                'matches_found' => count($matchedItems),
-                'matched_upload_ids' => array_keys($matchedItems),
-                'timestamp' => now()->toDateTimeString()
-            ]);
-            
-            // Summary: Every time user visits claim-verify, we check all their items against all other items
-            // and create notifications for both users if matches are found
-            if (count($matchedItems) > 0) {
-                Log::info('Matches found on claim-verify page visit', [
-                    'user' => $user->email,
-                    'total_matches' => count($matchedItems),
-                    'notifications_created' => 'Both users notified if notifications did not already exist'
-                ]);
-            }
-            
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
             // If no matches found, return empty array
             if (empty($matchedItems)) {
                 return response()->json([
@@ -1539,59 +1237,6 @@ class UserItemController extends Controller
                 ]);
             }
             
-<<<<<<< HEAD
-=======
-            // Also check for items that have "Item Match Found!" notifications for the current user
-            // This ensures items that triggered notifications are always shown on claim-verify
-            $userNotifications = \App\Models\Notification::where('type', 'item_matched')
-                ->where('user_id', $user->id)
-                ->whereNotNull('data')
-                ->get();
-            
-            // Add notified matches to the matched items list if they're not already included
-            foreach ($userNotifications as $notification) {
-                $notifData = $notification->data ?? [];
-                $newItemUploadId = $notifData['new_item_upload_id'] ?? null; // Other user's item
-                $matchedItemUploadId = $notifData['matched_item_upload_id'] ?? null; // Current user's item
-                
-                // The "new_item_upload_id" is the other user's item that we want to show on claim-verify
-                if ($newItemUploadId && !isset($matchedItems[$newItemUploadId])) {
-                    // Get the other user's item group
-                    $otherItemGroup = $allOtherItems->get($newItemUploadId);
-                    if ($otherItemGroup) {
-                        $otherItem = $otherItemGroup->first();
-                        
-                        // Verify it's still a valid match (opposite types)
-                        $userItemForMatch = null;
-                        if ($matchedItemUploadId && isset($userItems[$matchedItemUploadId])) {
-                            $userItemForMatch = $userItems[$matchedItemUploadId]->first();
-                        }
-                        
-                        // Only add if it's a valid match (Lost ↔ Found) or if we can't verify (include anyway)
-                        if (!$userItemForMatch || 
-                            ($userItemForMatch->status === 'lost' && $otherItem->status === 'found') ||
-                            ($userItemForMatch->status === 'found' && $otherItem->status === 'lost')) {
-                            
-                            $matchedItems[$newItemUploadId] = [
-                                'item' => $otherItemGroup,
-                                'similarity' => $notifData['similarity_score'] ?? 0.5,
-                                'matched_with' => $matchedItemUploadId ?? $userItems->keys()->first(),
-                                'from_notification' => true // Flag to indicate this came from a notification
-                            ];
-                            
-                            Log::info('Added notified match to claim-verify', [
-                                'notification_id' => $notification->id,
-                                'other_item_upload_id' => $newItemUploadId,
-                                'user_item_upload_id' => $matchedItemUploadId,
-                                'user_id' => $user->id,
-                                'similarity' => $notifData['similarity_score'] ?? 0.5
-                            ]);
-                        }
-                    }
-                }
-            }
-            
->>>>>>> a1d2f199b93cbeb9d643c654a733f156406a02af
             // Show ALL matched items regardless of claim status
             // This ensures all similar and matched items are visible on the claim-verify page
             // The frontend will display the claim status so users know which items are available
