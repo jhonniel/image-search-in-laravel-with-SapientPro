@@ -279,14 +279,29 @@
 
                 @forelse($freshReports as $report)
                 <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
+                    @if(isset($isSearch) && $isSearch && !empty($report['image_path']))
+                    <!-- Image Section (only for search results) -->
+                    <div class="relative h-48 bg-gray-100 group overflow-hidden">
+                        <img src="{{ $report['image_path'] }}" 
+                             alt="{{ \Illuminate\Support\Str::limit($report['title'], 50) }}" 
+                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'%3E%3Crect fill=\'%23e5e7eb\' width=\'400\' height=\'300\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'20\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3ENo Image%3C/text%3E%3C/svg%3E';">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <span class="absolute top-3 left-3 px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md z-10">
+                            {{ ucfirst($report['type']) }}
+                        </span>
+                    </div>
+                    @endif
                     <!-- Content Section -->
                     <div class="p-6">
                         <div class="flex items-start justify-between mb-4 gap-3">
                             <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
-                            <!-- Status Badge -->
+                            @if(!isset($isSearch) || !$isSearch || empty($report['image_path']))
+                            <!-- Status Badge (show if no image or not search results) -->
                             <span class="px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
                                 {{ ucfirst($report['type']) }}
                             </span>
+                            @endif
                         </div>
                         <div class="space-y-3 mb-4">
                             <div class="flex items-start space-x-2 bg-purple-50 rounded-lg p-3 border border-purple-100">
@@ -803,33 +818,83 @@
 
                 data.results.forEach(report => {
                     const typeClass = report.type === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800';
+                    
+                    // Process detected objects
+                    let detectedObjectsHtml = '';
+                    if (report.detected_objects && Array.isArray(report.detected_objects) && report.detected_objects.length > 0) {
+                        // Get unique objects (by name) and limit to top 5
+                        const uniqueObjects = [];
+                        const seenNames = new Set();
+                        report.detected_objects.forEach(obj => {
+                            const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
+                            if (objName && !seenNames.has(objName.toLowerCase())) {
+                                seenNames.add(objName.toLowerCase());
+                                uniqueObjects.push(obj);
+                            }
+                        });
+                        
+                        const displayedObjects = uniqueObjects.slice(0, 5);
+                        const totalObjects = uniqueObjects.length;
+                        
+                        if (displayedObjects.length > 0) {
+                            const objectsDisplay = displayedObjects.map(obj => {
+                                const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
+                                const objScore = (obj && typeof obj === 'object' && obj.score) ? obj.score : 0.0;
+                                const confidencePercent = Math.round(objScore * 100);
+                                const escapedObj = escapeHtml(objName);
+                                return `<span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium" title="Confidence: ${confidencePercent}%"><i class="fas fa-eye mr-1 text-blue-600"></i>${escapedObj}</span>`;
+                            }).join('');
+                            
+                            const moreHtml = totalObjects > 5 ? `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">+${totalObjects - 5} more</span>` : '';
+                            
+                            detectedObjectsHtml = `
+                                <div class="mb-3">
+                                    <h4 class="font-semibold text-gray-900 mb-2 text-sm">Detected Objects</h4>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${objectsDisplay}
+                                        ${moreHtml}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                    }
+
                     const imagePath = report.image_path || '';
                     const imageError = "this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3ENo Image%3C/text%3E%3C/svg%3E';";
-
+                    const showImage = imagePath && imagePath.trim() !== '';
+                    
                     html += `
                         <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
+                            ${showImage ? `
+                            <!-- Image Section -->
                             <div class="relative h-48 bg-gray-100 group overflow-hidden">
-                                ${imagePath ?
-                                    `<img src="${imagePath}" alt="${escapeHtml(report.title)}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" onerror="${imageError}">` :
-                                    `<div class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200"><i class="fas fa-image text-gray-400 text-5xl"></i></div>`
-                                }
+                                <img src="${imagePath}" 
+                                     alt="${escapeHtml(report.title)}" 
+                                     class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                     onerror="${imageError}">
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 <span class="absolute top-3 left-3 px-4 py-2 ${report.type === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800'} rounded-full text-sm font-bold uppercase tracking-wide shadow-md z-10">
                                     ${report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                                 </span>
                             </div>
+                            ` : ''}
+                            <!-- Content Section -->
                             <div class="p-6">
                                 <div class="flex items-start justify-between mb-4 gap-3">
                                     <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">${escapeHtml(report.title)}</h3>
+                                    ${!showImage ? `
+                                    <!-- Status Badge (only show if no image) -->
                                     <span class="px-4 py-2 ${report.type === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800'} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
                                         ${report.type.charAt(0).toUpperCase() + report.type.slice(1)}
                                     </span>
+                                    ` : ''}
                                 </div>
-                                <div class="space-y-3">
+                                <div class="space-y-3 mb-4">
                                     <div class="flex items-start space-x-2 bg-purple-50 rounded-lg p-3 border border-purple-100">
                                         <i class="fas fa-map-marker-alt text-purple-600 mt-0.5 text-sm flex-shrink-0"></i>
                                         <span class="text-sm text-gray-700 font-medium line-clamp-2 leading-relaxed">${escapeHtml(report.location)}</span>
                                     </div>
+                                    ${detectedObjectsHtml}
                                     <div class="flex items-center text-xs text-gray-600 pt-2 border-t border-gray-100">
                                         <i class="fas fa-clock text-purple-600 mr-2 text-sm"></i>
                                         <span class="font-semibold">${escapeHtml(report.time_ago)}</span>
