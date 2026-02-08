@@ -17,8 +17,7 @@ use Illuminate\Foundation\Configuration\Middleware;
 @ini_set('log_errors', '1');
 
 // Suppress broken pipe warnings globally for cli-server
-// Note: Error handler disabled for CLI commands to prevent interference
-if (php_sapi_name() === 'cli-server' && php_sapi_name() !== 'cli') {
+if (php_sapi_name() === 'cli-server') {
     set_error_handler(function($errno, $errstr, $errfile, $errline) {
         // Suppress broken pipe errors (errno 32) from server.php or any file_put_contents to stdout
         if ($errno === E_WARNING || $errno === E_NOTICE) {
