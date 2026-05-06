@@ -105,7 +105,7 @@ class ImageComparisonController extends Controller
 
         try {
             // Check if Google Vision is enabled
-            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            $isEnabled = $this->isGoogleVisionEnabled();
             if (!$isEnabled) {
                 return response()->json([
                     'success' => false,
@@ -154,7 +154,7 @@ class ImageComparisonController extends Controller
 
         try {
             // Check if Google Vision is enabled
-            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            $isEnabled = $this->isGoogleVisionEnabled();
             if (!$isEnabled) {
                 return response()->json([
                     'success' => false,
@@ -240,9 +240,9 @@ class ImageComparisonController extends Controller
         $tempFile = null;
         try {
             // Check if Google Vision is enabled
-            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            $isEnabled = $this->isGoogleVisionEnabled();
             if (!$isEnabled) {
-                throw new \Exception('Google Vision API is not enabled. Please enable it in admin settings.');
+                throw new \Exception('Google Vision API is not enabled. Enable it in admin settings or set GOOGLE_VISION_ENABLED=true.');
             }
 
             $imageContent = file_get_contents($imagePath);
@@ -260,16 +260,16 @@ class ImageComparisonController extends Controller
     {
         try {
             // Check if Google Vision is enabled
-            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            $isEnabled = $this->isGoogleVisionEnabled();
             if (!$isEnabled) {
-                throw new \Exception('Google Vision API is not enabled. Please enable it in admin settings.');
+                throw new \Exception('Google Vision API is not enabled. Enable it in admin settings or set GOOGLE_VISION_ENABLED=true.');
             }
 
-            // Get API key from settings
-            $apiKey = \App\Models\Setting::get('google_vision_api_key', '');
+            // Get API key from settings with env fallback
+            $apiKey = $this->getGoogleVisionApiKey();
             
             if (empty($apiKey)) {
-                throw new \Exception('Google Vision API key not configured. Please configure it in admin settings.');
+                throw new \Exception('Google Vision API key not configured. Save it in admin settings or set GOOGLE_VISION_API_KEY in .env.');
             }
 
             // Use REST API with API key
@@ -534,5 +534,31 @@ class ImageComparisonController extends Controller
         }
 
         return $comparisons > 0 ? $totalSimilarity / $comparisons : 0.0;
+    }
+
+    /**
+     * Determine whether Google Vision is enabled via settings or env.
+     */
+    private function isGoogleVisionEnabled(): bool
+    {
+        $dbEnabled = \App\Models\Setting::get('google_vision_enabled', null);
+        if ($dbEnabled !== null) {
+            return (bool) $dbEnabled;
+        }
+
+        return filter_var(env('GOOGLE_VISION_ENABLED', false), FILTER_VALIDATE_BOOL);
+    }
+
+    /**
+     * Read Google Vision API key from settings, fallback to env.
+     */
+    private function getGoogleVisionApiKey(): string
+    {
+        $dbKey = \App\Models\Setting::get('google_vision_api_key', '');
+        if (!empty($dbKey)) {
+            return trim((string) $dbKey);
+        }
+
+        return trim((string) env('GOOGLE_VISION_API_KEY', ''));
     }
 }

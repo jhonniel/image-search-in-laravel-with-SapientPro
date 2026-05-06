@@ -176,7 +176,7 @@
                         <div class="relative" x-data="{ open: false, unread: 0 }" @click.away="open = false">
                             <button class="relative p-2 text-gray-600 hover:text-purple-primary" @click="open = !open; if(open){ loadNotifications(); }">
                                 <i class="fas fa-bell w-4 h-4 sm:w-5 sm:h-5"></i>
-                                <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center" x-text="unread" x-show="unread > 0"></span>
+                                <span id="notif-unread-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center" x-text="unread" x-show="unread > 0"></span>
                             </button>
                             <div x-show="open" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50" style="display:none;">
                                 <div class="px-4 py-2 border-b flex items-center justify-between">
@@ -275,7 +275,7 @@
             const list = document.getElementById('notif-list');
             list.innerHTML = '<div class="px-4 py-8 text-center text-gray-500"><i class="fas fa-spinner fa-spin text-2xl mb-2"></i><p class="text-sm">Loading notifications...</p></div>';
             
-            fetch('/api/notifications?limit=20')
+            fetch('/api/notifications?limit=20', { credentials: 'same-origin' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
@@ -283,6 +283,17 @@
                         const alpineData = Alpine.$data(document.querySelector('[x-data*="unread"]'));
                         if (alpineData) {
                             alpineData.unread = data.unread || 0;
+                        }
+                        // Also update badge directly for reliability
+                        const badge = document.getElementById('notif-unread-badge');
+                        if (badge) {
+                            const unread = data.unread || 0;
+                            badge.textContent = unread;
+                            if (unread > 0) {
+                                badge.classList.remove('hidden');
+                            } else {
+                                badge.classList.add('hidden');
+                            }
                         }
                         
                         list.innerHTML = '';
@@ -414,6 +425,7 @@
         function markNotificationRead(id) {
             fetch('/api/notifications/mark-read', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -430,6 +442,7 @@
         function markAllNotificationsRead() {
             fetch('/api/notifications/mark-read', {
                 method: 'POST',
+                credentials: 'same-origin',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -443,13 +456,23 @@
 
         // Update unread notification count badge
         function updateUnreadNotificationCount() {
-            fetch('/api/notifications')
+            fetch('/api/notifications', { credentials: 'same-origin' })
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
                         const alpineData = Alpine.$data(document.querySelector('[x-data*="unread"]'));
                         if (alpineData) {
                             alpineData.unread = data.unread || 0;
+                        }
+                        const badge = document.getElementById('notif-unread-badge');
+                        if (badge) {
+                            const unread = data.unread || 0;
+                            badge.textContent = unread;
+                            if (unread > 0) {
+                                badge.classList.remove('hidden');
+                            } else {
+                                badge.classList.add('hidden');
+                            }
                         }
                     }
                 })

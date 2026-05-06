@@ -203,7 +203,7 @@ class GuestItemController extends Controller
                 // Analyze image with Google Vision API to detect objects
                 $detectedObjects = null;
                 try {
-                    $isVisionEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+                    $isVisionEnabled = $this->isGoogleVisionEnabled();
                     if ($isVisionEnabled) {
                         $imagePath = $image->getPathname();
                         $visionData = $this->analyzeImageWithGoogleVision($imagePath);
@@ -258,42 +258,24 @@ class GuestItemController extends Controller
                     'user_email' => $user->email,
                 ]);
 
-                // Check for similar images and notify involved users
-                // Run asynchronously in background to prevent blocking the response
+                // Check for similar images and notify involved users immediately.
+                // Running this inline is more reliable than shutdown callbacks.
                 try {
-                    // Use register_shutdown_function to run after response is sent
-                    register_shutdown_function(function() use ($similarityService, $metadata, $user, $uploadId) {
-                        try {
-                            // Set time limit for background processing
-                            set_time_limit(60); // 60 seconds for background similarity check
-                            
-                            Log::info('Starting background similarity check for guest post', [
-                                'upload_id' => $uploadId,
-                                'metadata_id' => $metadata->id,
-                                'user_email' => $user->email
-                            ]);
-                            
-                            $similarityService->checkAndNotifySimilarities($metadata, $user->email);
-                            
-                            Log::info('Background similarity check completed', [
-                                'upload_id' => $uploadId,
-                                'metadata_id' => $metadata->id
-                            ]);
-                        } catch (\Throwable $e) {
-                            Log::error('Background similarity check failed: ' . $e->getMessage(), [
-                                'upload_id' => $uploadId,
-                                'metadata_id' => $metadata->id ?? null,
-                                'error_type' => get_class($e),
-                                'trace' => $e->getTraceAsString()
-                            ]);
-                        }
-                    });
-                } catch (\Throwable $e) {
-                    Log::error('Failed to register similarity check: ' . $e->getMessage(), [
+                    $similarityResult = $similarityService->checkAndNotifySimilarities($metadata, $user->email);
+
+                    Log::info('Similarity check completed for guest post', [
                         'upload_id' => $uploadId,
-                        'metadata_id' => $metadata->id ?? null
+                        'metadata_id' => $metadata->id,
+                        'user_email' => $user->email,
+                        'similar_items_found' => $similarityResult['similar_items_found'] ?? 0,
+                        'notifications_sent' => $similarityResult['notifications_sent'] ?? 0,
                     ]);
-                    // Don't fail the upload if we can't register the check
+                } catch (\Throwable $e) {
+                    Log::error('Similarity check failed for guest post: ' . $e->getMessage(), [
+                        'upload_id' => $uploadId,
+                        'metadata_id' => $metadata->id ?? null,
+                        'trace' => $e->getTraceAsString()
+                    ]);
                 }
             }
 
@@ -324,16 +306,16 @@ class GuestItemController extends Controller
     {
         try {
             // Check if Google Vision is enabled
-            $isEnabled = \App\Models\Setting::get('google_vision_enabled', false);
+            $isEnabled = $this->isGoogleVisionEnabled();
             if (!$isEnabled) {
-                throw new \Exception('Google Vision API is not enabled.');
+                throw new \Exception('Google Vision API is not enabled. Enable it in admin settings or set GOOGLE_VISION_ENABLED=true.');
             }
 
-            // Get API key from settings
-            $apiKey = \App\Models\Setting::get('google_vision_api_key', '');
+            // Get API key from settings with env fallback
+            $apiKey = $this->getGoogleVisionApiKey();
             
             if (empty($apiKey)) {
-                throw new \Exception('Google Vision API key not configured.');
+                throw new \Exception('Google Vision API key not configured. Save it in admin settings or set GOOGLE_VISION_API_KEY in .env.');
             }
 
             // Use REST API with API key
@@ -443,6 +425,32 @@ class GuestItemController extends Controller
         }
 
         return array_values($tagsArray);
+    }
+
+    /**
+     * Determine whether Google Vision is enabled via settings or env.
+     */
+    private function isGoogleVisionEnabled(): bool
+    {
+        $dbEnabled = \App\Models\Setting::get('google_vision_enabled', null);
+        if ($dbEnabled !== null) {
+            return (bool) $dbEnabled;
+        }
+
+        return filter_var(env('GOOGLE_VISION_ENABLED', false), FILTER_VALIDATE_BOOL);
+    }
+
+    /**
+     * Read Google Vision API key from settings, fallback to env.
+     */
+    private function getGoogleVisionApiKey(): string
+    {
+        $dbKey = \App\Models\Setting::get('google_vision_api_key', '');
+        if (!empty($dbKey)) {
+            return trim((string) $dbKey);
+        }
+
+        return trim((string) env('GOOGLE_VISION_API_KEY', ''));
     }
 }
 

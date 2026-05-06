@@ -11,6 +11,13 @@ class NotificationController extends Controller
     public function index(Request $request)
     {
         $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthenticated',
+            ], 401);
+        }
+
         $limit = (int) ($request->get('limit', 10));
 
         $notifications = Notification::where('user_id', $user->id)
@@ -32,6 +39,13 @@ class NotificationController extends Controller
     public function markRead(Request $request)
     {
         $user = Auth::user();
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Unauthenticated',
+            ], 401);
+        }
+
         $id = $request->get('id');
 
         if ($id) {
