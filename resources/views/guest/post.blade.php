@@ -1138,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Handle completion
             xhr.addEventListener('load', function() {
-                if (xhr.status === 200 || xhr.status === 302 || xhr.status === 201) {
+                if (xhr.status === 200 || xhr.status === 201) {
                     // Upload complete, simulate server processing (90-100%)
                     updateProgress(90);
                     
@@ -1205,16 +1205,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     submitBtnSpinner.classList.add('hidden');
                     
                     // Try to show error message from response
-                    let errorMessage = 'An error occurred. Please try again.';
+                    let errorMessage = 'Upload failed. Please check your fields and try again.';
                     try {
                         const response = JSON.parse(xhr.responseText);
                         if (response.message) {
                             errorMessage = response.message;
                         } else if (response.error) {
                             errorMessage = response.error;
+                        } else if (response.errors) {
+                            const firstField = Object.keys(response.errors)[0];
+                            if (firstField && Array.isArray(response.errors[firstField]) && response.errors[firstField].length > 0) {
+                                errorMessage = response.errors[firstField][0];
+                            }
                         }
                     } catch (e) {
-                        // Not JSON, use default message
+                        // Not JSON response (often redirect HTML from validation failure)
+                        if (xhr.status === 302 || xhr.status === 422) {
+                            errorMessage = 'Some fields are invalid. Please check your inputs and selected image format/size.';
+                        }
                     }
                     alert(errorMessage);
                 }
@@ -1233,6 +1241,7 @@ document.addEventListener('DOMContentLoaded', function() {
             // Submit the form via AJAX
             xhr.open('POST', form.action || window.location.href);
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('Accept', 'application/json');
             xhr.send(formData);
         });
     }

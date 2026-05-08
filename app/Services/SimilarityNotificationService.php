@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use SapientPro\ImageComparator\ImageComparator;
-use SapientPro\ImageComparator\Exceptions\ImageResourceException;
+use SapientPro\ImageComparator\ImageResourceException;
 
 class SimilarityNotificationService
 {
@@ -338,21 +338,29 @@ class SimilarityNotificationService
      */
     private function calculateOverallSimilarity(float $visualSimilarity, float $textSimilarity): float
     {
-        $textWeight = $this->config['weights']['text'] ?? 0.3;
-        $visualWeight = $this->config['weights']['visual'] ?? 0.7;
+        // Make scoring less background-sensitive by giving semantics (text/objects)
+        // stronger influence and avoiding harsh penalties when one modality is weak.
+        $textWeight = $this->config['weights']['text'] ?? 0.45;
+        $visualWeight = $this->config['weights']['visual'] ?? 0.55;
 
         $overallSimilarity = ($visualSimilarity * $visualWeight) + ($textSimilarity * $textWeight);
 
-        // Additional validation: both visual and text similarity must meet minimum thresholds
-        $minVisualThreshold = 0.6; // Minimum 60% visual similarity
-        $minTextThreshold = 0.3;   // Minimum 30% text similarity
-
-        if ($visualSimilarity < $minVisualThreshold || $textSimilarity < $minTextThreshold) {
-            // If either similarity is too low, reduce the overall score significantly
-            return $overallSimilarity * 0.3;
+        // Boost likely same-item matches even if background/lighting changed.
+        if ($textSimilarity >= 0.70 && $visualSimilarity >= 0.35) {
+            $overallSimilarity += 0.10;
         }
 
-        return $overallSimilarity;
+        // Mild boost for very high visual confidence.
+        if ($visualSimilarity >= 0.85) {
+            $overallSimilarity += 0.05;
+        }
+
+        // Only strongly penalize when both are weak.
+        if ($visualSimilarity < 0.25 && $textSimilarity < 0.25) {
+            $overallSimilarity *= 0.4;
+        }
+
+        return min(1.0, max(0.0, $overallSimilarity));
     }
 
     /**
@@ -703,10 +711,12 @@ class SimilarityNotificationService
                                            $this->config['threshold'] ?? 
                                            0.7;
 
-                        // Use lower threshold (0.5) for storing matches - this ensures all items that should appear on claim-verify are stored
+                        // Store candidate matches at baseline threshold and allow a
+                        // semantic fallback for same item with different backgrounds.
                         $matchThreshold = 0.5;
+                        $semanticFallbackMatch = $visualSimilarity >= 0.35 && $textSimilarity >= 0.65;
                         
-                        if ($overallSimilarity >= $matchThreshold) {
+                        if ($overallSimilarity >= $matchThreshold || $semanticFallbackMatch) {
                             $similarItems[] = [
                                 'description' => $existingItem->description,
                                 'status' => $existingItem->status,
@@ -734,7 +744,10 @@ class SimilarityNotificationService
                                         'similarity_score' => $overallSimilarity,
                                         'visual_similarity' => $visualSimilarity,
                                         'text_similarity' => $textSimilarity,
-                                        'is_notified' => $overallSimilarity >= $visualThreshold, // Only mark as notified if above notification threshold
+                                        'is_notified' => (
+                                            $overallSimilarity >= $visualThreshold ||
+                                            ($visualSimilarity >= 0.45 && $textSimilarity >= 0.70)
+                                        ), // also notify high-confidence semantic+visual matches
                                     ]
                                 );
                                 
@@ -752,7 +765,10 @@ class SimilarityNotificationService
                                         'similarity_score' => $overallSimilarity,
                                         'visual_similarity' => $visualSimilarity,
                                         'text_similarity' => $textSimilarity,
-                                        'is_notified' => $overallSimilarity >= $visualThreshold,
+                                        'is_notified' => (
+                                            $overallSimilarity >= $visualThreshold ||
+                                            ($visualSimilarity >= 0.45 && $textSimilarity >= 0.70)
+                                        ),
                                     ]
                                 );
                                 
@@ -1054,19 +1070,43 @@ class SimilarityNotificationService
                 return;
             }
 
+            $topSimilarity = 0.0;
+            foreach ($similarItems as $item) {
+                $score = (float) ($item['similarity'] ?? 0);
+                if ($score > $topSimilarity) {
+                    $topSimilarity = $score;
+                }
+            }
+            $confidenceLevel = $this->getConfidenceLevel($topSimilarity);
+
+            // Default behavior: only surface high-confidence match notifications in bell.
+            if ($confidenceLevel !== 'high') {
+                Log::info('Skipping non-high confidence bell notification', [
+                    'user_email' => $userEmail,
+                    'confidence' => $confidenceLevel,
+                    'top_similarity' => round($topSimilarity * 100, 2),
+                    'similar_items_count' => count($similarItems),
+                ]);
+                return;
+            }
+
             \App\Models\Notification::create([
                 'user_id' => $user->id,
                 'type' => 'item_match',
-                'title' => 'Similar items found!',
-                'message' => 'We found ' . count($similarItems) . ' similar item(s) that might match your ' . ($newItem->status === 'lost' ? 'lost' : 'found') . ' item.',
+                'title' => 'High-confidence match found!',
+                'message' => 'We found ' . count($similarItems) . ' high-confidence similar item(s) that might match your ' . ($newItem->status === 'lost' ? 'lost' : 'found') . ' item.',
                 'data' => [
                     'upload_id' => $newItem->upload_id,
                     'item_type' => $newItem->status,
+                    'confidence' => $confidenceLevel,
+                    'top_similarity_percent' => round($topSimilarity * 100, 2),
                     'similar_items_count' => count($similarItems),
                     'similar_items' => array_map(function($item) {
                         return [
                             'upload_id' => $item['upload_id'] ?? null,
                             'description' => $item['description'] ?? '',
+                            'similarity' => $item['similarity'] ?? 0,
+                            'confidence' => $this->getConfidenceLevel((float) ($item['similarity'] ?? 0)),
                         ];
                     }, $similarItems),
                 ],
@@ -1141,7 +1181,22 @@ class SimilarityNotificationService
                 return;
             }
 
-            $similarityPercent = round(($similarityData['similarity'] ?? 0) * 100, 2);
+            $rawSimilarity = (float) ($similarityData['similarity'] ?? 0);
+            $similarityPercent = round($rawSimilarity * 100, 2);
+            $confidenceLevel = $this->getConfidenceLevel($rawSimilarity);
+
+            // Default behavior: only surface high-confidence match notifications in bell.
+            if ($confidenceLevel !== 'high') {
+                Log::info('Skipping non-high confidence matched-item bell notification', [
+                    'owner_email' => $ownerEmail,
+                    'confidence' => $confidenceLevel,
+                    'similarity_percent' => $similarityPercent,
+                    'matched_item_id' => $matchedItem->id,
+                    'new_item_id' => $newItem->id,
+                ]);
+                return;
+            }
+
             $matchType = ($matchedItem->status === 'lost' && $newItem->status === 'found') ? 
                         'Someone found an item that matches your lost item!' : 
                         'Someone lost an item that matches your found item!';
@@ -1150,7 +1205,7 @@ class SimilarityNotificationService
                 'user_id' => $owner->id,
                 'type' => 'item_matched',
                 'title' => 'Item Match Found!',
-                'message' => $matchType . ' (Similarity: ' . $similarityPercent . '%)',
+                'message' => $matchType . ' (Confidence: ' . strtoupper($confidenceLevel) . ', Similarity: ' . $similarityPercent . '%)',
                 'data' => [
                     'matched_item_upload_id' => $matchedItem->upload_id,
                     'matched_item_id' => $matchedItem->id,
@@ -1164,12 +1219,27 @@ class SimilarityNotificationService
                     'new_item_description' => $newItem->description,
                     'new_item_location' => $newItem->location,
                     'new_item_tags' => $newItem->tags,
-                    'similarity_score' => $similarityData['similarity'] ?? 0,
+                    'similarity_score' => $rawSimilarity,
                     'similarity_percent' => $similarityPercent,
+                    'confidence' => $confidenceLevel,
                 ],
             ]);
         } catch (\Exception $e) {
             Log::warning('Failed to create matched item notification: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Classify a match confidence label from normalized similarity score (0..1).
+     */
+    private function getConfidenceLevel(float $similarity): string
+    {
+        if ($similarity >= 0.80) {
+            return 'high';
+        }
+        if ($similarity >= 0.65) {
+            return 'medium';
+        }
+        return 'low';
     }
 }

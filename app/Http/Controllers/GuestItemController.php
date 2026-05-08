@@ -72,7 +72,7 @@ class GuestItemController extends Controller
             'description' => 'required|string|max:1000',
             'tags' => 'required|string', // JSON array string
             'images' => 'required|array|min:1|max:5',
-            'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240',
+            'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp,heic,heif|max:10240',
         ];
         
         // Add province validation only if field is enabled
@@ -117,6 +117,8 @@ class GuestItemController extends Controller
             'province.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your province added.',
             'city.required' => 'Please enter a city where the item was lost or found.',
             'city.in' => 'We\'re trying to expand our services to cover more locations. Please contact us if you\'d like to see your city added.',
+            'images.*.mimes' => 'Unsupported image format. Please upload JPG, PNG, GIF, WEBP, or HEIC/HEIF images.',
+            'images.*.max' => 'Each image must be 10MB or less.',
         ]);
 
         // Check if user is already logged in
