@@ -1833,7 +1833,7 @@ function displayUserItems(items) {
         }
 
         itemsContainer.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 auto-rows-fr items-stretch">
             ${items.map(item => {
                 const firstImage = item.images && item.images.length > 0 ? item.images[0] : null;
                 let imageUrl = null;
@@ -1931,14 +1931,15 @@ function displayUserItems(items) {
                     ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[11px] font-medium ring-1 ring-blue-100">+${uniqueObjects.length - 3}</span>`
                     : '';
 
-                let pillsRow = '';
-                if (tagPills || objectPills) {
-                    pillsRow = `
-                        <div class="flex flex-wrap gap-1.5 mt-2">
-                            ${tagPills}${tagMore}
-                            ${objectPills}${objectMore}
-                        </div>`;
-                }
+                // Pills row is always rendered (even when empty) so every
+                // card has the exact same vertical rhythm. We cap it to a
+                // single visual row via fixed height + overflow-hidden so
+                // tag-heavy items don't make their card taller than the rest.
+                const pillsContent = `${tagPills}${tagMore}${objectPills}${objectMore}`;
+                const pillsRow = `
+                    <div class="mt-2 h-7 overflow-hidden flex flex-nowrap items-center gap-1.5">
+                        ${pillsContent}
+                    </div>`;
 
                 const dateLabel = formatRelativeDate(item.created_at);
                 const imagesCountBadge = (item.images && item.images.length > 1)
@@ -1974,11 +1975,11 @@ function displayUserItems(items) {
                 `;
 
                 return `
-                <article class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col">
+                <article class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col h-full">
                     ${mediaBlock}
 
-                    <div class="p-4 sm:p-5 flex flex-col flex-1">
-                        <h3 class="text-[15px] sm:text-base font-semibold text-gray-900 leading-snug line-clamp-2" title="${escapedTitle}">
+                    <div class="p-4 sm:p-5 flex flex-col flex-1 min-h-0">
+                        <h3 class="text-[15px] sm:text-base font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.6em]" title="${escapedTitle}">
                             ${escapedTitle}
                         </h3>
 
@@ -1994,7 +1995,7 @@ function displayUserItems(items) {
                             <span title="${new Date(item.created_at).toLocaleString()}">${dateLabel}</span>
                         </div>
 
-                        <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                        <div class="mt-auto pt-3 border-t border-gray-100 flex items-center gap-2">
                             <button type="button" onclick="viewItemDetails('${item.upload_id}')"
                                     class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 active:bg-purple-200 rounded-lg text-xs sm:text-sm font-medium transition-colors"
                                     aria-label="View details">
