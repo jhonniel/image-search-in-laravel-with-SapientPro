@@ -19,25 +19,19 @@ return new class extends Migration
         }
 
         // Backfill user_id from existing uploader_email -> users.email mapping.
-        // We do this in a single SQL update for portability.
-        $driver = DB::connection()->getDriverName();
-        if ($driver === 'sqlite') {
-            DB::statement(
-                'UPDATE image_metadata
-                 SET user_id = (
-                    SELECT id FROM users WHERE users.email = image_metadata.uploader_email LIMIT 1
-                 )
-                 WHERE user_id IS NULL AND uploader_email IS NOT NULL'
-            );
-        } else {
-            // MySQL / PostgreSQL friendly variant
-            DB::statement(
-                'UPDATE image_metadata im
-                 LEFT JOIN users u ON u.email = im.uploader_email
-                 SET im.user_id = u.id
-                 WHERE im.user_id IS NULL AND im.uploader_email IS NOT NULL'
-            );
-        }
+        // We use a correlated subquery so the same SQL works on SQLite,
+        // PostgreSQL, and MySQL 8+ (MySQL's `UPDATE … JOIN` and PostgreSQL's
+        // `UPDATE … FROM` are mutually incompatible, so we avoid both).
+        DB::statement(
+            'UPDATE image_metadata
+             SET user_id = (
+                SELECT users.id
+                FROM users
+                WHERE users.email = image_metadata.uploader_email
+                LIMIT 1
+             )
+             WHERE user_id IS NULL AND uploader_email IS NOT NULL'
+        );
     }
 
     public function down(): void
