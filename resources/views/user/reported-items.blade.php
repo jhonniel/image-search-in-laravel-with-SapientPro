@@ -891,7 +891,42 @@ function updateUploadProgress(percentage) {
 /**
  * Update the staged status (icon + label + helper text).
  * Stages: preparing | uploading | processing | done | error
+ *
+ * For the "uploading" and "processing" stages the helper also schedules a
+ * short timeline of reassurance messages (see STAGE_TIMELINE) so the UI keeps
+ * communicating progress when the underlying work takes longer than usual.
  */
+const STAGE_TIMELINE = {
+    // While the XHR is still sending bytes. Each progress event re-applies
+    // the bytes-sent text via setUploadStage('uploading', {bytesText}), so
+    // these are *appended* as a soft hint rather than replacing the detail.
+    uploading: [
+        { afterMs: 12000, suffix: ' · Taking a bit longer than expected — please don\'t close this page.' },
+        { afterMs: 30000, suffix: ' · Still uploading — your photos are safe, hold tight.' },
+        { afterMs: 60000, suffix: ' · We\'re working through a slow connection. Hang in there.' },
+    ],
+    // After the bytes are on the server, while the backend persists the item
+    // and queues similarity checking. These cycle through to show what's
+    // happening behind the scenes.
+    processing: [
+        { afterMs: 0,     label: 'Saving to your account…',           detail: 'Finalising your post' },
+        { afterMs: 3500,  label: 'Analysing image content…',          detail: 'Running object detection on your photos' },
+        { afterMs: 8000,  label: 'Matching similar items…',           detail: 'Comparing against the database for similar reports' },
+        { afterMs: 14000, label: 'Almost done…',                      detail: 'Wrapping up notifications' },
+        { afterMs: 25000, label: 'Taking a bit longer than expected', detail: 'Your upload is safe — we\'re still finalising' },
+    ],
+};
+
+let __uploadStageTimers = [];
+let __uploadStageStart = 0;
+let __currentStage = null;
+let __lastBytesText = '';
+
+function __clearStageTimers() {
+    __uploadStageTimers.forEach((t) => clearTimeout(t));
+    __uploadStageTimers = [];
+}
+
 function setUploadStage(stage, opts = {}) {
     const iconWrap = document.getElementById('upload-stage-icon');
     const label = document.getElementById('upload-stage-label');
@@ -939,7 +974,58 @@ function setUploadStage(stage, opts = {}) {
     iconWrap.className = `inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow shrink-0 ${s.color}`;
     iconWrap.innerHTML = s.icon;
     label.textContent = s.label;
+
+    // Track the bytes-sent text so the long-running suffix can be appended
+    // without clobbering the live byte counter on each progress event.
+    if (stage === 'uploading' && opts.bytesText) {
+        __lastBytesText = opts.bytesText;
+    }
     detail.textContent = s.detail;
+
+    // Reset the timeline whenever the stage actually changes. Repeated
+    // setUploadStage('uploading', ...) calls during progress events just
+    // re-set the bytes-sent text and let the existing timers keep running.
+    if (stage !== __currentStage) {
+        __clearStageTimers();
+        __currentStage = stage;
+        __uploadStageStart = Date.now();
+
+        const timeline = STAGE_TIMELINE[stage];
+        if (Array.isArray(timeline)) {
+            timeline.forEach((step) => {
+                const tid = setTimeout(() => {
+                    const labelEl = document.getElementById('upload-stage-label');
+                    const detailEl = document.getElementById('upload-stage-detail');
+                    if (!labelEl || !detailEl) return;
+                    if (__currentStage !== stage) return; // stage changed under us
+                    if (step.label) labelEl.textContent = step.label;
+                    if (step.detail) detailEl.textContent = step.detail;
+                    if (step.suffix) {
+                        // Append a hint after whatever the current detail is —
+                        // typically the live "X / Y sent" string.
+                        const base = __lastBytesText || detailEl.textContent || '';
+                        detailEl.textContent = base + step.suffix;
+                    }
+                }, step.afterMs);
+                __uploadStageTimers.push(tid);
+            });
+        }
+    } else if (stage === 'uploading' && opts.bytesText) {
+        // Same uploading stage, fresh progress tick — refresh the visible
+        // bytes string. If a "taking longer" suffix is already showing,
+        // re-apply it so it doesn't disappear on the next tick.
+        const elapsed = Date.now() - __uploadStageStart;
+        const activeSuffix = (STAGE_TIMELINE.uploading || [])
+            .filter((step) => step.suffix && elapsed >= step.afterMs)
+            .pop();
+        detail.textContent = activeSuffix
+            ? opts.bytesText + activeSuffix.suffix
+            : opts.bytesText;
+    }
+
+    if (stage === 'done' || stage === 'error') {
+        __clearStageTimers();
+    }
 }
 
 function showMatchingCheckMessage() {

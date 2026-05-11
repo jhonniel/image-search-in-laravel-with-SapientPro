@@ -1047,12 +1047,41 @@ document.addEventListener('DOMContentLoaded', function() {
      * Staged upload status. Matches the implementation on `/reported-items`.
      * Stages: preparing | uploading | processing | done | error
      *
+     * For the "uploading" and "processing" stages this also schedules a short
+     * timeline of reassurance messages so long uploads keep communicating
+     * progress and don't look stuck.
+     *
      * opts:
      *   fileCount  – number of files being uploaded (used in "uploading X images…")
      *   bytesText  – e.g. "1.2 MB / 4.5 MB sent"
      *   label      – override label (error stage)
      *   detail     – override detail (error stage)
      */
+    const STAGE_TIMELINE = {
+        uploading: [
+            { afterMs: 12000, suffix: ' · Taking a bit longer than expected — please don\'t close this page.' },
+            { afterMs: 30000, suffix: ' · Still uploading — your photos are safe, hold tight.' },
+            { afterMs: 60000, suffix: ' · We\'re working through a slow connection. Hang in there.' },
+        ],
+        processing: [
+            { afterMs: 0,     label: 'Saving your item…',                 detail: 'Finalising your post' },
+            { afterMs: 3500,  label: 'Analysing image content…',          detail: 'Running object detection on your photos' },
+            { afterMs: 8000,  label: 'Matching similar items…',           detail: 'Comparing against the database for similar reports' },
+            { afterMs: 14000, label: 'Almost done…',                      detail: 'Wrapping up notifications' },
+            { afterMs: 25000, label: 'Taking a bit longer than expected', detail: 'Your upload is safe — we\'re still finalising' },
+        ],
+    };
+
+    let __stageTimers = [];
+    let __stageStart = 0;
+    let __activeStage = null;
+    let __lastBytesText = '';
+
+    function __clearStageTimers() {
+        __stageTimers.forEach((t) => clearTimeout(t));
+        __stageTimers = [];
+    }
+
     function setUploadStage(stage, opts = {}) {
         if (!stageIcon || !stageLabel || !stageDetail) return;
 
@@ -1097,7 +1126,47 @@ document.addEventListener('DOMContentLoaded', function() {
         stageIcon.className = `inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow shrink-0 ${s.color}`;
         stageIcon.innerHTML = s.icon;
         stageLabel.textContent = s.label;
+
+        if (stage === 'uploading' && opts.bytesText) {
+            __lastBytesText = opts.bytesText;
+        }
         stageDetail.textContent = s.detail;
+
+        if (stage !== __activeStage) {
+            __clearStageTimers();
+            __activeStage = stage;
+            __stageStart = Date.now();
+
+            const timeline = STAGE_TIMELINE[stage];
+            if (Array.isArray(timeline)) {
+                timeline.forEach((step) => {
+                    const tid = setTimeout(() => {
+                        if (__activeStage !== stage) return;
+                        if (step.label) stageLabel.textContent = step.label;
+                        if (step.detail) stageDetail.textContent = step.detail;
+                        if (step.suffix) {
+                            const base = __lastBytesText || stageDetail.textContent || '';
+                            stageDetail.textContent = base + step.suffix;
+                        }
+                    }, step.afterMs);
+                    __stageTimers.push(tid);
+                });
+            }
+        } else if (stage === 'uploading' && opts.bytesText) {
+            // Same stage, progress tick — refresh bytes string and re-apply
+            // any active "taking longer" suffix so it doesn't flicker away.
+            const elapsed = Date.now() - __stageStart;
+            const activeSuffix = (STAGE_TIMELINE.uploading || [])
+                .filter((step) => step.suffix && elapsed >= step.afterMs)
+                .pop();
+            stageDetail.textContent = activeSuffix
+                ? opts.bytesText + activeSuffix.suffix
+                : opts.bytesText;
+        }
+
+        if (stage === 'done' || stage === 'error') {
+            __clearStageTimers();
+        }
     }
 
     function showMatchingCheckMessage() {
