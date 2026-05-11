@@ -1,0 +1,52 @@
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (! Schema::hasColumn('image_metadata', 'user_id')) {
+            Schema::table('image_metadata', function (Blueprint $table): void {
+                // Nullable so guest uploads stay valid; foreign-keyless to keep
+                // SQLite/MySQL portability simple. We add an index for lookup.
+                $table->unsignedBigInteger('user_id')->nullable()->after('uploader_email');
+                $table->index('user_id');
+            });
+        }
+
+        // Backfill user_id from existing uploader_email -> users.email mapping.
+        // We do this in a single SQL update for portability.
+        $driver = DB::connection()->getDriverName();
+        if ($driver === 'sqlite') {
+            DB::statement(
+                'UPDATE image_metadata
+                 SET user_id = (
+                    SELECT id FROM users WHERE users.email = image_metadata.uploader_email LIMIT 1
+                 )
+                 WHERE user_id IS NULL AND uploader_email IS NOT NULL'
+            );
+        } else {
+            // MySQL / PostgreSQL friendly variant
+            DB::statement(
+                'UPDATE image_metadata im
+                 LEFT JOIN users u ON u.email = im.uploader_email
+                 SET im.user_id = u.id
+                 WHERE im.user_id IS NULL AND im.uploader_email IS NOT NULL'
+            );
+        }
+    }
+
+    public function down(): void
+    {
+        if (Schema::hasColumn('image_metadata', 'user_id')) {
+            Schema::table('image_metadata', function (Blueprint $table): void {
+                $table->dropIndex(['user_id']);
+                $table->dropColumn('user_id');
+            });
+        }
+    }
+};

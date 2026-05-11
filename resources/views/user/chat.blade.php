@@ -1,28 +1,28 @@
 @extends('layouts.user')
 
 @section('content')
-<div class="p-6">
-    <h1 class="text-3xl font-bold text-gray-900 mb-2">Messages</h1>
-    <p class="text-gray-600 mb-6">Chat with other users in the system</p>
+<div class="flex flex-col min-h-0 -mx-3 px-3 sm:mx-0 sm:px-0 sm:p-0 max-lg:pb-[env(safe-area-inset-bottom,0px)]">
+    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 shrink-0">Messages</h1>
+    <p class="text-gray-600 mb-3 sm:mb-6 text-sm sm:text-base shrink-0 hidden sm:block">Chat with other users in the system</p>
 
-    <div class="bg-white rounded-lg shadow-sm border flex" style="height: calc(100vh - 200px);">
+    <div id="chat-shell" class="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col lg:flex-row min-h-0 h-[min(36rem,calc(100dvh-9.5rem))] lg:h-[calc(100vh-12rem)] lg:max-h-[calc(100vh-8rem)]">
         <!-- Users List Sidebar -->
-        <div class="w-1/3 border-r border-gray-200 flex flex-col">
+        <div id="conversations-panel" class="w-full lg:w-72 xl:w-80 2xl:w-96 lg:flex-none lg:min-w-0 border-gray-200 lg:border-r flex flex-col min-h-0 max-lg:flex-1 max-lg:min-h-0">
             <!-- Search -->
-            <div class="p-4 border-b border-gray-200">
+            <div class="p-3 sm:p-4 border-b border-gray-200 shrink-0">
                     <input type="text" id="user-search" placeholder="Search users..."
-                       class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                       class="w-full px-3 sm:px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
             </div>
 
             <!-- Users List -->
-            <div class="flex-1 overflow-y-auto" id="users-list">
+            <div class="flex-1 min-h-0 overflow-y-auto overscroll-contain" id="users-list">
                 @if($conversations && $conversations->count() > 0)
                 <div class="p-4">
                     <h3 class="text-sm font-medium text-gray-500 mb-3">Conversations</h3>
                     <div class="space-y-2">
                         @foreach($conversations as $conversation)
                         @if(isset($conversation['user']) && $conversation['user'] && isset($conversation['last_message']) && $conversation['last_message'])
-                        <div class="user-item flex items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer"
+                        <div class="user-item flex items-center p-3 sm:p-3 rounded-lg hover:bg-gray-50 active:bg-gray-100 cursor-pointer touch-manipulation"
                              data-user-id="{{ $conversation['user']->id }}">
                             <div class="flex-shrink-0">
                                 @if($conversation['user']->profile_picture)
@@ -75,42 +75,45 @@
             </div>
         </div>
 
-        <!-- Chat Area -->
-        <div id="chat-area" class="flex-1 flex flex-col">
+        <!-- Chat Area: hidden on small screens until a conversation is opened -->
+        <div id="chat-area" class="flex-1 flex flex-col min-h-0 min-w-0 max-lg:hidden lg:flex">
             <!-- Chat Header -->
-            <div id="chat-header" class="p-4 border-b border-gray-200 bg-white hidden">
-                    <div class="flex items-center">
-                        <div class="flex-shrink-0">
-                            <div id="chat-user-avatar" class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
-                                <span id="chat-user-initials" class="text-sm font-medium text-purple-600"></span>
-                            </div>
-                        </div>
-                        <div class="ml-3">
-                        <p id="chat-user-name" class="text-sm font-medium text-gray-900"></p>
-                            </div>
+            <div id="chat-header" class="p-3 sm:p-4 border-b border-gray-200 bg-white shrink-0 hidden">
+                <div class="flex items-center gap-2 min-w-0">
+                    <button type="button" id="btn-chat-back" class="lg:hidden shrink-0 p-2.5 -ml-1 rounded-lg text-gray-600 hover:bg-gray-100 active:bg-gray-200 touch-manipulation" aria-label="Back to conversations">
+                        <i class="fas fa-arrow-left text-lg"></i>
+                    </button>
+                    <div class="flex-shrink-0">
+                        <div id="chat-user-avatar" class="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                            <span id="chat-user-initials" class="text-sm font-medium text-purple-600"></span>
                         </div>
                     </div>
+                    <div class="ml-1 sm:ml-2 min-w-0 flex-1">
+                        <p id="chat-user-name" class="text-sm font-medium text-gray-900 truncate"></p>
+                    </div>
+                </div>
+            </div>
 
             <!-- Messages Container -->
-            <div id="messages-container" class="flex-1 overflow-y-auto p-4 bg-gray-50 hidden">
+            <div id="messages-container" class="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 sm:p-4 bg-gray-50 hidden">
                 <!-- Item Context Display in Chat Area -->
-                <div id="chat-item-context" class="mb-4 p-4 bg-white border border-purple-200 rounded-lg shadow-sm hidden">
-                    <div class="flex items-start justify-between mb-3">
-                        <div class="flex items-center gap-2">
-                            <i class="fas fa-box text-purple-600"></i>
-                            <h3 class="text-sm font-semibold text-purple-900">Item Being Discussed</h3>
-                </div>
-                        <button type="button" onclick="hideChatItemContext()" class="text-gray-400 hover:text-gray-600" title="Hide item details">
+                <div id="chat-item-context" class="mb-3 sm:mb-4 p-3 sm:p-4 bg-white border border-purple-200 rounded-lg shadow-sm hidden">
+                    <div class="flex items-start justify-between gap-2 mb-3">
+                        <div class="flex items-center gap-2 min-w-0">
+                            <i class="fas fa-box text-purple-600 shrink-0"></i>
+                            <h3 class="text-sm font-semibold text-purple-900 truncate">Item Being Discussed</h3>
+                        </div>
+                        <button type="button" onclick="hideChatItemContext()" class="shrink-0 p-2 -m-2 text-gray-400 hover:text-gray-600 touch-manipulation" title="Hide item details">
                             <i class="fas fa-times"></i>
                         </button>
-                        </div>
+                    </div>
                     <div id="chat-item-context-content">
                         <!-- Item details will be displayed here -->
                     </div>
-                    <div id="chat-item-context-images" class="mt-3 flex gap-2 overflow-x-auto">
+                    <div id="chat-item-context-images" class="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
                         <!-- Item images will be displayed here -->
+                    </div>
                 </div>
-            </div>
 
                 <!-- Show Item Context Button (hidden by default) -->
                 <div id="show-chat-item-context-btn" class="mb-4 hidden">
@@ -126,26 +129,26 @@
             </div>
 
             <!-- Message Input -->
-            <div id="message-input-container" class="p-4 border-t border-gray-200 bg-white hidden" style="overflow: visible !important;">
+            <div id="message-input-container" class="p-3 sm:p-4 border-t border-gray-200 bg-white shrink-0 hidden" style="overflow: visible !important;">
                 <!-- Privacy Warning -->
-                <div id="privacy-warning" class="mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
-                    <div class="flex items-start justify-between">
-                        <div class="flex items-start flex-1">
-                        <div class="flex-shrink-0">
+                <div id="privacy-warning" class="mb-3 sm:mb-4 p-3 bg-yellow-50 border-l-4 border-yellow-400 rounded">
+                    <div class="flex items-start justify-between gap-2">
+                        <div class="flex items-start flex-1 min-w-0">
+                            <div class="flex-shrink-0 pt-0.5">
                                 <i class="fas fa-exclamation-triangle text-yellow-400"></i>
-                        </div>
-                            <div class="ml-3">
-                                <p class="text-sm text-yellow-700">
-                                    <strong>Privacy Notice:</strong> Please be respectful and only share necessary information. 
+                            </div>
+                            <div class="ml-2 sm:ml-3 min-w-0">
+                                <p class="text-xs sm:text-sm text-yellow-700 leading-relaxed">
+                                    <strong>Privacy Notice:</strong> Please be respectful and only share necessary information.
                                     Do not share personal details unless you trust the other party.
-                            </p>
+                                </p>
+                            </div>
                         </div>
-                        </div>
-                        <button type="button" onclick="hidePrivacyNotice()" class="ml-3 text-yellow-600 hover:text-yellow-800" title="Hide notice">
+                        <button type="button" onclick="hidePrivacyNotice()" class="shrink-0 p-2 -m-1 text-yellow-600 hover:text-yellow-800 touch-manipulation" title="Hide notice">
                             <i class="fas fa-times"></i>
-                            </button>
-                        </div>
+                        </button>
                     </div>
+                </div>
                 
                 <!-- Show Privacy Notice Button (hidden by default) -->
                 <div id="show-privacy-notice-btn" class="mb-4 hidden">
@@ -181,9 +184,9 @@
                 </div>
 
                 <!-- Image Preview -->
-                <div id="image-preview-container" class="mb-4 hidden">
-                    <div class="relative inline-block">
-                        <img id="image-preview" src="" alt="Preview" class="max-w-xs max-h-48 rounded-lg border-2 border-purple-300">
+                <div id="image-preview-container" class="mb-3 sm:mb-4 hidden">
+                    <div class="relative inline-block max-w-full">
+                        <img id="image-preview" src="" alt="Preview" class="max-w-full sm:max-w-xs max-h-40 sm:max-h-48 rounded-lg border-2 border-purple-300">
                         <button type="button" onclick="removeImagePreview()" class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600">
                             <i class="fas fa-times text-xs"></i>
                         </button>
@@ -191,30 +194,30 @@
                     <!-- View Option Selection -->
                     <div class="mt-2">
                         <label class="block text-xs font-medium text-gray-700 mb-2">Image View Option:</label>
-                        <div class="flex gap-3">
-                            <label class="flex items-center">
-                                <input type="radio" name="view_option" value="once" class="mr-2" checked>
+                        <div class="flex flex-wrap gap-x-3 gap-y-2">
+                            <label class="flex items-center gap-2 touch-manipulation">
+                                <input type="radio" name="view_option" value="once" class="shrink-0" checked>
                                 <span class="text-xs">View Once</span>
                             </label>
-                            <label class="flex items-center">
-                                <input type="radio" name="view_option" value="twice" class="mr-2">
+                            <label class="flex items-center gap-2 touch-manipulation">
+                                <input type="radio" name="view_option" value="twice" class="shrink-0">
                                 <span class="text-xs">View Twice</span>
                             </label>
-                            <label class="flex items-center">
-                                <input type="radio" name="view_option" value="keep" class="mr-2">
+                            <label class="flex items-center gap-2 touch-manipulation">
+                                <input type="radio" name="view_option" value="keep" class="shrink-0">
                                 <span class="text-xs">Keep in Chat</span>
                             </label>
                         </div>
                     </div>
                 </div>
 
-                <form id="message-form" class="flex items-end gap-3" enctype="multipart/form-data" style="display: flex !important; width: 100%; overflow: visible !important;">
+                <form id="message-form" class="flex items-end gap-2 sm:gap-3" enctype="multipart/form-data" style="display: flex !important; width: 100%; overflow: visible !important;">
                     <input type="file" id="image-input" accept="image/*" class="hidden" onchange="handleImageSelect(event)">
                     <div class="flex-1 relative" style="min-width: 0;">
                         <textarea id="message-input" 
                                   placeholder="Type a message..."
                                   rows="1"
-                                  class="w-full px-4 py-3 pr-12 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none"
+                                  class="w-full px-3 sm:px-4 py-3 pr-11 sm:pr-12 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 resize-none max-h-32 sm:max-h-40"
                                   maxlength="1000"></textarea>
                         <button type="button" onclick="document.getElementById('image-input').click()" 
                                 class="absolute bottom-2 right-2 text-gray-400 hover:text-purple-500 p-2 transition-colors" style="opacity: 1 !important; visibility: visible !important; display: block !important;">
@@ -228,10 +231,10 @@
             </div>
 
             <!-- Empty State -->
-            <div id="empty-state" class="flex-1 flex items-center justify-center">
+            <div id="empty-state" class="flex-1 min-h-0 flex items-center justify-center p-4 max-lg:hidden">
                 <div class="text-center">
-                    <i class="fas fa-comments text-6xl text-gray-300 mb-4"></i>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">Start a Conversation</h3>
+                    <i class="fas fa-comments text-5xl sm:text-6xl text-gray-300 mb-3 sm:mb-4"></i>
+                    <h3 class="text-base sm:text-lg font-medium text-gray-900 mb-2">Start a Conversation</h3>
                     <p class="text-sm text-gray-500">Select a user from the list to start chatting</p>
                 </div>
             </div>
@@ -242,6 +245,69 @@
 <script>
 let currentUserId = null;
 let selectedImage = null;
+
+function isMobileChatLayout() {
+    return window.matchMedia('(max-width: 1023px)').matches;
+}
+
+/** Keep conversation list vs chat pane in sync with viewport (mobile master / detail). */
+function syncChatResponsiveLayout() {
+    const panel = document.getElementById('conversations-panel');
+    const area = document.getElementById('chat-area');
+    const shell = document.getElementById('chat-shell');
+
+    if (shell) {
+        shell.style.height = '';
+        shell.style.maxHeight = '';
+        shell.style.minHeight = '';
+    }
+
+    if (!panel || !area) {
+        return;
+    }
+    if (!isMobileChatLayout()) {
+        panel.classList.remove('hidden');
+        area.classList.remove('max-lg:hidden');
+        return;
+    }
+    if (currentUserId) {
+        panel.classList.add('hidden');
+        area.classList.remove('max-lg:hidden');
+        if (shell) {
+            shell.style.height = 'calc(100dvh - 7.25rem)';
+            shell.style.maxHeight = 'calc(100dvh - 6.5rem)';
+            shell.style.minHeight = 'min(100dvh - 7.25rem, 36rem)';
+        }
+    } else {
+        panel.classList.remove('hidden');
+        area.classList.add('max-lg:hidden');
+    }
+}
+
+function backToConversations() {
+    currentUserId = null;
+    document.querySelectorAll('.user-item').forEach(item => item.classList.remove('bg-purple-50'));
+
+    const emptyState = document.getElementById('empty-state');
+    const chatHeader = document.getElementById('chat-header');
+    const messagesContainer = document.getElementById('messages-container');
+    const messageInputContainer = document.getElementById('message-input-container');
+
+    if (emptyState) {
+        emptyState.classList.remove('hidden');
+    }
+    if (chatHeader) {
+        chatHeader.classList.add('hidden');
+    }
+    if (messagesContainer) {
+        messagesContainer.classList.add('hidden');
+    }
+    if (messageInputContainer) {
+        messageInputContainer.classList.add('hidden');
+    }
+
+    syncChatResponsiveLayout();
+}
 
 // Select user and load messages
 function selectUser(userId) {
@@ -297,6 +363,8 @@ function selectUser(userId) {
             showChatItemContext();
         }, 300);
     }
+
+    syncChatResponsiveLayout();
 }
 
 // Load messages
@@ -383,7 +451,7 @@ function displayMessages(messages) {
         
         // Message bubble - ensure blue for sender
         const bubble = document.createElement('div');
-        bubble.className = 'max-w-md px-4 py-2 rounded-lg';
+        bubble.className = 'max-w-[min(100%,18rem)] sm:max-w-md px-3 sm:px-4 py-2 rounded-lg break-words';
         if (isOwnMessage) {
             bubble.className += ' bg-blue-300 text-gray-900';
             bubble.style.backgroundColor = '#93c5fd'; // blue-300 color as fallback
@@ -430,8 +498,8 @@ function displayMessages(messages) {
         }
         
         // Image in message
-    if (message.image_path) {
-            messageContent += `<img src="${message.image_path}" alt="Image" class="max-w-full rounded mb-2">`;
+        if (message.image_path) {
+            messageContent += `<img src="${message.image_path}" alt="Image" class="max-w-full h-auto rounded mb-2">`;
         }
         
         // Text message
@@ -856,7 +924,23 @@ function ensureSendButtonVisible() {
 
 function initializeChat() {
     console.log('Initializing chat...');
-    
+
+    const backBtn = document.getElementById('btn-chat-back');
+    if (backBtn) {
+        backBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            backToConversations();
+        });
+    }
+
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(syncChatResponsiveLayout, 150);
+    });
+
+    syncChatResponsiveLayout();
+
     // Attach click handlers to user items
     const userItems = document.querySelectorAll('.user-item');
     console.log('Found', userItems.length, 'user items');

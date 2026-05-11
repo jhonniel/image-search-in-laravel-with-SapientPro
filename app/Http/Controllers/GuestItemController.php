@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 use App\Models\ImageMetadata;
+use App\Models\Setting;
 use App\Models\Tag;
 use App\Models\User;
 use App\Services\SimilarityNotificationService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use SapientPro\ImageComparator\ImageComparator;
 
 class GuestItemController extends Controller
 {
@@ -19,53 +19,60 @@ class GuestItemController extends Controller
     {
         $itemType = $request->query('type', 'lost');
         $searchQuery = $request->query('search', '');
-        
+
         // Get enabled cities from settings
-        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCitiesJson = Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
         sort($enabledCities);
-        
+
         // Get enabled provinces from settings
-        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
         $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
         sort($enabledProvinces);
-        
+
         // Get field visibility and requirement settings
-        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
-        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
-        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
-        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
-        
-        return view('guest.post', compact('itemType', 'searchQuery', 'enabledCities', 'enabledProvinces', 
-            'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'));
+        $enableProvinceField = Setting::get('enable_province_field', true);
+        $provinceFieldRequired = Setting::get('province_field_required', true);
+        $enableCityField = Setting::get('enable_city_field', true);
+        $cityFieldRequired = Setting::get('city_field_required', true);
+
+        return response()
+            ->view('guest.post', compact('itemType', 'searchQuery', 'enabledCities', 'enabledProvinces',
+                'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'))
+            ->withHeaders([
+                // Disable browser caching so freshly deployed inline JS isn't served stale.
+                'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+                'Pragma' => 'no-cache',
+                'Expires' => '0',
+            ]);
     }
 
     public function submit(Request $request)
     {
         // Set execution time limit to prevent hanging
         set_time_limit(300); // 5 minutes max
-        
+
         Log::info('Guest post submit started', [
             'has_files' => $request->hasFile('images'),
             'files_count' => $request->hasFile('images') ? count($request->file('images')) : 0,
             'is_authenticated' => Auth::check(),
-            'user_id' => Auth::id()
+            'user_id' => Auth::id(),
         ]);
-        
+
         // Get enabled cities for validation
-        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCitiesJson = Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
-        
+
         // Get enabled provinces for validation
-        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
         $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
-        
+
         // Get field visibility and requirement settings
-        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
-        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
-        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
-        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
-        
+        $enableProvinceField = Setting::get('enable_province_field', true);
+        $provinceFieldRequired = Setting::get('province_field_required', true);
+        $enableCityField = Setting::get('enable_city_field', true);
+        $cityFieldRequired = Setting::get('city_field_required', true);
+
         $rules = [
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
@@ -74,41 +81,41 @@ class GuestItemController extends Controller
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp,heic,heif|max:10240',
         ];
-        
+
         // Add province validation only if field is enabled
         if ($enableProvinceField) {
             if ($provinceFieldRequired) {
-                if (!empty($enabledProvinces)) {
-                    $rules['province'] = 'required|string|in:' . implode(',', $enabledProvinces);
+                if (! empty($enabledProvinces)) {
+                    $rules['province'] = 'required|string|in:'.implode(',', $enabledProvinces);
                 } else {
                     $rules['province'] = 'required|string';
                 }
             } else {
-                if (!empty($enabledProvinces)) {
-                    $rules['province'] = 'nullable|string|in:' . implode(',', $enabledProvinces);
+                if (! empty($enabledProvinces)) {
+                    $rules['province'] = 'nullable|string|in:'.implode(',', $enabledProvinces);
                 } else {
                     $rules['province'] = 'nullable|string';
                 }
             }
         }
-        
+
         // Add city validation only if field is enabled
         if ($enableCityField) {
             if ($cityFieldRequired) {
-                if (!empty($enabledCities)) {
-                    $rules['city'] = 'required|string|in:' . implode(',', $enabledCities);
+                if (! empty($enabledCities)) {
+                    $rules['city'] = 'required|string|in:'.implode(',', $enabledCities);
                 } else {
                     $rules['city'] = 'required|string';
                 }
             } else {
-                if (!empty($enabledCities)) {
-                    $rules['city'] = 'nullable|string|in:' . implode(',', $enabledCities);
+                if (! empty($enabledCities)) {
+                    $rules['city'] = 'nullable|string|in:'.implode(',', $enabledCities);
                 } else {
                     $rules['city'] = 'nullable|string';
                 }
             }
         }
-        
+
         $validated = $request->validate($rules, [
             'location.required' => 'Location is required. Please specify where the item was lost or found.',
             'description.required' => 'Description is required. Please describe the item.',
@@ -131,24 +138,26 @@ class GuestItemController extends Controller
         $storedFiles = [];
         try {
             foreach ($request->file('images') as $index => $image) {
-                if (!$image->isValid()) {
+                if (! $image->isValid()) {
                     Log::error('Invalid file uploaded', [
                         'index' => $index,
                         'error' => $image->getError(),
-                        'file_name' => $image->getClientOriginalName()
+                        'file_name' => $image->getClientOriginalName(),
                     ]);
+
                     return back()->withErrors(['images' => 'One or more files failed to upload. Please try again.'])->withInput();
                 }
-                
-                $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
+
+                $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                 $path = $image->storeAs('temp-guest', $filename, 'public');
                 $storedFiles[] = $path; // relative to public disk
             }
         } catch (\Exception $e) {
             Log::error('Failed to store guest files', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return back()->withErrors(['images' => 'Failed to upload files. Please try again.'])->withInput();
         }
 
@@ -164,19 +173,19 @@ class GuestItemController extends Controller
 
         // Store in session
         $request->session()->put('guest_pending_item', $pending);
-        
+
         // Log for debugging
         Log::info('Guest item stored in session', [
             'session_id' => $request->session()->getId(),
             'item_type' => $pending['item_type'],
             'files_count' => count($storedFiles),
             'files' => $storedFiles,
-            'has_session' => $request->session()->has('guest_pending_item')
+            'has_session' => $request->session()->has('guest_pending_item'),
         ]);
-        
+
         // Save session explicitly to ensure it persists
         $request->session()->save();
-        
+
         return redirect()->route('register')->with('status', 'Create your account to finish posting your item.');
     }
 
@@ -187,19 +196,18 @@ class GuestItemController extends Controller
     {
         try {
             $user = Auth::user();
-            $uploadId = 'user_upload_' . Str::random(10);
+            $uploadId = 'user_upload_'.Str::random(10);
             $itemsSaved = 0;
-            $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
 
             Log::info('Saving item for authenticated user', [
                 'user_email' => $user->email,
                 'user_id' => $user->id,
                 'item_type' => $validated['item_type'],
-                'files_count' => count($request->file('images'))
+                'files_count' => count($request->file('images')),
             ]);
 
             foreach ($request->file('images') as $index => $image) {
-                $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
+                $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
                 // Analyze image with Google Vision API to detect objects
@@ -209,10 +217,10 @@ class GuestItemController extends Controller
                     if ($isVisionEnabled) {
                         $imagePath = $image->getPathname();
                         $visionData = $this->analyzeImageWithGoogleVision($imagePath);
-                        
+
                         // Extract detected objects
-                        if (isset($visionData['objects']) && !empty($visionData['objects'])) {
-                            $detectedObjects = array_map(function($obj) {
+                        if (isset($visionData['objects']) && ! empty($visionData['objects'])) {
+                            $detectedObjects = array_map(function ($obj) {
                                 return [
                                     'name' => $obj['name'] ?? '',
                                     'score' => $obj['score'] ?? 0.0,
@@ -222,7 +230,7 @@ class GuestItemController extends Controller
                     }
                 } catch (\Exception $e) {
                     // Log error but don't fail the upload
-                    \Illuminate\Support\Facades\Log::warning('Google Vision API analysis failed: ' . $e->getMessage());
+                    Log::warning('Google Vision API analysis failed: '.$e->getMessage());
                 }
 
                 // Create image metadata record
@@ -231,6 +239,7 @@ class GuestItemController extends Controller
                     'file_path' => Storage::url($path),
                     'original_name' => $image->getClientOriginalName(),
                     'uploader_email' => $user->email,
+                    'user_id' => $user->id,
                     'description' => $validated['description'],
                     'location' => $validated['location'] ?? null,
                     'tags' => $this->processTags($validated['tags'] ?? ''),
@@ -240,7 +249,7 @@ class GuestItemController extends Controller
                     'status' => $validated['item_type'],
                     'upload_id' => $uploadId,
                 ];
-                
+
                 // Only include province/city if they're provided in validated data
                 if (isset($validated['province']) && $validated['province'] !== null && $validated['province'] !== '') {
                     $metadataData['province'] = $validated['province'];
@@ -248,7 +257,7 @@ class GuestItemController extends Controller
                 if (isset($validated['city']) && $validated['city'] !== null && $validated['city'] !== '') {
                     $metadataData['city'] = $validated['city'];
                 }
-                
+
                 $metadata = ImageMetadata::create($metadataData);
 
                 $itemsSaved++;
@@ -260,39 +269,22 @@ class GuestItemController extends Controller
                     'user_email' => $user->email,
                 ]);
 
-                // Check for similar images and notify involved users immediately.
-                // Running this inline is more reliable than shutdown callbacks.
-                try {
-                    $similarityResult = $similarityService->checkAndNotifySimilarities($metadata, $user->email);
-
-                    Log::info('Similarity check completed for guest post', [
-                        'upload_id' => $uploadId,
-                        'metadata_id' => $metadata->id,
-                        'user_email' => $user->email,
-                        'similar_items_found' => $similarityResult['similar_items_found'] ?? 0,
-                        'notifications_sent' => $similarityResult['notifications_sent'] ?? 0,
-                    ]);
-                } catch (\Throwable $e) {
-                    Log::error('Similarity check failed for guest post: ' . $e->getMessage(), [
-                        'upload_id' => $uploadId,
-                        'metadata_id' => $metadata->id ?? null,
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
+                // Defer similarity until after redirect response (faster post on mobile).
+                SimilarityNotificationService::queueSimilarityCheckAfterResponse($metadata->id, $user->email);
             }
 
             Log::info('Item posting completed for authenticated user', [
                 'user_email' => $user->email,
                 'user_id' => $user->id,
                 'upload_id' => $uploadId,
-                'items_saved' => $itemsSaved
+                'items_saved' => $itemsSaved,
             ]);
 
             // Redirect to reported items page with success message
             return redirect()->route('reported-items')->with('success', "Your {$itemsSaved} item(s) have been posted successfully!");
 
         } catch (\Exception $e) {
-            Log::error('Failed to save item for authenticated user: ' . $e->getMessage(), [
+            Log::error('Failed to save item for authenticated user: '.$e->getMessage(), [
                 'trace' => $e->getTraceAsString(),
                 'user_id' => Auth::id(),
             ]);
@@ -309,34 +301,34 @@ class GuestItemController extends Controller
         try {
             // Check if Google Vision is enabled
             $isEnabled = $this->isGoogleVisionEnabled();
-            if (!$isEnabled) {
+            if (! $isEnabled) {
                 throw new \Exception('Google Vision API is not enabled. Enable it in admin settings or set GOOGLE_VISION_ENABLED=true.');
             }
 
             // Get API key from settings with env fallback
             $apiKey = $this->getGoogleVisionApiKey();
-            
+
             if (empty($apiKey)) {
                 throw new \Exception('Google Vision API key not configured. Save it in admin settings or set GOOGLE_VISION_API_KEY in .env.');
             }
 
             // Use REST API with API key
-            $url = 'https://vision.googleapis.com/v1/images:annotate?key=' . urlencode($apiKey);
-            
+            $url = 'https://vision.googleapis.com/v1/images:annotate?key='.urlencode($apiKey);
+
             $imageContent = file_get_contents($imagePath);
-            
+
             $data = [
                 'requests' => [
                     [
                         'image' => [
-                            'content' => base64_encode($imageContent)
+                            'content' => base64_encode($imageContent),
                         ],
                         'features' => [
                             ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 20],
                             ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             ];
 
             $ch = curl_init($url);
@@ -344,7 +336,7 @@ class GuestItemController extends Controller
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            
+
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $curlError = curl_error($ch);
@@ -353,7 +345,7 @@ class GuestItemController extends Controller
             if ($httpCode !== 200) {
                 $errorData = json_decode($response, true);
                 $errorMessage = $errorData['error']['message'] ?? ($curlError ?: 'Unknown error');
-                throw new \Exception('Google Vision API error: ' . $errorMessage);
+                throw new \Exception('Google Vision API error: '.$errorMessage);
             }
 
             $responseData = json_decode($response, true);
@@ -386,7 +378,7 @@ class GuestItemController extends Controller
                 'labels' => $labels,
             ];
         } catch (\Exception $e) {
-            Log::error('Google Vision API analysis error: ' . $e->getMessage());
+            Log::error('Google Vision API analysis error: '.$e->getMessage());
             throw $e;
         }
     }
@@ -402,7 +394,7 @@ class GuestItemController extends Controller
         }
 
         $tagsArray = [];
-        
+
         // Try to decode as JSON first
         $decoded = json_decode($tagsInput, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
@@ -413,8 +405,8 @@ class GuestItemController extends Controller
         }
 
         // Filter out empty tags
-        $tagsArray = array_filter($tagsArray, function($tag) {
-            return !empty(trim($tag));
+        $tagsArray = array_filter($tagsArray, function ($tag) {
+            return ! empty(trim($tag));
         });
 
         // Increment usage count for each tag
@@ -434,7 +426,7 @@ class GuestItemController extends Controller
      */
     private function isGoogleVisionEnabled(): bool
     {
-        $dbEnabled = \App\Models\Setting::get('google_vision_enabled', null);
+        $dbEnabled = Setting::get('google_vision_enabled', null);
         if ($dbEnabled !== null) {
             return (bool) $dbEnabled;
         }
@@ -447,13 +439,11 @@ class GuestItemController extends Controller
      */
     private function getGoogleVisionApiKey(): string
     {
-        $dbKey = \App\Models\Setting::get('google_vision_api_key', '');
-        if (!empty($dbKey)) {
+        $dbKey = Setting::get('google_vision_api_key', '');
+        if (! empty($dbKey)) {
             return trim((string) $dbKey);
         }
 
         return trim((string) env('GOOGLE_VISION_API_KEY', ''));
     }
 }
-
-

@@ -39,7 +39,13 @@ Route::middleware(['auth'])->group(function () {
 
     // User Routes
     Route::get('/reported-items', function () {
-        // Get enabled cities from settings
+        // Disable browser caching for this page so freshly deployed JS
+        // (inline in the Blade view) is never served stale.
+        $noCache = [
+            'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
+        ];
         $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
         sort($enabledCities);
@@ -55,8 +61,9 @@ Route::middleware(['auth'])->group(function () {
         $enableCityField = \App\Models\Setting::get('enable_city_field', true);
         $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
 
-        return view('user.reported-items', compact('enabledCities', 'enabledProvinces',
-            'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'));
+        return response()->view('user.reported-items', compact('enabledCities', 'enabledProvinces',
+            'enableProvinceField', 'provinceFieldRequired', 'enableCityField', 'cityFieldRequired'))
+            ->withHeaders($noCache);
     })->name('reported-items');
 
     Route::get('/claim-verify', function () {

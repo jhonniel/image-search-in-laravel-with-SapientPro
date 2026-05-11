@@ -2,17 +2,25 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\ItemClaimed;
+use App\Events\ItemDeleted;
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Log;
+use App\Mail\UserItemNotification;
 use App\Models\ImageMetadata;
+use App\Models\ItemMatch;
+use App\Models\Message;
+use App\Models\Notification;
+use App\Models\Setting;
 use App\Models\Tag;
+use App\Models\User;
 use App\Services\SimilarityNotificationService;
-use App\Mail\SimilarImageNotification;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use SapientPro\ImageComparator\ImageComparator;
 
@@ -24,34 +32,35 @@ class UserItemController extends Controller
     public function uploadItems(Request $request)
     {
         // Check authentication first
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             Log::warning('Upload attempt by unauthenticated user', [
                 'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
+                'user_agent' => $request->userAgent(),
             ]);
+
             return response()->json([
                 'success' => false,
                 'error' => 'Unauthorized',
-                'message' => 'You must be logged in to upload items. Please log in and try again.'
+                'message' => 'You must be logged in to upload items. Please log in and try again.',
             ], 401);
         }
 
         $user = Auth::user();
-        
+
         // Debug: Log the incoming request data
         $files = $request->file('images');
         $fileDetails = [];
-        
+
         // Check if files were uploaded
-        if (!$files || (is_array($files) && count($files) === 0)) {
+        if (! $files || (is_array($files) && count($files) === 0)) {
             Log::warning('Upload attempt with no files', [
                 'user_id' => $user->id,
                 'has_files_key' => $request->has('images'),
                 'post_max_size' => ini_get('post_max_size'),
                 'upload_max_filesize' => ini_get('upload_max_filesize'),
-                'content_length' => $request->header('Content-Length')
+                'content_length' => $request->header('Content-Length'),
             ]);
-            
+
             // Check if request exceeded POST size limit
             $postMaxSize = $this->parseSize(ini_get('post_max_size'));
             $contentLength = $request->header('Content-Length');
@@ -59,46 +68,46 @@ class UserItemController extends Controller
                 return response()->json([
                     'success' => false,
                     'error' => 'File size too large',
-                    'message' => 'The total size of your upload exceeds the server limit (' . ini_get('post_max_size') . '). Please reduce the file sizes and try again.'
+                    'message' => 'The total size of your upload exceeds the server limit ('.ini_get('post_max_size').'). Please reduce the file sizes and try again.',
                 ], 413);
             }
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'No files uploaded',
-                'message' => 'Please select at least one image to upload.'
+                'message' => 'Please select at least one image to upload.',
             ], 400);
         }
-        
+
         if ($files) {
             foreach ($files as $index => $file) {
                 // Check for upload errors
-                if (!$file->isValid()) {
+                if (! $file->isValid()) {
                     $errorCode = $file->getError();
                     $errorMessage = $this->getUploadErrorMessage($errorCode);
-                    
+
                     Log::error('File upload error', [
                         'user_id' => $user->id,
                         'file_index' => $index,
                         'file_name' => $file->getClientOriginalName(),
                         'error_code' => $errorCode,
-                        'error_message' => $errorMessage
+                        'error_message' => $errorMessage,
                     ]);
-                    
+
                     return response()->json([
                         'success' => false,
                         'error' => 'File upload error',
-                        'message' => $errorMessage . ' (File: ' . $file->getClientOriginalName() . ')'
+                        'message' => $errorMessage.' (File: '.$file->getClientOriginalName().')',
                     ], 400);
                 }
-                
+
                 $fileDetails[] = [
                     'index' => $index,
                     'original_name' => $file->getClientOriginalName(),
                     'mime_type' => $file->getMimeType(),
                     'size' => $file->getSize(),
                     'is_valid' => $file->isValid(),
-                    'error' => $file->getError()
+                    'error' => $file->getError(),
                 ];
             }
         }
@@ -108,24 +117,24 @@ class UserItemController extends Controller
             'user_email' => $user->email,
             'files_count' => $files ? count($files) : 0,
             'file_details' => $fileDetails,
-            'file_names' => $files ? array_map(fn($f) => $f->getClientOriginalName(), $files) : [],
-            'request_keys' => array_keys($request->all())
+            'file_names' => $files ? array_map(fn ($f) => $f->getClientOriginalName(), $files) : [],
+            'request_keys' => array_keys($request->all()),
         ]);
 
         // Get enabled cities for validation
-        $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+        $enabledCitiesJson = Setting::get('enabled_cities', '[]');
         $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
-        
+
         // Get enabled provinces for validation
-        $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+        $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
         $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
-        
+
         // Get field visibility and requirement settings
-        $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
-        $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
-        $enableCityField = \App\Models\Setting::get('enable_city_field', true);
-        $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
-        
+        $enableProvinceField = Setting::get('enable_province_field', true);
+        $provinceFieldRequired = Setting::get('province_field_required', true);
+        $enableCityField = Setting::get('enable_city_field', true);
+        $cityFieldRequired = Setting::get('city_field_required', true);
+
         $rules = [
             'item_type' => 'required|in:lost,found',
             'location' => 'required|string|max:255',
@@ -134,41 +143,41 @@ class UserItemController extends Controller
             'images' => 'required|array|min:1|max:5',
             'images.*' => 'required|file|mimes:jpeg,jpg,png,gif,webp|max:10240', // 10MB max per image
         ];
-        
+
         // Add province validation only if field is enabled
         if ($enableProvinceField) {
             if ($provinceFieldRequired) {
-                if (!empty($enabledProvinces)) {
-                    $rules['province'] = 'required|string|in:' . implode(',', $enabledProvinces);
+                if (! empty($enabledProvinces)) {
+                    $rules['province'] = 'required|string|in:'.implode(',', $enabledProvinces);
                 } else {
                     $rules['province'] = 'required|string';
                 }
             } else {
-                if (!empty($enabledProvinces)) {
-                    $rules['province'] = 'nullable|string|in:' . implode(',', $enabledProvinces);
+                if (! empty($enabledProvinces)) {
+                    $rules['province'] = 'nullable|string|in:'.implode(',', $enabledProvinces);
                 } else {
                     $rules['province'] = 'nullable|string';
                 }
             }
         }
-        
+
         // Add city validation only if field is enabled
         if ($enableCityField) {
             if ($cityFieldRequired) {
-                if (!empty($enabledCities)) {
-                    $rules['city'] = 'required|string|in:' . implode(',', $enabledCities);
+                if (! empty($enabledCities)) {
+                    $rules['city'] = 'required|string|in:'.implode(',', $enabledCities);
                 } else {
                     $rules['city'] = 'required|string';
                 }
             } else {
-                if (!empty($enabledCities)) {
-                    $rules['city'] = 'nullable|string|in:' . implode(',', $enabledCities);
+                if (! empty($enabledCities)) {
+                    $rules['city'] = 'nullable|string|in:'.implode(',', $enabledCities);
                 } else {
                     $rules['city'] = 'nullable|string';
                 }
             }
         }
-        
+
         $validator = Validator::make($request->all(), $rules, [
             'item_type.required' => 'Please select whether this is a lost or found item',
             'item_type.in' => 'Item type must be either lost or found',
@@ -195,7 +204,7 @@ class UserItemController extends Controller
             Log::error('User upload validation failed', [
                 'errors' => $validator->errors()->toArray(),
                 'request_data' => $request->all(),
-                'file_details' => $fileDetails
+                'file_details' => $fileDetails,
             ]);
 
             // Try to provide more helpful error messages
@@ -212,8 +221,8 @@ class UserItemController extends Controller
                                 'mime_type' => $file['mime_type'],
                                 'size' => $file['size'],
                                 'is_valid' => $file['is_valid'],
-                                'error_code' => $file['error']
-                            ]
+                                'error_code' => $file['error'],
+                            ],
                         ];
                     } else {
                         $errorMessages[$field] = $errors;
@@ -227,42 +236,41 @@ class UserItemController extends Controller
                 'success' => false,
                 'error' => 'Validation failed',
                 'errors' => $errorMessages,
-                'message' => 'Please check your uploaded files. Make sure they are valid image files (JPEG, PNG, GIF, WEBP) and not corrupted.'
+                'message' => 'Please check your uploaded files. Make sure they are valid image files (JPEG, PNG, GIF, WEBP) and not corrupted.',
             ], 400);
         }
 
         try {
             // User is already authenticated (checked above)
-            $uploadId = 'user_upload_' . Str::random(10);
+            $uploadId = 'user_upload_'.Str::random(10);
             $uploadedImages = [];
-            $similarityService = new SimilarityNotificationService(app(ImageComparator::class));
 
             // Deduplicate files based on name, size, and content
             $uniqueFiles = [];
             $processedFiles = [];
 
             foreach ($request->file('images') as $index => $image) {
-                $fileKey = $image->getClientOriginalName() . '_' . $image->getSize() . '_' . $image->getMimeType();
-                if (!in_array($fileKey, $processedFiles)) {
+                $fileKey = $image->getClientOriginalName().'_'.$image->getSize().'_'.$image->getMimeType();
+                if (! in_array($fileKey, $processedFiles)) {
                     $uniqueFiles[] = $image;
                     $processedFiles[] = $fileKey;
                 } else {
                     Log::info('Duplicate file skipped', [
                         'filename' => $image->getClientOriginalName(),
                         'size' => $image->getSize(),
-                        'mime_type' => $image->getMimeType()
+                        'mime_type' => $image->getMimeType(),
                     ]);
                 }
             }
 
             Log::info('File deduplication', [
                 'original_count' => count($request->file('images')),
-                'unique_count' => count($uniqueFiles)
+                'unique_count' => count($uniqueFiles),
             ]);
 
             // Process each unique uploaded image
             foreach ($uniqueFiles as $index => $image) {
-                $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
+                $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
                 // Analyze image with Google Vision API to detect objects
@@ -272,26 +280,26 @@ class UserItemController extends Controller
                     if ($isVisionEnabled) {
                         $imagePath = $image->getPathname();
                         $visionData = $this->analyzeImageWithGoogleVision($imagePath);
-                        
+
                         // Extract detected objects
-                        if (isset($visionData['objects']) && !empty($visionData['objects'])) {
-                            $detectedObjects = array_map(function($obj) {
+                        if (isset($visionData['objects']) && ! empty($visionData['objects'])) {
+                            $detectedObjects = array_map(function ($obj) {
                                 return [
                                     'name' => $obj['name'] ?? '',
                                     'score' => $obj['score'] ?? 0.0,
                                 ];
                             }, $visionData['objects']);
                         }
-                        
+
                         Log::info('Google Vision API analysis completed', [
                             'upload_id' => $uploadId,
-                            'objects_count' => $detectedObjects ? count($detectedObjects) : 0
+                            'objects_count' => $detectedObjects ? count($detectedObjects) : 0,
                         ]);
                     }
                 } catch (\Exception $e) {
                     // Log error but don't fail the upload
-                    Log::warning('Google Vision API analysis failed: ' . $e->getMessage(), [
-                        'upload_id' => $uploadId
+                    Log::warning('Google Vision API analysis failed: '.$e->getMessage(), [
+                        'upload_id' => $uploadId,
                     ]);
                 }
 
@@ -301,6 +309,7 @@ class UserItemController extends Controller
                     'file_path' => Storage::url($path),
                     'original_name' => $image->getClientOriginalName(),
                     'uploader_email' => $user->email, // Use authenticated user's email
+                    'user_id' => $user->id, // Stable owner reference, robust to email changes
                     'description' => $request->description,
                     'location' => $request->location, // Save location field
                     'tags' => $this->processTags($request->tags),
@@ -310,7 +319,7 @@ class UserItemController extends Controller
                     'status' => $request->item_type, // 'lost' or 'found'
                     'upload_id' => $uploadId,
                 ];
-                
+
                 // Only include province/city if they're provided in the request
                 if ($request->has('province') && $request->province !== null && $request->province !== '') {
                     $metadataData['province'] = $request->province;
@@ -318,7 +327,7 @@ class UserItemController extends Controller
                 if ($request->has('city') && $request->city !== null && $request->city !== '') {
                     $metadataData['city'] = $request->city;
                 }
-                
+
                 $imageMetadata = ImageMetadata::create($metadataData);
 
                 $uploadedImages[] = [
@@ -328,40 +337,25 @@ class UserItemController extends Controller
                     'size' => $image->getSize(),
                 ];
 
-                // Check for similarities and create notifications immediately.
-                // Running this inline is more reliable than shutdown callbacks.
-                try {
-                    $similarityResult = $similarityService->checkAndNotifySimilarities($imageMetadata, $user->email);
-
-                    Log::info('Similarity check completed after upload', [
-                        'upload_id' => $imageMetadata->upload_id,
-                        'user_email' => $user->email,
-                        'similar_items_found' => $similarityResult['similar_items_found'] ?? 0,
-                        'notifications_sent' => $similarityResult['notifications_sent'] ?? 0,
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error('Similarity check failed after upload: ' . $e->getMessage(), [
-                        'upload_id' => $imageMetadata->upload_id ?? null,
-                        'trace' => $e->getTraceAsString()
-                    ]);
-                }
+                // Defer similarity until after JSON response (faster perceived upload on mobile).
+                SimilarityNotificationService::queueSimilarityCheckAfterResponse($imageMetadata->id, $user->email);
             }
 
             // Create in-app notification for successful upload
             try {
                 $user = Auth::user();
-                \App\Models\Notification::create([
+                Notification::create([
                     'user_id' => $user->id,
                     'type' => 'item_uploaded',
                     'title' => 'Item uploaded successfully',
-                    'message' => 'Your ' . ($request->item_type === 'lost' ? 'lost' : 'found') . ' item has been uploaded successfully.',
+                    'message' => 'Your '.($request->item_type === 'lost' ? 'lost' : 'found').' item has been uploaded successfully.',
                     'data' => [
                         'upload_id' => $uploadId,
                         'item_type' => $request->item_type,
                     ],
                 ]);
             } catch (\Exception $e) {
-                Log::warning('Failed to create upload notification: ' . $e->getMessage());
+                Log::warning('Failed to create upload notification: '.$e->getMessage());
             }
 
             return response()->json([
@@ -377,14 +371,14 @@ class UserItemController extends Controller
                     'images' => $uploadedImages,
                     'uploaded_at' => now()->toISOString(),
                 ],
-                'message' => 'Item reported successfully!'
+                'message' => 'Item reported successfully!',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Upload failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -397,16 +391,17 @@ class UserItemController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'User not authenticated'
+                    'error' => 'User not authenticated',
                 ], 401);
             }
 
-            // Get all items uploaded by the user
-            // Users should see all their own items regardless of claim status
-            $items = ImageMetadata::where('uploader_email', $user->email)
+            // Get all items uploaded by the user.
+            // Match by user_id (preferred) OR uploader_email so legacy rows
+            // and guest-uploaded-then-attached items both show up.
+            $items = ImageMetadata::ownedBy($user)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
@@ -414,23 +409,23 @@ class UserItemController extends Controller
             $formattedItems = [];
             foreach ($items as $uploadId => $itemGroup) {
                 $firstItem = $itemGroup->first();
-                
+
                 // Parse tags if they're stored as JSON string
                 $tags = $firstItem->tags;
                 if (is_string($tags)) {
                     $decodedTags = json_decode($tags, true);
                     $tags = $decodedTags !== null ? $decodedTags : (strpos($tags, ',') !== false ? explode(',', $tags) : [$tags]);
                 }
-                
+
                 // Parse detected_objects if they're stored as JSON string
                 $detectedObjects = $firstItem->detected_objects;
                 if (is_string($detectedObjects)) {
                     $decodedObjects = json_decode($detectedObjects, true);
                     $detectedObjects = $decodedObjects !== null ? $decodedObjects : [];
-                } elseif (!is_array($detectedObjects)) {
+                } elseif (! is_array($detectedObjects)) {
                     $detectedObjects = [];
                 }
-                
+
                 $formattedItems[] = [
                     'upload_id' => $uploadId,
                     'item_type' => $firstItem->status ?? 'lost',
@@ -444,7 +439,7 @@ class UserItemController extends Controller
                     'images' => $itemGroup->map(function ($item) {
                         // Handle file path - ensure it's a valid URL
                         $filePath = $item->file_path;
-                        
+
                         // Normalize the path - ensure it starts with /storage/
                         if (empty($filePath)) {
                             $imagePath = '';
@@ -453,7 +448,7 @@ class UserItemController extends Controller
                             $imagePath = $filePath;
                         } elseif (str_starts_with($filePath, 'storage/')) {
                             // Missing leading slash, add it
-                            $imagePath = '/' . $filePath;
+                            $imagePath = '/'.$filePath;
                         } elseif (str_starts_with($filePath, 'http')) {
                             // Full URL, use as is
                             $imagePath = $filePath;
@@ -477,19 +472,19 @@ class UserItemController extends Controller
             \Log::info('User items loaded', [
                 'user_email' => $user->email,
                 'items_count' => count($formattedItems),
-                'upload_ids' => array_column($formattedItems, 'upload_id')
+                'upload_ids' => array_column($formattedItems, 'upload_id'),
             ]);
 
             return response()->json([
                 'success' => true,
-                'data' => $formattedItems
+                'data' => $formattedItems,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to load items',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -504,11 +499,11 @@ class UserItemController extends Controller
 
             // Get all request data - handle both PUT and POST with method spoofing
             $requestData = $request->all();
-            
+
             // If using method spoofing, the actual method might be POST
             $actualMethod = $request->method();
             $isMethodSpoofed = $request->has('_method');
-            
+
             // Log request data for debugging
             \Log::info('Update item request received', [
                 'upload_id' => $uploadId,
@@ -521,23 +516,23 @@ class UserItemController extends Controller
                 'description_value' => $request->input('description'),
                 'all_keys' => array_keys($requestData),
                 'request_all' => $requestData,
-                'raw_input' => file_get_contents('php://input')
+                'raw_input' => file_get_contents('php://input'),
             ]);
 
             // Get enabled cities for validation
-            $enabledCitiesJson = \App\Models\Setting::get('enabled_cities', '[]');
+            $enabledCitiesJson = Setting::get('enabled_cities', '[]');
             $enabledCities = json_decode($enabledCitiesJson, true) ?? [];
-            
+
             // Get enabled provinces for validation
-            $enabledProvincesJson = \App\Models\Setting::get('enabled_provinces', '[]');
+            $enabledProvincesJson = Setting::get('enabled_provinces', '[]');
             $enabledProvinces = json_decode($enabledProvincesJson, true) ?? [];
-            
+
             // Get field visibility and requirement settings
-            $enableProvinceField = \App\Models\Setting::get('enable_province_field', true);
-            $provinceFieldRequired = \App\Models\Setting::get('province_field_required', true);
-            $enableCityField = \App\Models\Setting::get('enable_city_field', true);
-            $cityFieldRequired = \App\Models\Setting::get('city_field_required', true);
-            
+            $enableProvinceField = Setting::get('enable_province_field', true);
+            $provinceFieldRequired = Setting::get('province_field_required', true);
+            $enableCityField = Setting::get('enable_city_field', true);
+            $cityFieldRequired = Setting::get('city_field_required', true);
+
             $rules = [
                 'item_type' => 'sometimes|required|in:lost,found',
                 'location' => 'required|string|max:255',
@@ -548,41 +543,41 @@ class UserItemController extends Controller
                 'remove_images' => 'nullable|array',
                 'remove_images.*' => 'nullable|string',
             ];
-            
+
             // Add province validation only if field is enabled
             if ($enableProvinceField) {
                 if ($provinceFieldRequired) {
-                    if (!empty($enabledProvinces)) {
-                        $rules['province'] = 'required|string|in:' . implode(',', $enabledProvinces);
+                    if (! empty($enabledProvinces)) {
+                        $rules['province'] = 'required|string|in:'.implode(',', $enabledProvinces);
                     } else {
                         $rules['province'] = 'required|string';
                     }
                 } else {
-                    if (!empty($enabledProvinces)) {
-                        $rules['province'] = 'nullable|string|in:' . implode(',', $enabledProvinces);
+                    if (! empty($enabledProvinces)) {
+                        $rules['province'] = 'nullable|string|in:'.implode(',', $enabledProvinces);
                     } else {
                         $rules['province'] = 'nullable|string';
                     }
                 }
             }
-            
+
             // Add city validation only if field is enabled
             if ($enableCityField) {
                 if ($cityFieldRequired) {
-                    if (!empty($enabledCities)) {
-                        $rules['city'] = 'required|string|in:' . implode(',', $enabledCities);
+                    if (! empty($enabledCities)) {
+                        $rules['city'] = 'required|string|in:'.implode(',', $enabledCities);
                     } else {
                         $rules['city'] = 'required|string';
                     }
                 } else {
-                    if (!empty($enabledCities)) {
-                        $rules['city'] = 'nullable|string|in:' . implode(',', $enabledCities);
+                    if (! empty($enabledCities)) {
+                        $rules['city'] = 'nullable|string|in:'.implode(',', $enabledCities);
                     } else {
                         $rules['city'] = 'nullable|string';
                     }
                 }
             }
-            
+
             // Validate request - location and description are always sent from form
             $validator = Validator::make($requestData, $rules, [
                 'item_type.required' => 'Item type is required',
@@ -609,21 +604,21 @@ class UserItemController extends Controller
                     'upload_id' => $uploadId,
                     'location_received' => $request->input('location'),
                     'description_received' => $request->input('description'),
-                    'all_request_data' => $requestData
+                    'all_request_data' => $requestData,
                 ]);
-                
+
                 return response()->json([
                     'success' => false,
                     'error' => 'Validation failed',
-                    'message' => 'Please check your input. ' . implode(' ', $validator->errors()->all()),
+                    'message' => 'Please check your input. '.implode(' ', $validator->errors()->all()),
                     'errors' => $validator->errors(),
                     'debug' => [
                         'has_location' => $request->has('location'),
                         'has_description' => $request->has('description'),
                         'location_value' => $request->input('location'),
                         'description_value' => $request->input('description'),
-                        'all_keys' => array_keys($requestData)
-                    ]
+                        'all_keys' => array_keys($requestData),
+                    ],
                 ], 400);
             }
 
@@ -635,7 +630,7 @@ class UserItemController extends Controller
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item not found or access denied'
+                    'error' => 'Item not found or access denied',
                 ], 404);
             }
 
@@ -643,31 +638,31 @@ class UserItemController extends Controller
 
             // Update basic fields if provided
             $updateData = [];
-            
+
             if ($request->has('item_type') && $request->filled('item_type')) {
                 $updateData['status'] = $request->item_type;
             }
-            
+
             // Province is required, so always update it if present
             if ($request->has('province')) {
                 $updateData['province'] = trim($request->province);
             }
-            
+
             // City is required, so always update it if present
             if ($request->has('city')) {
                 $updateData['city'] = trim($request->city);
             }
-            
+
             // Location is required, so always update it if present
             if ($request->has('location')) {
                 $updateData['location'] = trim($request->location);
             }
-            
+
             // Description is required, so always update it if present
             if ($request->has('description')) {
                 $updateData['description'] = trim($request->description);
             }
-            
+
             if ($request->has('tags')) {
                 $tagsValue = $request->input('tags');
                 if ($tagsValue !== null) {
@@ -676,7 +671,7 @@ class UserItemController extends Controller
             }
 
             // Update all items with this upload_id
-            if (!empty($updateData)) {
+            if (! empty($updateData)) {
                 ImageMetadata::where('upload_id', $uploadId)
                     ->where('uploader_email', $user->email)
                     ->update($updateData);
@@ -688,23 +683,23 @@ class UserItemController extends Controller
             $newImagesCount = 0;
 
             // Handle image removal
-            if ($request->has('remove_images') && is_array($request->remove_images) && !empty($request->remove_images)) {
+            if ($request->has('remove_images') && is_array($request->remove_images) && ! empty($request->remove_images)) {
                 // Ensure user doesn't remove all images
-                if (count($request->remove_images) >= $currentImageCount && !$request->hasFile('images')) {
+                if (count($request->remove_images) >= $currentImageCount && ! $request->hasFile('images')) {
                     return response()->json([
                         'success' => false,
-                        'error' => 'Cannot remove all images. Please add at least one new image before removing all existing ones, or keep at least one image.'
+                        'error' => 'Cannot remove all images. Please add at least one new image before removing all existing ones, or keep at least one image.',
                     ], 400);
                 }
 
                 $removeImagesCount = count($request->remove_images);
-                
+
                 foreach ($request->remove_images as $filename) {
                     $itemToRemove = ImageMetadata::where('upload_id', $uploadId)
                         ->where('uploader_email', $user->email)
                         ->where('filename', $filename)
                         ->first();
-                    
+
                     if ($itemToRemove) {
                         // Delete physical file
                         if ($itemToRemove->file_path) {
@@ -713,7 +708,7 @@ class UserItemController extends Controller
                                 Storage::disk('public')->delete($relativePath);
                             }
                         }
-                        
+
                         // Soft delete the image record
                         $itemToRemove->delete();
                     }
@@ -723,28 +718,28 @@ class UserItemController extends Controller
             // Handle new image uploads
             if ($request->hasFile('images')) {
                 $newImagesCount = count($request->file('images'));
-                
+
                 // Validate total image count (current - removed + new) doesn't exceed 5
                 $remainingImages = $currentImageCount - $removeImagesCount;
                 $totalAfterUpdate = $remainingImages + $newImagesCount;
-                
+
                 if ($totalAfterUpdate > 5) {
                     return response()->json([
                         'success' => false,
-                        'error' => "Maximum 5 images allowed. You currently have {$remainingImages} image(s) remaining. You can only add " . (5 - $remainingImages) . " more image(s)."
+                        'error' => "Maximum 5 images allowed. You currently have {$remainingImages} image(s) remaining. You can only add ".(5 - $remainingImages).' more image(s).',
                     ], 400);
                 }
-                
+
                 // Ensure at least one image remains
                 if ($totalAfterUpdate < 1) {
                     return response()->json([
                         'success' => false,
-                        'error' => 'At least one image is required for each item.'
+                        'error' => 'At least one image is required for each item.',
                     ], 400);
                 }
 
                 foreach ($request->file('images') as $index => $image) {
-                    $filename = time() . '_' . $index . '_' . $image->getClientOriginalName();
+                    $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                     $path = $image->storeAs('user-items', $filename, 'public');
 
                     // Create new image metadata record
@@ -753,6 +748,7 @@ class UserItemController extends Controller
                         'file_path' => Storage::url($path),
                         'original_name' => $image->getClientOriginalName(),
                         'uploader_email' => $user->email,
+                        'user_id' => $user->id,
                         'description' => $updateData['description'] ?? $firstItem->description,
                         'location' => $updateData['location'] ?? $firstItem->location,
                         'tags' => $updateData['tags'] ?? $firstItem->tags,
@@ -761,20 +757,20 @@ class UserItemController extends Controller
                         'status' => $updateData['status'] ?? $firstItem->status,
                         'upload_id' => $uploadId,
                     ];
-                    
+
                     // Only include province/city if they exist in updateData or firstItem
                     if (isset($updateData['province']) && $updateData['province'] !== null && $updateData['province'] !== '') {
                         $newMetadataData['province'] = $updateData['province'];
                     } elseif ($firstItem->province) {
                         $newMetadataData['province'] = $firstItem->province;
                     }
-                    
+
                     if (isset($updateData['city']) && $updateData['city'] !== null && $updateData['city'] !== '') {
                         $newMetadataData['city'] = $updateData['city'];
                     } elseif ($firstItem->city) {
                         $newMetadataData['city'] = $firstItem->city;
                     }
-                    
+
                     $newImageMetadata = ImageMetadata::create($newMetadataData);
                 }
             } else {
@@ -782,23 +778,23 @@ class UserItemController extends Controller
                 if ($removeImagesCount > 0 && ($currentImageCount - $removeImagesCount) < 1) {
                     return response()->json([
                         'success' => false,
-                        'error' => 'At least one image is required for each item. Please add a new image before removing all existing ones.'
+                        'error' => 'At least one image is required for each item. Please add a new image before removing all existing ones.',
                     ], 400);
                 }
             }
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item updated successfully'
+                'message' => 'Item updated successfully',
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to update item: ' . $e->getMessage());
-            
+            Log::error('Failed to update item: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to update item',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -811,18 +807,18 @@ class UserItemController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
                     'error' => 'Unauthorized',
-                    'message' => 'You must be logged in to delete items'
+                    'message' => 'You must be logged in to delete items',
                 ], 401);
             }
 
             Log::info('Delete item request', [
                 'upload_id' => $uploadId,
                 'user_email' => $user->email,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
 
             // Find items by upload_id and user email
@@ -833,12 +829,13 @@ class UserItemController extends Controller
             if ($items->isEmpty()) {
                 Log::warning('Delete item - not found or access denied', [
                     'upload_id' => $uploadId,
-                    'user_email' => $user->email
+                    'user_email' => $user->email,
                 ]);
+
                 return response()->json([
                     'success' => false,
                     'error' => 'Item not found or access denied',
-                    'message' => 'The item you are trying to delete does not exist or you do not have permission to delete it.'
+                    'message' => 'The item you are trying to delete does not exist or you do not have permission to delete it.',
                 ], 404);
             }
 
@@ -850,15 +847,15 @@ class UserItemController extends Controller
             Log::info('Items soft deleted', [
                 'upload_id' => $uploadId,
                 'deleted_count' => $deletedCount,
-                'user_email' => $user->email
+                'user_email' => $user->email,
             ]);
 
             // Broadcast item deleted event for real-time updates in chat
             try {
-                broadcast(new \App\Events\ItemDeleted($uploadId, $user->id))->toOthers();
+                broadcast(new ItemDeleted($uploadId, $user->id))->toOthers();
             } catch (\Exception $e) {
                 Log::warning('Failed to broadcast item deleted event', [
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
                 // Don't fail the delete if broadcast fails
             }
@@ -866,23 +863,24 @@ class UserItemController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Item deleted successfully. It can be restored from the trash.',
-                'deleted_count' => $deletedCount
+                'deleted_count' => $deletedCount,
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to delete item', [
                 'upload_id' => $uploadId,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to delete item',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Restore deleted user item
      */
@@ -900,7 +898,7 @@ class UserItemController extends Controller
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Deleted item not found or access denied'
+                    'error' => 'Deleted item not found or access denied',
                 ], 404);
             }
 
@@ -912,18 +910,18 @@ class UserItemController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item restored successfully'
+                'message' => 'Item restored successfully',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to restore item',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Force delete user item (permanent delete with files)
      */
@@ -941,7 +939,7 @@ class UserItemController extends Controller
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Deleted item not found or access denied'
+                    'error' => 'Deleted item not found or access denied',
                 ], 404);
             }
 
@@ -963,14 +961,14 @@ class UserItemController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Item permanently deleted'
+                'message' => 'Item permanently deleted',
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to permanently delete item',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -983,9 +981,9 @@ class UserItemController extends Controller
         try {
             $user = Auth::user();
 
-            // Get trashed items for the user
+            // Get trashed items for the user (match by user_id or email).
             $items = ImageMetadata::onlyTrashed()
-                ->where('uploader_email', $user->email)
+                ->ownedBy($user)
                 ->orderBy('deleted_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
@@ -1004,7 +1002,7 @@ class UserItemController extends Controller
                     'images' => $itemGroup->map(function ($item) {
                         // Handle file path - ensure it's a valid URL
                         $filePath = $item->file_path;
-                        
+
                         // Normalize the path - ensure it starts with /storage/
                         if (empty($filePath)) {
                             $imagePath = '';
@@ -1013,7 +1011,7 @@ class UserItemController extends Controller
                             $imagePath = $filePath;
                         } elseif (str_starts_with($filePath, 'storage/')) {
                             // Missing leading slash, add it
-                            $imagePath = '/' . $filePath;
+                            $imagePath = '/'.$filePath;
                         } elseif (str_starts_with($filePath, 'http')) {
                             // Full URL, use as is
                             $imagePath = $filePath;
@@ -1036,18 +1034,18 @@ class UserItemController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $formattedItems
+                'data' => $formattedItems,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to load trashed items',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Get items from other users (not current user) that match user's reported items
      * OPTIMIZED: Now uses pre-stored matches from database instead of real-time matching
@@ -1060,69 +1058,69 @@ class UserItemController extends Controller
             // OPTIMIZED APPROACH: Get pre-stored matches from database instead of doing real-time matching
             // Matches are stored when items are uploaded (in SimilarityNotificationService)
             // This makes the claim-verify page load much faster
-            
+
             // First, get user's reported items
             $userItems = ImageMetadata::where('uploader_email', $user->email)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
-            
+
             // If user has no reported items, return empty array
             if ($userItems->isEmpty()) {
                 return response()->json([
                     'success' => true,
                     'items' => [],
-                    'message' => 'No items to match. Report a lost or found item first to see matching items.'
+                    'message' => 'No items to match. Report a lost or found item first to see matching items.',
                 ]);
             }
-            
+
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
-            $storedMatches = \App\Models\ItemMatch::where('user_email', $user->email)
+            $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->whereIn('user_item_upload_id', $userUploadIds)
                 ->where('similarity_score', '>=', 0.5) // Only show matches above threshold
                 ->orderBy('similarity_score', 'desc')
                 ->get();
-            
+
             Log::info('Loading stored matches for claim-verify', [
                 'user_email' => $user->email,
                 'user_items_count' => count($userUploadIds),
-                'stored_matches_count' => $storedMatches->count()
+                'stored_matches_count' => $storedMatches->count(),
             ]);
 
             // Get the matched item upload IDs
             $matchedUploadIds = $storedMatches->pluck('matched_item_upload_id')->unique()->toArray();
-            
+
             // Get the matched items from database
             $matchedItemGroups = ImageMetadata::whereIn('upload_id', $matchedUploadIds)
                 ->where('uploader_email', '!=', $user->email)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
-            
+
             $matchedItems = [];
-            
+
             // Build matched items array from stored matches
             foreach ($storedMatches as $match) {
                 $matchedUploadId = $match->matched_item_upload_id;
-                
+
                 // Skip if we already have this match
                 if (isset($matchedItems[$matchedUploadId])) {
                     continue;
                 }
-                
+
                 // Get the matched item group
                 $matchedItemGroup = $matchedItemGroups->get($matchedUploadId);
-                if (!$matchedItemGroup) {
+                if (! $matchedItemGroup) {
                     continue;
                 }
-                
+
                 // Get the user's item that was matched
                 $userItemGroup = $userItems->get($match->user_item_upload_id);
-                if (!$userItemGroup) {
+                if (! $userItemGroup) {
                     continue;
                 }
-                
+
                 $matchedItems[$matchedUploadId] = [
                     'item' => $matchedItemGroup,
                     'similarity' => (float) $match->similarity_score,
@@ -1131,18 +1129,18 @@ class UserItemController extends Controller
                     'text_similarity' => (float) $match->text_similarity,
                 ];
             }
-            
+
             Log::info('Claim-verify loaded from stored matches', [
                 'user_email' => $user->email,
                 'stored_matches_count' => $storedMatches->count(),
                 'matched_items_count' => count($matchedItems),
-                'timestamp' => now()->toDateTimeString()
+                'timestamp' => now()->toDateTimeString(),
             ]);
 
             // Also include matches that came from notifications (older matches or matches
             // created before ItemMatch was introduced). This ensures that if the user
             // sees "Item Match Found!" notifications, those items also appear here.
-            $userNotifications = \App\Models\Notification::where('type', 'item_matched')
+            $userNotifications = Notification::where('type', 'item_matched')
                 ->where('user_id', $user->id)
                 ->whereNotNull('data')
                 ->get();
@@ -1155,7 +1153,7 @@ class UserItemController extends Controller
                     $otherUploadId = $data['new_item_upload_id'] ?? null;      // Other user's item
                     $userUploadIdForMatch = $data['matched_item_upload_id'] ?? null; // Current user's item
 
-                    if (!$otherUploadId || isset($matchedItems[$otherUploadId])) {
+                    if (! $otherUploadId || isset($matchedItems[$otherUploadId])) {
                         // Skip if no upload id or already included from ItemMatch
                         continue;
                     }
@@ -1167,7 +1165,7 @@ class UserItemController extends Controller
                     ];
                 }
 
-                if (!empty($notificationMatches)) {
+                if (! empty($notificationMatches)) {
                     $otherUploadIds = array_keys($notificationMatches);
 
                     // Load the matched items for these upload IDs
@@ -1184,7 +1182,7 @@ class UserItemController extends Controller
                         }
 
                         $matchedItemGroup = $notificationItemGroups->get($otherUploadId);
-                        if (!$matchedItemGroup) {
+                        if (! $matchedItemGroup) {
                             continue;
                         }
 
@@ -1208,16 +1206,16 @@ class UserItemController extends Controller
                     ]);
                 }
             }
-            
+
             // If no matches found, return empty array
             if (empty($matchedItems)) {
                 return response()->json([
                     'success' => true,
                     'items' => [],
-                    'message' => 'No matching items found. Keep checking back as new items are posted!'
+                    'message' => 'No matching items found. Keep checking back as new items are posted!',
                 ]);
             }
-            
+
             // Show ALL matched items regardless of claim status
             // This ensures all similar and matched items are visible on the claim-verify page
             // The frontend will display the claim status so users know which items are available
@@ -1225,20 +1223,20 @@ class UserItemController extends Controller
             foreach ($matchedItems as $otherUploadId => $matchData) {
                 $group = $matchData['item'];
                 $firstItem = $group->first();
-                
+
                 // Include ALL matched items - don't filter by claim status
                 // This ensures all similar items are listed, even if they're claimed/verified
                 // The UI will show the status so users can see which items are available
                 $claimableMatchedItems[$otherUploadId] = $matchData;
-                
+
                 Log::debug('Including matched item in claim-verify', [
                     'upload_id' => $otherUploadId,
                     'claim_status' => $firstItem->claim_verification_status,
                     'is_claimed' => $firstItem->is_claimed ?? false,
-                    'similarity' => $matchData['similarity'] ?? 0
+                    'similarity' => $matchData['similarity'] ?? 0,
                 ]);
             }
-            
+
             // Format matched items
             $items = collect($claimableMatchedItems)
                 ->map(function ($matchData) use ($user, $userItems) {
@@ -1248,10 +1246,10 @@ class UserItemController extends Controller
                     $detectedObjects = $firstItem->detected_objects ? (is_string($firstItem->detected_objects) ? json_decode($firstItem->detected_objects, true) : $firstItem->detected_objects) : [];
 
                     // Get the user who uploaded this item
-                    $uploader = \App\Models\User::where('email', $firstItem->uploader_email)->first();
+                    $uploader = User::where('email', $firstItem->uploader_email)->first();
 
                     // Check if current user has claimed this item
-                    $userHasClaimed = $firstItem->claim_verification_status === 'pending' 
+                    $userHasClaimed = $firstItem->claim_verification_status === 'pending'
                         && $firstItem->claimed_by_email === $user->email;
 
                     // Get the user's matched item details
@@ -1261,9 +1259,9 @@ class UserItemController extends Controller
                         $userItemGroup = $userItems[$matchedWithUploadId];
                         $userFirstItem = $userItemGroup->first();
                         $userTags = $userFirstItem->tags ? (is_string($userFirstItem->tags) ? json_decode($userFirstItem->tags, true) : $userFirstItem->tags) : [];
-                        
+
                         $userDetectedObjects = $userFirstItem->detected_objects ? (is_string($userFirstItem->detected_objects) ? json_decode($userFirstItem->detected_objects, true) : $userFirstItem->detected_objects) : [];
-                        
+
                         $userMatchedItem = [
                             'upload_id' => $matchedWithUploadId,
                             'item_type' => $userFirstItem->status,
@@ -1276,13 +1274,13 @@ class UserItemController extends Controller
                             'created_at' => $userFirstItem->created_at,
                             'images' => $userItemGroup->map(function ($item) {
                                 $filePath = $item->file_path;
-                                
+
                                 if (empty($filePath)) {
                                     $imagePath = '';
                                 } elseif (str_starts_with($filePath, '/storage/')) {
                                     $imagePath = $filePath;
                                 } elseif (str_starts_with($filePath, 'storage/')) {
-                                    $imagePath = '/' . $filePath;
+                                    $imagePath = '/'.$filePath;
                                 } elseif (str_starts_with($filePath, 'http')) {
                                     $imagePath = $filePath;
                                 } else {
@@ -1291,9 +1289,9 @@ class UserItemController extends Controller
 
                                 return [
                                     'path' => $imagePath,
-                                    'original_name' => $item->original_name ?? basename($filePath)
+                                    'original_name' => $item->original_name ?? basename($filePath),
                                 ];
-                            })->toArray()
+                            })->toArray(),
                         ];
                     }
 
@@ -1320,7 +1318,7 @@ class UserItemController extends Controller
                         'images' => $group->map(function ($item) {
                             // Handle file path - ensure it's a valid URL
                             $filePath = $item->file_path;
-                            
+
                             // Normalize the path - ensure it starts with /storage/
                             if (empty($filePath)) {
                                 $imagePath = '';
@@ -1329,7 +1327,7 @@ class UserItemController extends Controller
                                 $imagePath = $filePath;
                             } elseif (str_starts_with($filePath, 'storage/')) {
                                 // Missing leading slash, add it
-                                $imagePath = '/' . $filePath;
+                                $imagePath = '/'.$filePath;
                             } elseif (str_starts_with($filePath, 'http')) {
                                 // Full URL, use as is
                                 $imagePath = $filePath;
@@ -1340,32 +1338,33 @@ class UserItemController extends Controller
 
                             return [
                                 'path' => $imagePath,
-                                'original_name' => $item->original_name ?? basename($filePath)
+                                'original_name' => $item->original_name ?? basename($filePath),
                             ];
-                        })->toArray()
+                        })->toArray(),
                     ];
                 })
                 ->sortByDesc('similarity_score')
                 ->values()
                 ->toArray();
-            
+
             return response()->json([
                 'success' => true,
                 'items' => $items,
-                'message' => count($items) . ' matching item(s) found based on your reported items.'
+                'message' => count($items).' matching item(s) found based on your reported items.',
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching matching items: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Error fetching matching items: '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to fetch matching items: ' . $e->getMessage()
+                'message' => 'Failed to fetch matching items: '.$e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Get file path for an item
      */
@@ -1373,38 +1372,38 @@ class UserItemController extends Controller
     {
         // Try multiple path formats to find the file
         $possiblePaths = [];
-        
+
         // If we have a filename, try direct path
         if ($item->filename) {
-            $possiblePaths[] = storage_path('app/public/user-items/' . $item->filename);
-            $possiblePaths[] = storage_path('app/public/reference-images/' . $item->filename);
+            $possiblePaths[] = storage_path('app/public/user-items/'.$item->filename);
+            $possiblePaths[] = storage_path('app/public/reference-images/'.$item->filename);
         }
-        
+
         // If we have file_path, extract filename and try
         if ($item->file_path) {
             // Handle different path formats: /storage/user-items/file.jpg, storage/user-items/file.jpg, user-items/file.jpg
             $filePath = $item->file_path;
-            
+
             // Remove /storage/ prefix if present
             if (str_starts_with($filePath, '/storage/')) {
                 $filePath = substr($filePath, 9); // Remove '/storage/'
             } elseif (str_starts_with($filePath, 'storage/')) {
                 $filePath = substr($filePath, 8); // Remove 'storage/'
             }
-            
+
             // Extract just the filename
             $filename = basename($filePath);
-            
+
             // Try user-items first (most common)
-            $possiblePaths[] = storage_path('app/public/user-items/' . $filename);
-            $possiblePaths[] = storage_path('app/public/reference-images/' . $filename);
-            
+            $possiblePaths[] = storage_path('app/public/user-items/'.$filename);
+            $possiblePaths[] = storage_path('app/public/reference-images/'.$filename);
+
             // Also try with the full relative path
             if (str_contains($filePath, 'user-items')) {
-                $possiblePaths[] = storage_path('app/public/' . $filePath);
+                $possiblePaths[] = storage_path('app/public/'.$filePath);
             }
         }
-        
+
         // Check each possible path
         foreach ($possiblePaths as $path) {
             if (file_exists($path)) {
@@ -1413,23 +1412,24 @@ class UserItemController extends Controller
                     'upload_id' => $item->upload_id,
                     'file_path' => $item->file_path,
                     'filename' => $item->filename,
-                    'resolved_path' => $path
+                    'resolved_path' => $path,
                 ]);
+
                 return $path;
             }
         }
-        
+
         Log::warning('Could not find file path for item', [
             'item_id' => $item->id,
             'upload_id' => $item->upload_id,
             'file_path' => $item->file_path,
             'filename' => $item->filename,
-            'tried_paths' => $possiblePaths
+            'tried_paths' => $possiblePaths,
         ]);
-        
+
         return null;
     }
-    
+
     /**
      * Calculate image similarity using ImageComparator
      */
@@ -1438,9 +1438,11 @@ class UserItemController extends Controller
         try {
             $imageComparator = app(ImageComparator::class);
             $similarity = $imageComparator->compare($image1Path, $image2Path);
+
             return $similarity > 1 ? $similarity / 100 : $similarity;
         } catch (\Exception $e) {
-            Log::warning('Could not compare images: ' . $e->getMessage());
+            Log::warning('Could not compare images: '.$e->getMessage());
+
             return 0.0;
         }
     }
@@ -1450,19 +1452,19 @@ class UserItemController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'User not authenticated'
+                    'error' => 'User not authenticated',
                 ], 401);
             }
 
             // First check if item exists
             $itemExists = ImageMetadata::where('upload_id', $uploadId)->exists();
-            if (!$itemExists) {
+            if (! $itemExists) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item not found'
+                    'error' => 'Item not found',
                 ], 404);
             }
 
@@ -1473,29 +1475,29 @@ class UserItemController extends Controller
             if ($ownItem) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'You cannot claim your own item'
+                    'error' => 'You cannot claim your own item',
                 ], 400);
             }
-            
+
             // Verify that the user has a LOST item and the item to claim is FOUND
             // Users with FOUND items can only message, not claim
             $itemToClaim = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
                 ->first();
-            
-            if (!$itemToClaim) {
+
+            if (! $itemToClaim) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item not found.'
+                    'error' => 'Item not found.',
                 ], 404);
             }
-            
+
             // Check if user has a LOST item that matches this FOUND item
             $userItems = ImageMetadata::where('uploader_email', $user->email)
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
-            
+
             $hasLostItem = false;
             foreach ($userItems as $userUploadId => $userItemGroup) {
                 $userItem = $userItemGroup->first();
@@ -1504,11 +1506,11 @@ class UserItemController extends Controller
                     break;
                 }
             }
-            
-            if (!$hasLostItem) {
+
+            if (! $hasLostItem) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'You can only claim items if you have a lost item. If you found an item, please message the owner to notify them.'
+                    'error' => 'You can only claim items if you have a lost item. If you found an item, please message the owner to notify them.',
                 ], 400);
             }
 
@@ -1519,7 +1521,7 @@ class UserItemController extends Controller
             if ($pendingClaim) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'This item already has a pending claim. Please wait for the owner to verify it.'
+                    'error' => 'This item already has a pending claim. Please wait for the owner to verify it.',
                 ], 400);
             }
 
@@ -1531,50 +1533,50 @@ class UserItemController extends Controller
             if ($verifiedClaim) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'This item has already been claimed and verified.'
+                    'error' => 'This item has already been claimed and verified.',
                 ], 400);
             }
 
             // Find the item (must not be owned by the current user and not already claimed/verified/pending)
             $items = ImageMetadata::where('upload_id', $uploadId)
                 ->where('uploader_email', '!=', $user->email)
-                ->where(function($query) {
+                ->where(function ($query) {
                     // Only allow claiming if:
                     // 1. Not claimed at all (including NULL), OR
                     // 2. Claimed but rejected (can be claimed again)
-                    $query->where(function($q) {
-                        $q->where(function($r){
+                    $query->where(function ($q) {
+                        $q->where(function ($r) {
                             $r->where('is_claimed', false)
-                              ->orWhereNull('is_claimed');
+                                ->orWhereNull('is_claimed');
                         })
-                          ->where(function($subQ) {
-                              $subQ->whereNull('claim_verification_status')
-                                   ->orWhere('claim_verification_status', '!=', 'pending');
-                          });
+                            ->where(function ($subQ) {
+                                $subQ->whereNull('claim_verification_status')
+                                    ->orWhere('claim_verification_status', '!=', 'pending');
+                            });
                     })
-                    ->orWhere(function($q) {
-                        $q->where('is_claimed', true)
-                          ->where('claim_verification_status', 'rejected');
-                    });
+                        ->orWhere(function ($q) {
+                            $q->where('is_claimed', true)
+                                ->where('claim_verification_status', 'rejected');
+                        });
                 })
                 ->get();
 
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item cannot be claimed at this time. It may already have a pending claim or be verified.'
+                    'error' => 'Item cannot be claimed at this time. It may already have a pending claim or be verified.',
                 ], 400);
             }
 
             // Get the original owner of the item (the person who posted it)
             $firstItem = $items->first();
             $itemOwnerEmail = $firstItem->uploader_email;
-            $itemOwner = \App\Models\User::where('email', $itemOwnerEmail)->first();
+            $itemOwner = User::where('email', $itemOwnerEmail)->first();
 
-            if (!$itemOwner) {
+            if (! $itemOwner) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'Item owner not found'
+                    'error' => 'Item owner not found',
                 ], 404);
             }
 
@@ -1585,12 +1587,12 @@ class UserItemController extends Controller
                 ->update([
                     'claimed_by_email' => $user->email,
                     'claimed_at' => now(),
-                    'claim_verification_status' => 'pending'
+                    'claim_verification_status' => 'pending',
                     // Note: is_claimed remains false until owner verifies
                 ]);
 
             // Broadcast item claimed event for real-time updates in chat
-            broadcast(new \App\Events\ItemClaimed($uploadId, $user->id, $itemOwner->id, 'pending'))->toOthers();
+            broadcast(new ItemClaimed($uploadId, $user->id, $itemOwner->id, 'pending'))->toOthers();
 
             // Send notification message to the item owner
             try {
@@ -1598,7 +1600,7 @@ class UserItemController extends Controller
                 $images = $items->map(function ($item) {
                     // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
-                    
+
                     // Normalize the path - ensure it starts with /storage/
                     if (empty($filePath)) {
                         $imagePath = '';
@@ -1607,19 +1609,19 @@ class UserItemController extends Controller
                         $imagePath = $filePath;
                     } elseif (str_starts_with($filePath, 'storage/')) {
                         // Missing leading slash, add it
-                        $imagePath = '/' . $filePath;
+                        $imagePath = '/'.$filePath;
                     } elseif (str_starts_with($filePath, 'http')) {
                         // Full URL, use as is
                         $imagePath = $filePath;
                     } else {
                         // Relative path, use Storage::url to generate proper path
-                        $imagePath = \Illuminate\Support\Facades\Storage::url($filePath);
+                        $imagePath = Storage::url($filePath);
                     }
-                    
+
                     return [
                         'path' => $imagePath,
                         'original_name' => $item->original_name ?? basename($filePath),
-                        'filename' => $item->filename
+                        'filename' => $item->filename,
                     ];
                 })->toArray();
 
@@ -1643,7 +1645,7 @@ class UserItemController extends Controller
 
                 $claimMessage = "Hello! I believe I found your {$firstItem->status} item. Please verify if this item belongs to me so I can return it to you.";
 
-                \App\Models\Message::create([
+                Message::create([
                     'sender_id' => $user->id,
                     'receiver_id' => $itemOwner->id,
                     'message' => $claimMessage,
@@ -1652,19 +1654,19 @@ class UserItemController extends Controller
                 ]);
 
                 // Also update any existing messages with this item to include claim status
-                \App\Models\Message::where('item_upload_id', $uploadId)
-                    ->where(function($query) use ($user, $itemOwner) {
-                        $query->where(function($q) use ($user, $itemOwner) {
+                Message::where('item_upload_id', $uploadId)
+                    ->where(function ($query) use ($user, $itemOwner) {
+                        $query->where(function ($q) use ($user, $itemOwner) {
                             $q->where('sender_id', $user->id)
-                              ->where('receiver_id', $itemOwner->id);
-                        })->orWhere(function($q) use ($user, $itemOwner) {
+                                ->where('receiver_id', $itemOwner->id);
+                        })->orWhere(function ($q) use ($user, $itemOwner) {
                             $q->where('sender_id', $itemOwner->id)
-                              ->where('receiver_id', $user->id);
+                                ->where('receiver_id', $user->id);
                         });
                     })
                     ->whereNotNull('item_context')
                     ->get()
-                    ->each(function($message) use ($itemContext) {
+                    ->each(function ($message) use ($itemContext) {
                         $existingContext = json_decode($message->item_context, true);
                         if ($existingContext) {
                             $existingContext['claim_status'] = 'pending';
@@ -1676,19 +1678,19 @@ class UserItemController extends Controller
                 Log::info('Claim notification message sent', [
                     'claimer_id' => $user->id,
                     'owner_id' => $itemOwner->id,
-                    'upload_id' => $uploadId
+                    'upload_id' => $uploadId,
                 ]);
             } catch (\Exception $e) {
-                Log::error('Failed to send claim notification message: ' . $e->getMessage());
+                Log::error('Failed to send claim notification message: '.$e->getMessage());
             }
 
             // In-app notification for the owner
             try {
-                \App\Models\Notification::create([
+                Notification::create([
                     'user_id' => $itemOwner->id,
                     'type' => 'item_claimed',
                     'title' => 'Someone claimed your item',
-                    'message' => $user->name . ' requested to claim your ' . ($firstItem->status ?? 'item') . '.',
+                    'message' => $user->name.' requested to claim your '.($firstItem->status ?? 'item').'.',
                     'data' => [
                         'upload_id' => $uploadId,
                         'claimer_id' => $user->id,
@@ -1696,14 +1698,14 @@ class UserItemController extends Controller
                     ],
                 ]);
             } catch (\Exception $e) {
-                Log::warning('Failed creating in-app notification: ' . $e->getMessage());
+                Log::warning('Failed creating in-app notification: '.$e->getMessage());
             }
 
             // Send email notification to the item owner
             try {
                 // Check if email notifications are enabled
-                $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
-                
+                $emailNotificationsEnabled = Setting::get('email_notifications', true);
+
                 if ($emailNotificationsEnabled) {
                     // Apply mail configuration from settings
                     $this->applyMailConfigurationFromSettings();
@@ -1724,20 +1726,20 @@ class UserItemController extends Controller
                         'claimed_at' => now()->format('M d, Y h:i A'),
                     ];
 
-                    Mail::to($itemOwnerEmail)->send(new \App\Mail\UserItemNotification($emailData));
+                    Mail::to($itemOwnerEmail)->send(new UserItemNotification($emailData));
 
                     Log::info('Claim notification email sent', [
                         'claimer_id' => $user->id,
                         'owner_email' => $itemOwnerEmail,
-                        'upload_id' => $uploadId
+                        'upload_id' => $uploadId,
                     ]);
                 } else {
                     Log::info('Email notifications disabled - skipping claim notification email', [
-                        'owner_email' => $itemOwnerEmail
+                        'owner_email' => $itemOwnerEmail,
                     ]);
                 }
             } catch (\Exception $e) {
-                Log::error('Failed to send claim notification email: ' . $e->getMessage());
+                Log::error('Failed to send claim notification email: '.$e->getMessage());
                 // Don't fail the claim if email fails
             }
 
@@ -1746,13 +1748,13 @@ class UserItemController extends Controller
                 'message' => 'Item claim request sent! The item owner has been notified and will verify your claim. You can message them to discuss the details.',
                 'owner_name' => $itemOwner->name,
                 'owner_id' => $itemOwner->id,
-                'upload_id' => $uploadId
+                'upload_id' => $uploadId,
             ]);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to claim item: ' . $e->getMessage()
+                'error' => 'Failed to claim item: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1765,10 +1767,10 @@ class UserItemController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user) {
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'User not authenticated'
+                    'error' => 'User not authenticated',
                 ], 401);
             }
 
@@ -1781,7 +1783,7 @@ class UserItemController extends Controller
             if ($items->isEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'No pending claim found for this item'
+                    'error' => 'No pending claim found for this item',
                 ], 404);
             }
 
@@ -1792,19 +1794,20 @@ class UserItemController extends Controller
                 ->update([
                     'claimed_by_email' => null,
                     'claimed_at' => null,
-                    'claim_verification_status' => null
+                    'claim_verification_status' => null,
                 ]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'Claim cancelled successfully. The item is now available for others to claim.'
+                'message' => 'Claim cancelled successfully. The item is now available for others to claim.',
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to cancel claim: ' . $e->getMessage());
+            Log::error('Failed to cancel claim: '.$e->getMessage());
+
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to cancel claim: ' . $e->getMessage()
+                'error' => 'Failed to cancel claim: '.$e->getMessage(),
             ], 500);
         }
     }
@@ -1816,15 +1819,15 @@ class UserItemController extends Controller
     {
         try {
             // Get mail settings from database
-            $mailMailer = \App\Models\Setting::get('mail_mailer', env('MAIL_MAILER', 'log'));
-            $mailHost = \App\Models\Setting::get('mail_host', env('MAIL_HOST'));
-            $mailPort = \App\Models\Setting::get('mail_port', env('MAIL_PORT', 587));
-            $mailUsername = \App\Models\Setting::get('mail_username', env('MAIL_USERNAME'));
-            $mailPassword = \App\Models\Setting::get('mail_password', env('MAIL_PASSWORD'));
-            $mailEncryption = \App\Models\Setting::get('mail_encryption', env('MAIL_ENCRYPTION', 'tls'));
-            $mailFromAddress = \App\Models\Setting::get('mail_from_address', env('MAIL_FROM_ADDRESS'));
-            $mailFromName = \App\Models\Setting::get('mail_from_name', env('MAIL_FROM_NAME'));
-            
+            $mailMailer = Setting::get('mail_mailer', env('MAIL_MAILER', 'log'));
+            $mailHost = Setting::get('mail_host', env('MAIL_HOST'));
+            $mailPort = Setting::get('mail_port', env('MAIL_PORT', 587));
+            $mailUsername = Setting::get('mail_username', env('MAIL_USERNAME'));
+            $mailPassword = Setting::get('mail_password', env('MAIL_PASSWORD'));
+            $mailEncryption = Setting::get('mail_encryption', env('MAIL_ENCRYPTION', 'tls'));
+            $mailFromAddress = Setting::get('mail_from_address', env('MAIL_FROM_ADDRESS'));
+            $mailFromName = Setting::get('mail_from_name', env('MAIL_FROM_NAME'));
+
             // Update config dynamically
             if ($mailMailer && $mailMailer !== 'log') {
                 config([
@@ -1837,14 +1840,14 @@ class UserItemController extends Controller
                     'mail.from.address' => $mailFromAddress ?? config('mail.from.address'),
                     'mail.from.name' => $mailFromName ?? config('mail.from.name'),
                 ]);
-                
+
                 // Reconfigure mailer if SMTP settings are available
                 if ($mailMailer === 'smtp' && $mailHost && $mailUsername && $mailPassword) {
-                    \Illuminate\Support\Facades\Config::set('mail.default', 'smtp');
+                    Config::set('mail.default', 'smtp');
                 }
             }
         } catch (\Exception $e) {
-            Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
+            Log::warning('Failed to apply mail configuration from settings: '.$e->getMessage());
         }
     }
 
@@ -1861,14 +1864,14 @@ class UserItemController extends Controller
             return round($size);
         }
     }
-    
+
     /**
      * Get human-readable upload error message
      */
     private function getUploadErrorMessage($errorCode)
     {
         $errors = [
-            UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize (' . ini_get('upload_max_filesize') . ')',
+            UPLOAD_ERR_INI_SIZE => 'File exceeds upload_max_filesize ('.ini_get('upload_max_filesize').')',
             UPLOAD_ERR_FORM_SIZE => 'File exceeds MAX_FILE_SIZE directive in HTML form',
             UPLOAD_ERR_PARTIAL => 'File was only partially uploaded',
             UPLOAD_ERR_NO_FILE => 'No file was uploaded',
@@ -1876,10 +1879,10 @@ class UserItemController extends Controller
             UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
             UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload',
         ];
-        
-        return $errors[$errorCode] ?? 'Unknown upload error (code: ' . $errorCode . ')';
+
+        return $errors[$errorCode] ?? 'Unknown upload error (code: '.$errorCode.')';
     }
-    
+
     /**
      * Analyze image with Google Vision API to detect objects
      */
@@ -1888,34 +1891,34 @@ class UserItemController extends Controller
         try {
             // Check if Google Vision is enabled
             $isEnabled = $this->isGoogleVisionEnabled();
-            if (!$isEnabled) {
+            if (! $isEnabled) {
                 throw new \Exception('Google Vision API is not enabled. Enable it in admin settings or set GOOGLE_VISION_ENABLED=true.');
             }
 
             // Get API key from settings with env fallback
             $apiKey = $this->getGoogleVisionApiKey();
-            
+
             if (empty($apiKey)) {
                 throw new \Exception('Google Vision API key not configured. Save it in admin settings or set GOOGLE_VISION_API_KEY in .env.');
             }
 
             // Use REST API with API key
-            $url = 'https://vision.googleapis.com/v1/images:annotate?key=' . urlencode($apiKey);
-            
+            $url = 'https://vision.googleapis.com/v1/images:annotate?key='.urlencode($apiKey);
+
             $imageContent = file_get_contents($imagePath);
-            
+
             $data = [
                 'requests' => [
                     [
                         'image' => [
-                            'content' => base64_encode($imageContent)
+                            'content' => base64_encode($imageContent),
                         ],
                         'features' => [
                             ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 20],
                             ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
-                        ]
-                    ]
-                ]
+                        ],
+                    ],
+                ],
             ];
 
             $ch = curl_init($url);
@@ -1923,7 +1926,7 @@ class UserItemController extends Controller
             curl_setopt($ch, CURLOPT_POST, true);
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
             curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            
+
             $response = curl_exec($ch);
             $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
             $curlError = curl_error($ch);
@@ -1932,7 +1935,7 @@ class UserItemController extends Controller
             if ($httpCode !== 200) {
                 $errorData = json_decode($response, true);
                 $errorMessage = $errorData['error']['message'] ?? ($curlError ?: 'Unknown error');
-                throw new \Exception('Google Vision API error: ' . $errorMessage);
+                throw new \Exception('Google Vision API error: '.$errorMessage);
             }
 
             $responseData = json_decode($response, true);
@@ -1965,7 +1968,7 @@ class UserItemController extends Controller
                 'labels' => $labels,
             ];
         } catch (\Exception $e) {
-            Log::error('Google Vision API analysis error: ' . $e->getMessage());
+            Log::error('Google Vision API analysis error: '.$e->getMessage());
             throw $e;
         }
     }
@@ -1981,7 +1984,7 @@ class UserItemController extends Controller
         }
 
         $tagsArray = [];
-        
+
         // Try to decode as JSON first
         $decoded = json_decode($tagsInput, true);
         if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
@@ -1992,8 +1995,8 @@ class UserItemController extends Controller
         }
 
         // Filter out empty tags
-        $tagsArray = array_filter($tagsArray, function($tag) {
-            return !empty(trim($tag));
+        $tagsArray = array_filter($tagsArray, function ($tag) {
+            return ! empty(trim($tag));
         });
 
         // Increment usage count for each tag
@@ -2013,7 +2016,7 @@ class UserItemController extends Controller
      */
     private function isGoogleVisionEnabled(): bool
     {
-        $dbEnabled = \App\Models\Setting::get('google_vision_enabled', null);
+        $dbEnabled = Setting::get('google_vision_enabled', null);
         if ($dbEnabled !== null) {
             return (bool) $dbEnabled;
         }
@@ -2026,8 +2029,8 @@ class UserItemController extends Controller
      */
     private function getGoogleVisionApiKey(): string
     {
-        $dbKey = \App\Models\Setting::get('google_vision_api_key', '');
-        if (!empty($dbKey)) {
+        $dbKey = Setting::get('google_vision_api_key', '');
+        if (! empty($dbKey)) {
             return trim((string) $dbKey);
         }
 

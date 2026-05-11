@@ -1294,24 +1294,13 @@ function initializeLocationMap(mapId, inputId) {
             locationMarkers[mapId].on('dragend', function() {
                 const position = locationMarkers[mapId].getLatLng();
                 updateLocationFromMap(inputId, position.lat, position.lng);
+                reverseGeocode(position.lat, position.lng).then(geo => fillLocationFields(inputId, geo));
             });
         }
         
-        // Reverse geocode to get address
-        reverseGeocode(lat, lon).then(address => {
-            if (address) {
-                isSettingLocationProgrammatically = true;
-                const locationInput = document.getElementById(inputId);
-                if (locationInput) {
-                    locationInput.value = address;
-                }
-                setTimeout(() => {
-                    isSettingLocationProgrammatically = false;
-                }, 100);
-            }
-        });
-        
-        // Update hidden inputs
+        // Reverse geocode then auto-fill Province + City + Location (street).
+        reverseGeocode(lat, lon).then(geo => fillLocationFields(inputId, geo));
+
         updateLocationFromMap(inputId, lat, lon);
     });
 }
@@ -1336,31 +1325,19 @@ function useCurrentLocation(inputId) {
         async function(position) {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
-            
-            // Update hidden inputs
+
             updateLocationFromMap(inputId, lat, lon);
-            
-            // Reverse geocode to get address
-            const address = await reverseGeocode(lat, lon);
-            if (address) {
-                isSettingLocationProgrammatically = true;
-                const locationInput = document.getElementById(inputId);
-                if (locationInput) {
-                    locationInput.value = address;
-                }
-                setTimeout(() => {
-                    isSettingLocationProgrammatically = false;
-                }, 100);
-            }
-            
-            // Show and initialize map if not already shown
+
+            // Reverse geocode then auto-fill Province + City + Location (street).
+            const geo = await reverseGeocode(lat, lon);
+            fillLocationFields(inputId, geo);
+
             const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
             const mapElement = document.getElementById(mapId);
             if (mapElement && (mapElement.style.display === 'none' || !mapElement.style.display)) {
                 toggleLocationMap(inputId);
             }
-            
-            // Pin location on map
+
             setTimeout(() => {
                 pinLocationOnMap(mapId, inputId, lat, lon);
             }, 300);
@@ -1393,18 +1370,7 @@ function pinLocationOnMap(mapId, inputId, lat, lon) {
                 locationMarkers[mapId].on('dragend', function() {
                     const position = locationMarkers[mapId].getLatLng();
                     updateLocationFromMap(inputId, position.lat, position.lng);
-                    reverseGeocode(position.lat, position.lng).then(address => {
-                        if (address) {
-                            isSettingLocationProgrammatically = true;
-                            const locationInput = document.getElementById(inputId);
-                            if (locationInput) {
-                                locationInput.value = address;
-                            }
-                            setTimeout(() => {
-                                isSettingLocationProgrammatically = false;
-                            }, 100);
-                        }
-                    });
+                    reverseGeocode(position.lat, position.lng).then(geo => fillLocationFields(inputId, geo));
                 });
             }
         }
@@ -1486,23 +1452,105 @@ function clearLocationMap(inputId) {
     hideLocationAutocomplete(inputId);
 }
 
-// Reverse geocode coordinates to address
+/**
+ * Reverse-geocode coordinates via Nominatim and return a structured address.
+ *
+ * Result shape:
+ *   {
+ *     display:  full human-readable string,
+ *     street:   street/road only (house number + road, falls back to pedestrian/etc.),
+ *     city:     city / town / municipality / village,
+ *     province: state / region,
+ *     country:  country name,
+ *     raw:      original Nominatim address object,
+ *   }
+ *
+ * A toString() is attached so existing callers that treat the result as a
+ * string (template literals, direct assignment) continue to work and resolve
+ * to `display`.
+ */
 async function reverseGeocode(lat, lon) {
     try {
         const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&addressdetails=1`,
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
             {
-                headers: {
-                    'User-Agent': 'FindITFast Lost and Found App'
-                }
+                headers: { 'Accept': 'application/json' }
             }
         );
-        
+
         const data = await response.json();
-        return data.display_name || '';
+        const addr = (data && data.address) ? data.address : {};
+
+        const streetParts = [];
+        if (addr.house_number) streetParts.push(addr.house_number);
+        if (addr.road) streetParts.push(addr.road);
+        else if (addr.pedestrian) streetParts.push(addr.pedestrian);
+        else if (addr.footway) streetParts.push(addr.footway);
+        else if (addr.path) streetParts.push(addr.path);
+        else if (addr.neighbourhood) streetParts.push(addr.neighbourhood);
+        else if (addr.suburb) streetParts.push(addr.suburb);
+
+        const street = streetParts.join(' ').trim();
+        const city = addr.city || addr.town || addr.municipality || addr.village || addr.hamlet || '';
+        const province = addr.state || addr.region || addr.province || addr.state_district || '';
+        const country = addr.country || '';
+
+        const displayParts = [];
+        if (street) displayParts.push(street);
+        if (addr.suburb && addr.suburb !== street) displayParts.push(addr.suburb);
+        if (city) displayParts.push(city);
+        if (province) displayParts.push(province);
+        if (country) displayParts.push(country);
+        const display = displayParts.length > 0
+            ? displayParts.join(', ')
+            : (data.display_name || `${lat}, ${lon}`);
+
+        const result = { display, street, city, province, country, raw: addr };
+        result.toString = () => display;
+        return result;
     } catch (error) {
         console.error('Error reverse geocoding:', error);
-        return '';
+        const empty = { display: '', street: '', city: '', province: '', country: '', raw: {} };
+        empty.toString = () => '';
+        return empty;
+    }
+}
+
+/**
+ * Apply a reverse-geocode result to the guest form fields.
+ *
+ * - Location → full address (street + suburb + city + province + country).
+ * - Province → `province-input`
+ * - City     → `city-input`
+ *
+ * Dispatches input/change events so any existing autocomplete-validation
+ * (the "we don't cover this province yet" banner) still runs.
+ */
+function fillLocationFields(inputId, geo) {
+    if (!geo) return;
+    const locationInput = document.getElementById(inputId);
+    const provinceInput = document.getElementById('province-input');
+    const cityInput = document.getElementById('city-input');
+
+    isSettingLocationProgrammatically = true;
+    try {
+        if (locationInput) {
+            // Full composed address; falls back to street-only if Nominatim
+            // didn't return any administrative components.
+            locationInput.value = geo.display || geo.street || '';
+        }
+        if (provinceInput && geo.province) {
+            provinceInput.value = geo.province;
+            provinceInput.dispatchEvent(new Event('input', { bubbles: true }));
+            provinceInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        if (cityInput && geo.city) {
+            cityInput.value = geo.city;
+            cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+            cityInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    } finally {
+        setTimeout(() => { isSettingLocationProgrammatically = false; }, 100);
     }
 }
 

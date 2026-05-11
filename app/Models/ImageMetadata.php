@@ -31,6 +31,7 @@ class ImageMetadata extends Model
         'file_size',
         'mime_type',
         'uploader_email',
+        'user_id',
         'status',
         'is_claimed',
         'claimed_by_email',
@@ -155,5 +156,49 @@ class ImageMetadata extends Model
     public function scopeUnclaimed($query)
     {
         return $query->where('is_claimed', false);
+    }
+
+    /**
+     * Scope: items owned by the given user.
+     *
+     * Matches by user_id when present (preferred, stable across email changes),
+     * and falls back to uploader_email so legacy rows without a user_id still appear.
+     */
+    public function scopeOwnedBy($query, ?User $user)
+    {
+        if (! $user) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(function ($q) use ($user): void {
+            $q->where('user_id', $user->id)
+                ->orWhere('uploader_email', $user->email);
+        });
+    }
+
+    /**
+     * Scope: items NOT owned by the given user.
+     */
+    public function scopeNotOwnedBy($query, ?User $user)
+    {
+        if (! $user) {
+            return $query;
+        }
+
+        return $query->where(function ($q) use ($user): void {
+            $q->whereNull('user_id')
+                ->orWhere('user_id', '!=', $user->id);
+        })->where(function ($q) use ($user): void {
+            $q->whereNull('uploader_email')
+                ->orWhere('uploader_email', '!=', $user->email);
+        });
+    }
+
+    /**
+     * Owning user (nullable for guest-uploaded items).
+     */
+    public function user()
+    {
+        return $this->belongsTo(User::class);
     }
 }

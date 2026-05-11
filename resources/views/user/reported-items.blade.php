@@ -256,20 +256,40 @@
 
                 <!-- Upload Progress -->
                 <div id="upload-progress-container" class="mt-4 hidden">
-                    <div class="mb-2 flex items-center justify-between">
-                        <span class="text-sm font-medium text-gray-700">Uploading images...</span>
-                        <span id="upload-progress-text" class="text-sm text-gray-500">0%</span>
+                    <div class="rounded-xl border border-purple-200 bg-purple-50/60 p-3 sm:p-4 shadow-sm">
+                        <div class="flex items-start gap-3">
+                            <span id="upload-stage-icon" class="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow text-purple-600 shrink-0">
+                                <i class="fas fa-circle-notch fa-spin text-base sm:text-lg"></i>
+                            </span>
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span id="upload-stage-label" class="text-sm sm:text-base font-semibold text-gray-900 truncate">Preparing your upload…</span>
+                                    <span id="upload-progress-text" class="text-xs sm:text-sm font-medium text-purple-700 tabular-nums">0%</span>
+                                </div>
+                                <p id="upload-stage-detail" class="text-xs sm:text-sm text-gray-600 mt-0.5">Getting your images ready</p>
+                                <div class="w-full bg-purple-100 rounded-full h-2 sm:h-2.5 mt-2 overflow-hidden">
+                                    <div id="upload-progress-bar" class="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Match-checking note -->
+                        <div id="matching-check-message" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                            <div class="flex items-start space-x-2">
+                                <i class="fas fa-search text-blue-600 animate-pulse mt-0.5"></i>
+                                <span class="text-xs sm:text-sm text-blue-800">
+                                    <strong>Match checking continues in the background.</strong> You'll see a bell notification if we find similar items.
+                                </span>
+                            </div>
+                        </div>
                     </div>
-                    <div class="w-full bg-gray-200 rounded-full h-2.5">
-                        <div id="upload-progress-bar" class="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-                    </div>
-                    
+
                     <!-- Warning Note -->
                     <div id="processing-warning-note" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <div class="flex items-start space-x-2">
                             <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
                             <p class="text-xs sm:text-sm text-yellow-800">
-                                <strong>Please do not refresh or reload this page.</strong> The system is checking for similar items. Please wait for it to complete - you will be routed to the reported items page when done.
+                                <strong>Please don't close or refresh this page while uploading.</strong> Your images are being sent and saved to your account.
                             </p>
                         </div>
                     </div>
@@ -290,17 +310,86 @@
     </div>
 
     <!-- Your Reported Items -->
-    <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-        <div class="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b border-gray-200">
-            <h3 class="text-xl font-bold text-gray-900">Your Reported Items</h3>
-            <p class="text-sm text-gray-600 mt-1">Items you have reported</p>
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="px-5 sm:px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-white via-gray-50 to-white">
+            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <h3 class="text-lg sm:text-xl font-bold text-gray-900 truncate">Your Reported Items</h3>
+                        <span id="user-items-count"
+                              class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700 text-xs font-semibold border border-purple-100">
+                            <i class="fas fa-list-ul text-[10px]"></i>
+                            <span data-role="count">0</span>
+                            <span class="hidden sm:inline">items</span>
+                        </span>
+                    </div>
+                    <p class="text-xs sm:text-sm text-gray-500 mt-1">Lost or found items you've posted</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+                    @auth
+                    <span class="inline-flex items-center gap-1.5 text-[11px] sm:text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-full px-2.5 py-1 max-w-full truncate">
+                        <i class="fas fa-user-circle text-purple-400"></i>
+                        <span class="hidden sm:inline">Signed in as</span>
+                        <span class="font-medium text-gray-700 truncate">{{ auth()->user()->email }}</span>
+                    </span>
+                    @endauth
+                    <button type="button" onclick="toggleUploadForm()"
+                            class="inline-flex items-center gap-2 px-4 py-2 bg-purple-primary text-white rounded-lg hover:bg-purple-600 active:bg-purple-700 transition-colors text-sm font-medium shadow-sm whitespace-nowrap">
+                        <i class="fas fa-plus text-xs"></i>
+                        <span>Report New Item</span>
+                    </button>
+                </div>
+            </div>
         </div>
 
-        <div id="user-items-list" class="p-6">
-            <!-- Items will be loaded here -->
-            <div class="text-center text-gray-500 py-8">
-                <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
-                <p>Loading your items...</p>
+        <div id="user-items-list" class="p-4 sm:p-6">
+            <!-- Skeleton loading state (replaced by displayUserItems on fetch) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5" aria-busy="true" aria-label="Loading your items">
+                <template id="user-items-skeleton-template">
+                    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
+                        <div class="w-full h-44 bg-gray-200"></div>
+                        <div class="p-4 space-y-3">
+                            <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                            <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                            <div class="flex gap-2">
+                                <div class="h-5 w-12 bg-gray-200 rounded-full"></div>
+                                <div class="h-5 w-16 bg-gray-200 rounded-full"></div>
+                            </div>
+                            <div class="flex gap-2 pt-2">
+                                <div class="h-9 bg-gray-200 rounded flex-1"></div>
+                                <div class="h-9 bg-gray-200 rounded flex-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
+                    <div class="w-full h-44 bg-gray-200"></div>
+                    <div class="p-4 space-y-3">
+                        <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div class="flex gap-2"><div class="h-5 w-12 bg-gray-200 rounded-full"></div><div class="h-5 w-16 bg-gray-200 rounded-full"></div></div>
+                        <div class="flex gap-2 pt-2"><div class="h-9 bg-gray-200 rounded flex-1"></div><div class="h-9 bg-gray-200 rounded flex-1"></div></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse hidden sm:block">
+                    <div class="w-full h-44 bg-gray-200"></div>
+                    <div class="p-4 space-y-3">
+                        <div class="h-4 bg-gray-200 rounded w-2/3"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                        <div class="flex gap-2"><div class="h-5 w-12 bg-gray-200 rounded-full"></div></div>
+                        <div class="flex gap-2 pt-2"><div class="h-9 bg-gray-200 rounded flex-1"></div><div class="h-9 bg-gray-200 rounded flex-1"></div></div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse hidden lg:block">
+                    <div class="w-full h-44 bg-gray-200"></div>
+                    <div class="p-4 space-y-3">
+                        <div class="h-4 bg-gray-200 rounded w-4/5"></div>
+                        <div class="h-3 bg-gray-200 rounded w-1/3"></div>
+                        <div class="flex gap-2"><div class="h-5 w-12 bg-gray-200 rounded-full"></div><div class="h-5 w-14 bg-gray-200 rounded-full"></div></div>
+                        <div class="flex gap-2 pt-2"><div class="h-9 bg-gray-200 rounded flex-1"></div><div class="h-9 bg-gray-200 rounded flex-1"></div></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -587,7 +676,12 @@
 </div>
 
 <script>
-// Image upload state
+// Build stamp — bump when you ship changes to this view.
+// If your DevTools console doesn't print this version on load, you are
+// looking at a cached HTML and need to hard-refresh (Cmd+Shift+R).
+window.__REPORTED_ITEMS_VERSION__ = '2026-05-11-pin-autofill-v1';
+console.info('[ReportedItems] version:', window.__REPORTED_ITEMS_VERSION__);
+
 let selectedFiles = [];
 let uploadProgress = 0;
 
@@ -765,47 +859,101 @@ document.addEventListener('DOMContentLoaded', function() {
 // Upload progress functions
 function showUploadProgress() {
     const progressContainer = document.getElementById('upload-progress-container');
+    if (!progressContainer) return;
     progressContainer.classList.remove('hidden');
     updateUploadProgress(0);
+    setUploadStage('preparing');
+    progressContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 function hideUploadProgress() {
     const progressContainer = document.getElementById('upload-progress-container');
+    if (!progressContainer) return;
     progressContainer.classList.add('hidden');
     updateUploadProgress(0);
+    const matchingMessage = document.getElementById('matching-check-message');
+    if (matchingMessage) {
+        matchingMessage.classList.add('hidden');
+        matchingMessage.classList.remove('bg-green-50', 'border-green-200');
+        matchingMessage.classList.add('bg-blue-50', 'border-blue-200');
+    }
 }
 
 function updateUploadProgress(percentage) {
     const progressBar = document.getElementById('upload-progress-bar');
     const progressText = document.getElementById('upload-progress-text');
-    progressBar.style.width = percentage + '%';
-    progressText.textContent = Math.round(percentage) + '%';
+    if (!progressBar || !progressText) return;
+    const clamped = Math.max(0, Math.min(100, percentage));
+    progressBar.style.width = clamped + '%';
+    progressText.textContent = Math.round(clamped) + '%';
 }
 
-let uploadProgressInterval = null;
+/**
+ * Update the staged status (icon + label + helper text).
+ * Stages: preparing | uploading | processing | done | error
+ */
+function setUploadStage(stage, opts = {}) {
+    const iconWrap = document.getElementById('upload-stage-icon');
+    const label = document.getElementById('upload-stage-label');
+    const detail = document.getElementById('upload-stage-detail');
+    if (!iconWrap || !label || !detail) return;
 
-function simulateUploadProgress() {
-    let progress = 0;
-    // Clear any existing interval
-    if (uploadProgressInterval) {
-        clearInterval(uploadProgressInterval);
-    }
-    uploadProgressInterval = setInterval(() => {
-        progress += Math.random() * 10;
-        if (progress >= 95) {
-            progress = 95; // Stop at 95% and wait for actual completion
-            clearInterval(uploadProgressInterval);
-            uploadProgressInterval = null;
-        }
-        updateUploadProgress(progress);
-    }, 300);
+    const stages = {
+        preparing: {
+            icon: '<i class="fas fa-circle-notch fa-spin text-base sm:text-lg"></i>',
+            label: 'Preparing your upload…',
+            detail: opts.fileCount
+                ? `Getting ${opts.fileCount} image${opts.fileCount === 1 ? '' : 's'} ready`
+                : 'Getting your images ready',
+            color: 'text-purple-600',
+        },
+        uploading: {
+            icon: '<i class="fas fa-cloud-upload-alt text-base sm:text-lg"></i>',
+            label: opts.fileCount
+                ? `Uploading ${opts.fileCount} image${opts.fileCount === 1 ? '' : 's'}…`
+                : 'Uploading images…',
+            detail: opts.bytesText || 'Sending to FindITFast',
+            color: 'text-purple-600',
+        },
+        processing: {
+            icon: '<i class="fas fa-cog fa-spin text-base sm:text-lg"></i>',
+            label: 'Saving to your account…',
+            detail: 'Almost done, finalizing your post',
+            color: 'text-purple-600',
+        },
+        done: {
+            icon: '<i class="fas fa-check text-base sm:text-lg"></i>',
+            label: 'Done! Item posted',
+            detail: 'Match checking continues in the background',
+            color: 'text-green-600',
+        },
+        error: {
+            icon: '<i class="fas fa-exclamation-triangle text-base sm:text-lg"></i>',
+            label: opts.label || 'Upload failed',
+            detail: opts.detail || 'Please try again',
+            color: 'text-red-600',
+        },
+    };
+
+    const s = stages[stage] || stages.preparing;
+    iconWrap.className = `inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow shrink-0 ${s.color}`;
+    iconWrap.innerHTML = s.icon;
+    label.textContent = s.label;
+    detail.textContent = s.detail;
 }
 
-function stopSimulatedProgress() {
-    if (uploadProgressInterval) {
-        clearInterval(uploadProgressInterval);
-        uploadProgressInterval = null;
+function showMatchingCheckMessage() {
+    const matchingMessage = document.getElementById('matching-check-message');
+    if (matchingMessage) {
+        matchingMessage.classList.remove('hidden');
     }
+}
+
+function formatBytes(bytes) {
+    if (bytes === 0 || !Number.isFinite(bytes)) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+    return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
 }
 
 // City autocomplete functionality for create form
@@ -1259,53 +1407,25 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
         return;
     }
 
-    // Show upload progress with matching check message
+    // Show upload progress UI
     showUploadProgress();
-    
-    // Update progress message to show matching check
-    const progressText = document.querySelector('#upload-progress-text');
-    if (progressText) {
-        progressText.textContent = 'Uploading...';
-    }
-    
-    // Show matching check message after upload starts
-    setTimeout(() => {
-        const progressContainer = document.getElementById('upload-progress-container');
-        if (progressContainer) {
-            const matchingMessage = document.createElement('div');
-            matchingMessage.id = 'matching-check-message';
-            matchingMessage.className = 'mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg';
-            matchingMessage.innerHTML = `
-                <div class="flex items-center space-x-2">
-                    <i class="fas fa-search text-blue-600 animate-pulse"></i>
-                    <span class="text-sm text-blue-800">
-                        <strong>Checking for matching items...</strong> The system will notify you later when there is a match.
-                    </span>
-                </div>
-            `;
-            progressContainer.appendChild(matchingMessage);
-        }
-    }, 2000); // Show after 2 seconds
 
-    // Create FormData
+    // Build FormData (deduplicate files client-side)
     const formData = new FormData();
     formData.append('item_type', itemType.value);
-    
-    // Include city/province if fields are enabled (even if empty, so backend validation can handle it)
+
     if (enableCityField) {
         formData.append('city', city || '');
     }
     if (enableProvinceField) {
         formData.append('province', province || '');
     }
-    
+
     formData.append('location', location);
     formData.append('description', description);
-    // Append tags as JSON array
     const tagsArray = JSON.parse(document.getElementById('tags').value || '[]');
     formData.append('tags', JSON.stringify(tagsArray));
 
-    // Add files (deduplicate on client side)
     const uniqueFiles = new Map();
     for (let file of files) {
         const key = `${file.name}-${file.size}`;
@@ -1313,233 +1433,219 @@ document.getElementById('item-upload-form').addEventListener('submit', async fun
             uniqueFiles.set(key, file);
         }
     }
-
+    let totalBytes = 0;
     for (let file of uniqueFiles.values()) {
         formData.append('images[]', file);
+        totalBytes += file.size || 0;
     }
+    const fileCount = uniqueFiles.size;
 
-    // Disable form during upload
+    // Disable submit button during upload
     const submitButton = this.querySelector('button[type="submit"]');
     const originalButtonText = submitButton.innerHTML;
     submitButton.disabled = true;
     submitButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Uploading...';
 
-    try {
-        // Simulate progress (since we can't track actual upload progress with fetch)
-        simulateUploadProgress();
+    // Keep the form available via closure (we need it inside XHR callbacks where `this` differs)
+    const formEl = this;
 
-        console.log('Starting upload request...');
-        
-        // Create abort controller for timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-            console.error('Upload timeout - aborting request');
-            controller.abort();
-        }, 120000); // 2 minute timeout
-        
-        // Fallback: If no response after 15 seconds, assume success and reload
-        // This handles cases where the server processes the upload but takes time to respond
-        let fallbackFired = false;
-        const fallbackTimeout = setTimeout(() => {
-            if (fallbackFired) return; // Prevent double-firing
-            fallbackFired = true;
-            console.warn('No response after 15 seconds - assuming success and reloading items');
-            stopSimulatedProgress();
-            updateUploadProgress(100);
-            hideUploadProgress();
-            showToast('Item uploaded successfully! We are checking for matching items and will notify you if any matches are found.', 'success');
-            this.reset();
-            resetImageUpload();
-            // Reload items to show the newly uploaded item
-            loadItems().then(() => {
-                setTimeout(() => {
-                    toggleUploadForm();
-                }, 300);
-            }).catch(err => {
-                console.error('Error loading items in fallback:', err);
-                setTimeout(() => {
-                    toggleUploadForm();
-                }, 300);
-            });
-        }, 15000); // 15 second fallback - shorter since server is processing
-        
-        let response;
-        try {
-            response = await fetch('/api/items/upload', {
-                method: 'POST',
-                body: formData,
-                credentials: 'same-origin',
-                signal: controller.signal,
-                headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
-                }
-            });
-        } catch (fetchError) {
-            clearTimeout(timeoutId);
-            clearTimeout(fallbackTimeout);
-            stopSimulatedProgress();
-            hideUploadProgress();
-            console.error('Fetch error:', fetchError);
-            if (fetchError.name === 'AbortError') {
-                showToast('Upload timed out. The file may be too large or the server is slow. Please try again.', 'error');
-            } else {
-                showToast('Network error. Please check your connection and try again.', 'error');
-            }
-            return;
-        }
-
-        clearTimeout(timeoutId);
-        clearTimeout(fallbackTimeout); // Cancel fallback since we got a response
-        fallbackFired = true; // Mark fallback as cancelled
-        stopSimulatedProgress(); // Stop the simulated progress
-        console.log('Response received:', response.status, response.statusText, response.headers.get('content-type'));
-
-        // Complete progress to 100% immediately when response arrives
-        updateUploadProgress(100);
-        
-        // Update matching check message to show it's complete
-        const matchingMessage = document.getElementById('matching-check-message');
-        if (matchingMessage) {
-            matchingMessage.innerHTML = `
-                <div class="flex items-center space-x-2">
-                    <i class="fas fa-check-circle text-green-600"></i>
-                    <span class="text-sm text-green-800">
-                        <strong>Upload complete!</strong> Checking for matches in the background. You will be notified if any matches are found.
-                    </span>
-                </div>
-            `;
-            matchingMessage.className = 'mt-3 p-3 bg-green-50 border border-green-200 rounded-lg';
-        }
-
-        // Check if response is OK
-        if (!response.ok) {
-            hideUploadProgress();
-            let errorText = '';
-            try {
-                errorText = await response.text();
-            } catch (e) {
-                console.error('Failed to read error response:', e);
-                errorText = 'Server returned error status ' + response.status;
-            }
-            console.error('Upload failed with status:', response.status, 'Error:', errorText);
-            let errorMessage = 'Error uploading item. Please try again.';
-            try {
-                const errorData = JSON.parse(errorText);
-                errorMessage = errorData.message || errorMessage;
-            } catch (e) {
-                // If not JSON, use the text or default message
-                errorMessage = errorText || errorMessage;
-            }
-            showToast(errorMessage, 'error');
-            return;
-        }
-
-        // Parse response JSON
-        let data;
-        try {
-            const responseText = await response.text();
-            console.log('Response text length:', responseText.length, 'First 200 chars:', responseText.substring(0, 200));
-            
-            if (!responseText || responseText.trim() === '') {
-                throw new Error('Empty response from server');
-            }
-            
-            data = JSON.parse(responseText);
-            console.log('Upload response data:', data);
-        } catch (parseError) {
-            console.error('Failed to parse response JSON:', parseError);
-            console.error('Response status:', response.status);
-            console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-            
-            // If status is 200/201, assume success even if we can't parse
-            if (response.status === 200 || response.status === 201) {
-                console.log('Assuming success based on HTTP status code');
-                hideUploadProgress();
-                showToast('Item reported successfully! We are checking for matching items and will notify you if any matches are found.', 'success');
-                this.reset();
-                resetImageUpload();
-                loadItems().then(() => {
-                    setTimeout(() => {
-                        toggleUploadForm();
-                    }, 300);
-                }).catch(err => {
-                    console.error('Error loading items:', err);
-                    setTimeout(() => {
-                        toggleUploadForm();
-                    }, 300);
-                });
-                return;
-            }
-            
-            hideUploadProgress();
-            showToast('Server returned invalid response. Item may have been uploaded. Please refresh the page.', 'error');
-            // Still reload items in case it succeeded
-            setTimeout(() => {
-                loadItems();
-            }, 1000);
-            return;
-        }
-
-        if (data && data.success) {
-            // Remove matching check message if it exists
-            const matchingMessage = document.getElementById('matching-check-message');
-            if (matchingMessage) {
-                matchingMessage.remove();
-            }
-            
-            hideUploadProgress(); // Hide progress bar on success
-            
-            // Show success notification with message from API or default message
-            const successMessage = data.message || 'Item reported successfully! We are checking for matching items and will notify you if any matches are found.';
-            showToast(successMessage, 'success');
-            
-            // Reset form immediately
-            this.reset();
-            resetImageUpload();
-            
-            // Reload items and hide form
-            loadItems().then(() => {
-                setTimeout(() => {
-                    toggleUploadForm();
-                }, 300);
-            }).catch(err => {
-                console.error('Error loading items after upload:', err);
-                // Still hide the form even if loading items fails
-                setTimeout(() => {
-                    toggleUploadForm();
-                }, 300);
-            });
-        } else {
-            hideUploadProgress();
-            console.error('Upload returned success=false:', data);
-            // If status is 200 but success=false, still reload items in case it worked
-            if (response.status === 200) {
-                setTimeout(() => {
-                    loadItems();
-                }, 1000);
-            }
-            showToast(data?.message || 'Error uploading item. Please try again.', 'error');
-        }
-    } catch (error) {
-        console.error('Upload error:', error);
-        stopSimulatedProgress();
-        hideUploadProgress();
-        let errorMessage = 'Error uploading item. Please try again.';
-        
-        if (error.name === 'AbortError') {
-            errorMessage = 'Upload timed out. The file may be too large or the server is slow. Please try again.';
-        } else if (error.message) {
-            errorMessage = error.message;
-        }
-        
-        showToast(errorMessage, 'error');
-    } finally {
-        // Always reset form state
+    const finalize = () => {
         submitButton.disabled = false;
         submitButton.innerHTML = originalButtonText;
-        this.dataset.submitting = 'false';
+        formEl.dataset.submitting = 'false';
+    };
+
+    const handleSuccess = (data) => {
+        updateUploadProgress(100);
+        setUploadStage('done');
+        showMatchingCheckMessage();
+
+        const successMessage = (data && data.message)
+            || `Done! Your item is posted. We'll send a bell notification if we find a match.`;
+        showToast(successMessage, 'success');
+
+        formEl.reset();
+        resetImageUpload();
+
+        const matchingMessage = document.getElementById('matching-check-message');
+        if (matchingMessage) {
+            matchingMessage.classList.remove('bg-blue-50', 'border-blue-200');
+            matchingMessage.classList.add('bg-green-50', 'border-green-200');
+        }
+
+        // Briefly let the user see "Done!" before hiding the form.
+        setTimeout(() => {
+            hideUploadProgress();
+            loadItems().finally(() => {
+                setTimeout(toggleUploadForm, 200);
+            });
+        }, 900);
+    };
+
+    const handleFailure = (message) => {
+        setUploadStage('error', { detail: message });
+        setTimeout(hideUploadProgress, 1500);
+        showToast(message, 'error');
+    };
+
+    try {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/items/upload');
+        xhr.withCredentials = true;
+        xhr.responseType = 'text';
+        xhr.timeout = 120000;
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        if (csrf) {
+            xhr.setRequestHeader('X-CSRF-TOKEN', csrf);
+        }
+
+        setUploadStage('uploading', {
+            fileCount,
+            bytesText: `0 / ${formatBytes(totalBytes)} sent`,
+        });
+        updateUploadProgress(0);
+
+        let lastProgressUpdate = 0;
+        xhr.upload.addEventListener('progress', (event) => {
+            if (!event.lengthComputable) return;
+            // Reserve the last 5% for server-side processing so it doesn't sit at 100%.
+            const uploadedRatio = event.total > 0 ? (event.loaded / event.total) : 0;
+            const percent = Math.min(95, uploadedRatio * 95);
+            updateUploadProgress(percent);
+
+            const now = Date.now();
+            if (now - lastProgressUpdate > 150) {
+                lastProgressUpdate = now;
+                setUploadStage('uploading', {
+                    fileCount,
+                    bytesText: `${formatBytes(event.loaded)} / ${formatBytes(event.total)} sent`,
+                });
+            }
+        });
+
+        xhr.upload.addEventListener('load', () => {
+            updateUploadProgress(95);
+            setUploadStage('processing');
+        });
+
+        xhr.upload.addEventListener('error', () => {
+            handleFailure('Network error while uploading. Please check your connection and try again.');
+            finalize();
+        });
+
+        xhr.addEventListener('timeout', () => {
+            handleFailure('Upload timed out. The file may be too large or the connection is slow.');
+            finalize();
+        });
+
+        xhr.addEventListener('error', () => {
+            handleFailure('Network error. Please check your connection and try again.');
+            finalize();
+        });
+
+        xhr.addEventListener('load', () => {
+            const status = xhr.status;
+            const responseText = xhr.responseText || '';
+            let data = null;
+            try {
+                data = responseText ? JSON.parse(responseText) : null;
+            } catch (_) {
+                data = null;
+            }
+
+            if (status >= 200 && status < 300) {
+                if (data && data.success === false) {
+                    handleFailure(data.message || 'Error uploading item. Please try again.');
+                } else {
+                    handleSuccess(data || {});
+                }
+            } else if (status === 401 || status === 419) {
+                handleFailure('Your session expired. Please refresh the page and log in again.');
+            } else if (status === 422 && data && data.errors) {
+                const firstField = Object.keys(data.errors)[0];
+                const firstError = firstField && Array.isArray(data.errors[firstField])
+                    ? data.errors[firstField][0]
+                    : (data.message || 'Validation failed. Please check the fields.');
+                handleFailure(firstError);
+            } else {
+                handleFailure((data && data.message) || `Upload failed (status ${status}). Please try again.`);
+            }
+            finalize();
+        });
+
+        xhr.send(formData);
+    } catch (error) {
+        console.error('Upload error:', error);
+        handleFailure(error?.message || 'Error uploading item. Please try again.');
+        finalize();
     }
 });
+
+/**
+ * Render a small skeleton grid into the items container.
+ * Used both on initial load and on every refetch so the user always
+ * gets a perceived-fast loading state, not a blank panel.
+ */
+function renderItemsSkeleton(container) {
+    if (!container) return;
+    const card = `
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden animate-pulse">
+            <div class="w-full h-44 bg-gray-200"></div>
+            <div class="p-4 space-y-3">
+                <div class="h-4 bg-gray-200 rounded w-3/4"></div>
+                <div class="h-3 bg-gray-200 rounded w-1/2"></div>
+                <div class="flex gap-2">
+                    <div class="h-5 w-12 bg-gray-200 rounded-full"></div>
+                    <div class="h-5 w-16 bg-gray-200 rounded-full"></div>
+                </div>
+                <div class="flex gap-2 pt-2">
+                    <div class="h-9 bg-gray-200 rounded flex-1"></div>
+                    <div class="h-9 bg-gray-200 rounded flex-1"></div>
+                </div>
+            </div>
+        </div>`;
+    container.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5" aria-busy="true">
+            ${card}
+            <div class="hidden sm:block">${card}</div>
+            <div class="hidden lg:block">${card}</div>
+        </div>`;
+}
+
+/**
+ * Update the small count chip in the section header.
+ */
+function updateUserItemsCount(n) {
+    const chip = document.getElementById('user-items-count');
+    if (!chip) return;
+    const label = chip.querySelector('[data-role="count"]');
+    if (label) label.textContent = String(n);
+}
+
+/**
+ * Format an ISO date as a friendly relative string.
+ *   <1 min   -> "just now"
+ *   <60 min  -> "X min ago"
+ *   <24 h    -> "X hr ago"
+ *   <7 d     -> "X day(s) ago"
+ *   else     -> "MMM D, YYYY"
+ */
+function formatRelativeDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const diff = (Date.now() - d.getTime()) / 1000; // seconds
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return `${Math.floor(diff / 60)} min ago`;
+    if (diff < 86400) return `${Math.floor(diff / 3600)} hr ago`;
+    if (diff < 86400 * 7) {
+        const days = Math.floor(diff / 86400);
+        return days <= 1 ? 'yesterday' : `${days} days ago`;
+    }
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+}
 
 // Load user items
 async function loadItems() {
@@ -1549,13 +1655,7 @@ async function loadItems() {
         return;
     }
 
-    // Show loading state
-    itemsContainer.innerHTML = `
-        <div class="text-center text-gray-500 py-8">
-            <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
-            <p>Loading your items...</p>
-        </div>
-    `;
+    renderItemsSkeleton(itemsContainer);
 
     try {
         console.log('Fetching user items from /api/items');
@@ -1623,16 +1723,22 @@ function displayUserItems(items) {
             }
         });
 
+        updateUserItemsCount(items.length);
+
         if (items.length === 0) {
             itemsContainer.innerHTML = `
-                <div class="text-center py-12">
-                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-inbox text-gray-400 text-2xl"></i>
+                <div class="text-center py-12 sm:py-16">
+                    <div class="relative w-20 h-20 mx-auto mb-5">
+                        <div class="absolute inset-0 bg-purple-100 rounded-full"></div>
+                        <div class="absolute inset-2 bg-white rounded-full flex items-center justify-center shadow-sm">
+                            <i class="fas fa-box-open text-purple-500 text-2xl"></i>
+                        </div>
                     </div>
-                    <h3 class="text-lg font-medium text-gray-900 mb-2">No items reported yet</h3>
-                    <p class="text-gray-500 mb-4">Start by reporting a lost or found item to help others.</p>
-                    <button onclick="toggleUploadForm()" class="bg-purple-primary text-white px-6 py-2 rounded-lg hover:bg-purple-600 transition-colors">
-                        <i class="fas fa-plus mr-2"></i>
+                    <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-1.5">No items yet</h3>
+                    <p class="text-sm text-gray-500 mb-5 max-w-sm mx-auto">When you report a lost or found item, it will show up here so you can manage it.</p>
+                    <button type="button" onclick="toggleUploadForm()"
+                            class="inline-flex items-center gap-2 px-5 py-2.5 bg-purple-primary text-white rounded-lg hover:bg-purple-600 active:bg-purple-700 transition-colors text-sm font-medium shadow-sm">
+                        <i class="fas fa-plus text-xs"></i>
                         Report Your First Item
                     </button>
                 </div>
@@ -1641,9 +1747,8 @@ function displayUserItems(items) {
         }
 
         itemsContainer.innerHTML = `
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             ${items.map(item => {
-                // Get first image for display - normalize the image path
                 const firstImage = item.images && item.images.length > 0 ? item.images[0] : null;
                 let imageUrl = null;
                 if (firstImage) {
@@ -1655,9 +1760,8 @@ function displayUserItems(items) {
                         imageUrl = '/storage/' + firstImage.filename;
                     }
                 }
-                
-                // Build all image URLs for modal
-                const allImageUrls = item.images && item.images.length > 0 ? 
+
+                const allImageUrls = item.images && item.images.length > 0 ?
                     item.images.map(img => {
                         if (img.path) {
                             return img.path.startsWith('/') ? img.path : '/' + img.path;
@@ -1669,141 +1773,161 @@ function displayUserItems(items) {
                         return '';
                     }).filter(url => url) : [];
                 const allImageUrlsJson = JSON.stringify(allImageUrls).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                
+
                 const escapedImageUrl = imageUrl ? imageUrl.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
                 const escapedDescription = (item.description || 'Item image').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                
-                return `
-                <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-                    ${imageUrl ? `
-                    <!-- Item Image -->
-                    <div class="relative w-full h-48 bg-gray-100 overflow-hidden">
-                        <img src="${imageUrl}" 
-                             alt="${escapedDescription}" 
-                             class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity"
-                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3EImage not available%3C/text%3E%3C/svg%3E'; this.parentElement.classList.add('flex', 'items-center', 'justify-center');"
-                             onclick="openImageModal('${escapedImageUrl}', ${allImageUrlsJson})">
-                        ${item.images && item.images.length > 1 ? '<div class="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded"><i class="fas fa-images mr-1"></i>' + item.images.length + ' images</div>' : ''}
-                        <div class="absolute top-3 left-3 z-10">
-                            <span class="px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide shadow-lg ${item.item_type === 'lost' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}">
-                                ${item.item_type === 'lost' ? 'Lost' : 'Found'}
-                            </span>
+
+                const isLost = item.item_type === 'lost';
+                const typeBadgeClass = isLost
+                    ? 'bg-red-50 text-red-700 ring-1 ring-red-200'
+                    : 'bg-green-50 text-green-700 ring-1 ring-green-200';
+                const typeDot = isLost ? 'bg-red-500' : 'bg-green-500';
+                const typeLabel = isLost ? 'Lost' : 'Found';
+
+                const titleText = item.description && item.description.trim()
+                    ? item.description.trim()
+                    : (isLost ? 'Lost Item' : 'Found Item');
+                const escapedTitle = String(titleText).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                const locationText = (item.location && String(item.location).trim()) || 'Location not provided';
+                const escapedLocation = String(locationText).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+                // Tags
+                let tagsArray = [];
+                if (item.tags) {
+                    if (Array.isArray(item.tags)) {
+                        tagsArray = item.tags;
+                    } else if (typeof item.tags === 'string') {
+                        try { tagsArray = JSON.parse(item.tags); }
+                        catch (e) { tagsArray = item.tags.split(',').map(t => t.trim()).filter(Boolean); }
+                    }
+                }
+
+                // Detected objects (deduped)
+                let objectsArray = [];
+                if (item.detected_objects) {
+                    if (Array.isArray(item.detected_objects)) {
+                        objectsArray = item.detected_objects;
+                    } else if (typeof item.detected_objects === 'string') {
+                        try { objectsArray = JSON.parse(item.detected_objects); }
+                        catch (e) { objectsArray = []; }
+                    }
+                }
+                const uniqueObjects = [];
+                const seenNames = new Set();
+                if (Array.isArray(objectsArray)) {
+                    objectsArray.forEach(obj => {
+                        const name = ((obj && typeof obj === 'object') ? obj.name : obj) || '';
+                        if (name && !seenNames.has(name.toLowerCase())) {
+                            seenNames.add(name.toLowerCase());
+                            uniqueObjects.push(obj);
+                        }
+                    });
+                }
+
+                const tagPills = tagsArray.slice(0, 3).map(tag => {
+                    const t = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    return `<span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-[11px] font-medium">${t}</span>`;
+                }).join('');
+                const tagMore = tagsArray.length > 3
+                    ? `<span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-[11px] font-medium">+${tagsArray.length - 3}</span>`
+                    : '';
+
+                const objectPills = uniqueObjects.slice(0, 3).map(obj => {
+                    const name = ((obj && typeof obj === 'object') ? obj.name : obj) || '';
+                    const score = (obj && typeof obj === 'object' && obj.score)
+                        ? (obj.score * 100).toFixed(0) + '%' : '';
+                    const escapedObj = String(name).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+                    const title = 'Detected by Vision API' + (score ? ' (' + score + ' confidence)' : '');
+                    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[11px] font-medium ring-1 ring-blue-100" title="${title}"><i class="fas fa-eye text-[9px]"></i>${escapedObj}</span>`;
+                }).join('');
+                const objectMore = uniqueObjects.length > 3
+                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[11px] font-medium ring-1 ring-blue-100">+${uniqueObjects.length - 3}</span>`
+                    : '';
+
+                let pillsRow = '';
+                if (tagPills || objectPills) {
+                    pillsRow = `
+                        <div class="flex flex-wrap gap-1.5 mt-2">
+                            ${tagPills}${tagMore}
+                            ${objectPills}${objectMore}
+                        </div>`;
+                }
+
+                const dateLabel = formatRelativeDate(item.created_at);
+                const imagesCountBadge = (item.images && item.images.length > 1)
+                    ? `<span class="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/55 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-full"><i class="fas fa-images text-[9px]"></i>${item.images.length}</span>`
+                    : '';
+
+                const mediaBlock = imageUrl ? `
+                    <button type="button"
+                            onclick="openImageModal('${escapedImageUrl}', ${allImageUrlsJson})"
+                            class="group relative w-full h-44 sm:h-48 bg-gray-100 overflow-hidden block focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+                        <img src="${imageUrl}"
+                             alt="${escapedDescription}"
+                             class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                             loading="lazy"
+                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3EImage not available%3C/text%3E%3C/svg%3E'; this.parentElement.classList.add('flex','items-center','justify-center');">
+                        <div class="absolute top-2 left-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${typeBadgeClass} shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full ${typeDot}"></span>
+                            ${typeLabel}
                         </div>
-                    </div>
-                    ` : `
-                    <!-- No Image Placeholder -->
-                    <div class="relative w-full h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                        ${imagesCountBadge}
+                    </button>
+                ` : `
+                    <div class="relative w-full h-44 sm:h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
                         <div class="text-center">
-                            <i class="fas fa-image text-gray-400 text-4xl mb-2"></i>
+                            <i class="fas fa-image text-gray-400 text-3xl mb-1"></i>
                             <p class="text-xs text-gray-500">No image</p>
                         </div>
-                        <div class="absolute top-3 left-3 z-10">
-                            <span class="px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wide shadow-lg ${item.item_type === 'lost' ? 'bg-red-600 text-white' : 'bg-green-600 text-white'}">
-                                ${item.item_type === 'lost' ? 'Lost' : 'Found'}
-                            </span>
+                        <div class="absolute top-2 left-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${typeBadgeClass} shadow-sm">
+                            <span class="w-1.5 h-1.5 rounded-full ${typeDot}"></span>
+                            ${typeLabel}
                         </div>
                     </div>
-                    `}
-                    
-                    <!-- Item Header -->
-                    <div class="p-6">
-                        <div class="mb-4">
-                            <h3 class="text-lg font-semibold text-gray-900 mb-2 truncate">${item.description ? (item.description.length > 50 ? item.description.substring(0, 50) + '...' : item.description) : (item.item_type === 'lost' ? 'Lost Item' : 'Found Item')}</h3>
-                            <p class="text-sm text-gray-500 mb-3">
-                                <i class="fas fa-map-marker-alt mr-1"></i>
-                                ${item.location ? (item.location.length > 40 ? item.location.substring(0, 40) + '...' : item.location) : 'No location'}
-                            </p>
-                            ${(() => {
-                                let tagsArray = [];
-                                if (item.tags) {
-                                    if (Array.isArray(item.tags)) {
-                                        tagsArray = item.tags;
-                                    } else if (typeof item.tags === 'string') {
-                                        try {
-                                            tagsArray = JSON.parse(item.tags);
-                                        } catch (e) {
-                                            tagsArray = item.tags.split(',').map(t => t.trim()).filter(t => t);
-                                        }
-                                    }
-                                }
-                                let tagsHtml = '';
-                                if (tagsArray.length > 0) {
-                                    const tagsDisplay = tagsArray.slice(0, 3).map(tag => {
-                                        const escapedTag = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                                        return '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">' + escapedTag + '</span>';
-                                    }).join('');
-                                    const moreHtml = tagsArray.length > 3 ? '<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">+' + (tagsArray.length - 3) + ' more</span>' : '';
-                                    tagsHtml = '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 mb-1">Tags:</div><div class="flex flex-wrap gap-2">' + tagsDisplay + moreHtml + '</div></div>';
-                                }
-                                
-                                // Detected Objects - show below Tags
-                                let objectsArray = [];
-                                if (item.detected_objects) {
-                                    if (Array.isArray(item.detected_objects)) {
-                                        objectsArray = item.detected_objects;
-                                    } else if (typeof item.detected_objects === 'string') {
-                                        try {
-                                            objectsArray = JSON.parse(item.detected_objects);
-                                        } catch (e) {
-                                            objectsArray = [];
-                                        }
-                                    }
-                                }
-                                
-                                // Get unique objects (by name) and limit to top 5
-                                const uniqueObjects = [];
-                                const seenNames = new Set();
-                                if (Array.isArray(objectsArray)) {
-                                    objectsArray.forEach(obj => {
-                                        const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
-                                        if (objName && !seenNames.has(objName.toLowerCase())) {
-                                            seenNames.add(objName.toLowerCase());
-                                            uniqueObjects.push(obj);
-                                        }
-                                    });
-                                }
-                                
-                                let objectsHtml = '';
-                                if (uniqueObjects.length > 0) {
-                                    const top5Objects = uniqueObjects.slice(0, 5);
-                                    const objectsDisplay = top5Objects.map(obj => {
-                                        const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
-                                        const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                                        const escapedObj = String(objName).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                                        return '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API' + (score ? ' (' + score + '% confidence)' : '') + '"><i class="fas fa-eye mr-1"></i>' + escapedObj + '</span>';
-                                    }).join('');
-                                    const moreHtml = uniqueObjects.length > 5 ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">+' + (uniqueObjects.length - 5) + ' more</span>' : '';
-                                    objectsHtml = '<div class="mb-3"><div class="text-xs font-semibold text-gray-700 mb-1 flex items-center"><i class="fas fa-cube mr-1 text-blue-600"></i>Detected Objects:</div><div class="flex flex-wrap gap-2">' + objectsDisplay + moreHtml + '</div></div>';
-                                }
-                                
-                                return tagsHtml + objectsHtml;
-                            })()}
-                            <div class="text-xs text-gray-400">
-                                <i class="fas fa-clock mr-1"></i>
-                                ${new Date(item.created_at).toLocaleDateString()}
-                            </div>
-                        </div>
-                    </div>
+                `;
 
-                    <!-- Actions -->
-                    <div class="px-6 pb-8 pt-0 mb-4">
-                        <div class="flex items-center gap-3 flex-wrap">
-                            <button onclick="viewItemDetails('${item.upload_id}')" class="flex-1 min-w-[120px] px-4 py-2.5 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md flex items-center justify-center">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                View Details
+                return `
+                <article class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col">
+                    ${mediaBlock}
+
+                    <div class="p-4 sm:p-5 flex flex-col flex-1">
+                        <h3 class="text-[15px] sm:text-base font-semibold text-gray-900 leading-snug line-clamp-2" title="${escapedTitle}">
+                            ${escapedTitle}
+                        </h3>
+
+                        <p class="mt-1.5 text-xs sm:text-sm text-gray-500 flex items-start gap-1.5 line-clamp-1">
+                            <i class="fas fa-map-marker-alt mt-0.5 text-gray-400 shrink-0"></i>
+                            <span class="truncate" title="${escapedLocation}">${escapedLocation}</span>
+                        </p>
+
+                        ${pillsRow}
+
+                        <div class="mt-3 text-[11px] text-gray-400 flex items-center gap-1.5">
+                            <i class="far fa-clock"></i>
+                            <span title="${new Date(item.created_at).toLocaleString()}">${dateLabel}</span>
+                        </div>
+
+                        <div class="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2">
+                            <button type="button" onclick="viewItemDetails('${item.upload_id}')"
+                                    class="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 active:bg-purple-200 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+                                    aria-label="View details">
+                                <i class="fas fa-eye text-xs"></i>
+                                <span>Details</span>
                             </button>
-                            <button onclick="editItem('${item.upload_id}')" class="flex-1 min-w-[100px] px-4 py-2.5 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md flex items-center justify-center">
-                                <i class="fas fa-edit mr-2"></i>
-                                Edit
+                            <button type="button" onclick="editItem('${item.upload_id}')"
+                                    class="inline-flex items-center justify-center px-3 py-2 bg-gray-50 text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+                                    aria-label="Edit item" title="Edit">
+                                <i class="fas fa-pen text-xs"></i>
                             </button>
-                            <button onclick="deleteItem('${item.upload_id}')" class="flex-1 min-w-[100px] px-4 py-2.5 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-all duration-200 text-sm font-medium shadow-sm hover:shadow-md flex items-center justify-center">
-                                <i class="fas fa-trash mr-2"></i>
-                                Delete
+                            <button type="button" onclick="deleteItem('${item.upload_id}')"
+                                    class="inline-flex items-center justify-center px-3 py-2 bg-red-50 text-red-700 hover:bg-red-100 active:bg-red-200 rounded-lg text-xs sm:text-sm font-medium transition-colors"
+                                    aria-label="Delete item" title="Delete">
+                                <i class="fas fa-trash text-xs"></i>
                             </button>
                         </div>
                     </div>
-                </div>
-            `;
+                </article>`;
             }).join('')}
         </div>
         `;
@@ -1947,42 +2071,36 @@ function hideLoadingAnimation() {
 
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
-    toast.className = `fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-xl text-white font-medium transition-all duration-300 transform translate-x-full flex items-center space-x-3 max-w-md`;
+    toast.setAttribute('role', type === 'error' ? 'alert' : 'status');
+    toast.className = `fixed left-3 right-3 top-3 sm:left-auto sm:right-4 sm:top-4 sm:max-w-md z-[1000] px-4 sm:px-6 py-3 sm:py-4 rounded-xl shadow-2xl text-white font-medium transition-all duration-300 transform -translate-y-4 opacity-0 flex items-start gap-3`;
 
+    let icon = 'fa-info-circle';
     if (type === 'success') {
-        toast.classList.add('bg-green-500');
-        toast.innerHTML = `
-            <i class="fas fa-check-circle text-xl flex-shrink-0"></i>
-            <span>${message}</span>
-        `;
+        toast.classList.add('bg-green-600');
+        icon = 'fa-check-circle';
     } else if (type === 'error') {
-        toast.classList.add('bg-red-500');
-        toast.innerHTML = `
-            <i class="fas fa-exclamation-circle text-xl flex-shrink-0"></i>
-            <span>${message}</span>
-        `;
+        toast.classList.add('bg-red-600');
+        icon = 'fa-exclamation-circle';
     } else {
-        toast.classList.add('bg-blue-500');
-        toast.innerHTML = `
-            <i class="fas fa-info-circle text-xl flex-shrink-0"></i>
-            <span>${message}</span>
-        `;
+        toast.classList.add('bg-blue-600');
     }
+
+    toast.innerHTML = `
+        <i class="fas ${icon} text-xl flex-shrink-0 mt-0.5"></i>
+        <span class="text-sm sm:text-base leading-snug">${message}</span>
+    `;
 
     document.body.appendChild(toast);
 
-    // Animate in
-    setTimeout(() => {
-        toast.classList.remove('translate-x-full');
-    }, 100);
+    requestAnimationFrame(() => {
+        toast.classList.remove('-translate-y-4', 'opacity-0');
+        toast.classList.add('translate-y-0', 'opacity-100');
+    });
 
-    // Remove after 5 seconds for success messages, 4 seconds for others
-    const duration = type === 'success' ? 5000 : 4000;
+    const duration = type === 'success' ? 5000 : 4500;
     setTimeout(() => {
-        toast.classList.add('translate-x-full');
-        setTimeout(() => {
-            toast.remove();
-        }, 300);
+        toast.classList.add('opacity-0', '-translate-y-4');
+        setTimeout(() => toast.remove(), 300);
     }, duration);
 }
 
@@ -2928,20 +3046,20 @@ async function useCurrentLocation(inputId) {
             if (latInput) latInput.value = lat;
             if (lonInput) lonInput.value = lon;
             
-            // Reverse geocode to get address
+            // Reverse geocode to get street + city + province and auto-fill all three fields.
             try {
-                const address = await reverseGeocode(lat, lon);
-                locationInput.value = address;
+                const geo = await reverseGeocode(lat, lon);
+                fillLocationFields(inputId, geo);
                 showToast('Location set successfully!', 'success');
-                
-                // Show map with marker
+
                 const mapId = inputId === 'location' ? 'location-map' : 'edit-location-map';
-                showLocationMap(mapId, lat, lon, address);
+                showLocationMap(mapId, lat, lon, geo.street || geo.display);
             } catch (error) {
+                console.error('Reverse geocoding error:', error);
                 locationInput.value = `${lat}, ${lon}`;
                 showToast('Location set, but could not get address', 'warning');
             }
-            
+
             locationInput.disabled = false;
         },
         (error) => {
@@ -3087,43 +3205,45 @@ function initializeLocationMap(mapId, inputId) {
         
         marker = L.marker([lat, lon], {icon: icon, draggable: true}).addTo(map);
         
-        // Reverse geocode to get address
+        // Reverse geocode to get street + city + province and auto-fill the form.
         locationInput.value = 'Getting address...';
         locationInput.disabled = true;
-        
+
         try {
-            const address = await reverseGeocode(lat, lon);
-            locationInput.value = address;
-            marker.bindPopup(`<strong>${address}</strong>`).openPopup();
+            const geo = await reverseGeocode(lat, lon);
+            fillLocationFields(inputId, geo);
+            marker.bindPopup(`<strong>${geo.street || geo.display}</strong><br><span class="text-xs">${geo.city || ''}${geo.city && geo.province ? ', ' : ''}${geo.province || ''}</span>`).openPopup();
             showToast('Location pinned!', 'success');
         } catch (error) {
+            console.error('Reverse geocoding error:', error);
             locationInput.value = `${lat}, ${lon}`;
             marker.bindPopup(`<strong>${lat.toFixed(6)}, ${lon.toFixed(6)}</strong>`).openPopup();
-            showToast('Location pinned!', 'success');
+            showToast('Location pinned (address lookup failed)', 'warning');
         }
-        
+
         locationInput.disabled = false;
-        
-        // Handle marker drag
+
+        // Handle marker drag — same auto-fill behaviour as click.
         marker.on('dragend', async function(e) {
             const newLat = e.target.getLatLng().lat;
             const newLon = e.target.getLatLng().lng;
-            
+
             if (latInput) latInput.value = newLat;
             if (lonInput) lonInput.value = newLon;
-            
+
             locationInput.value = 'Getting address...';
             locationInput.disabled = true;
-            
+
             try {
-                const address = await reverseGeocode(newLat, newLon);
-                locationInput.value = address;
-                marker.setPopupContent(`<strong>${address}</strong>`).openPopup();
+                const geo = await reverseGeocode(newLat, newLon);
+                fillLocationFields(inputId, geo);
+                marker.setPopupContent(`<strong>${geo.street || geo.display}</strong><br><span class="text-xs">${geo.city || ''}${geo.city && geo.province ? ', ' : ''}${geo.province || ''}</span>`).openPopup();
             } catch (error) {
+                console.error('Reverse geocoding error:', error);
                 locationInput.value = `${newLat}, ${newLon}`;
                 marker.setPopupContent(`<strong>${newLat.toFixed(6)}, ${newLon.toFixed(6)}</strong>`).openPopup();
             }
-            
+
             locationInput.disabled = false;
         });
     });
@@ -3175,37 +3295,93 @@ function showLocationMap(mapId, lat, lon, address) {
 }
 
 // Reverse geocode coordinates to address
+/**
+ * Reverse-geocode coordinates via Nominatim.
+ *
+ * Returns a structured result:
+ *   {
+ *     display:  full human-readable address (legacy behaviour),
+ *     street:   street/road only (with house number if available),
+ *     city:     city / town / municipality / village,
+ *     province: state / region,
+ *     country:  country name,
+ *     raw:      original Nominatim address object,
+ *   }
+ *
+ * Callers that previously did `const address = await reverseGeocode(...)`
+ * still work — String(result) coerces to result.display.
+ */
 async function reverseGeocode(lat, lon) {
-    try {
-        const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
-            {
-                headers: {
-                    'User-Agent': 'FindITFast Lost and Found App'
-                }
-            }
-        );
-        
-        const data = await response.json();
-        
-        if (data && data.address) {
-            const addr = data.address;
-            const parts = [];
-            
-            if (addr.road) parts.push(addr.road);
-            if (addr.house_number) parts.unshift(addr.house_number);
-            if (addr.suburb) parts.push(addr.suburb);
-            if (addr.city || addr.town || addr.village) parts.push(addr.city || addr.town || addr.village);
-            if (addr.state) parts.push(addr.state);
-            if (addr.country) parts.push(addr.country);
-            
-            return parts.length > 0 ? parts.join(', ') : data.display_name;
+    const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`,
+        {
+            headers: { 'Accept': 'application/json' }
         }
-        
-        return data.display_name || `${lat}, ${lon}`;
-    } catch (error) {
-        console.error('Reverse geocoding error:', error);
-        throw error;
+    );
+
+    const data = await response.json();
+    const addr = (data && data.address) ? data.address : {};
+
+    // Street: house number + road; fall back to pedestrian / neighbourhood / suburb if no road.
+    const streetParts = [];
+    if (addr.house_number) streetParts.push(addr.house_number);
+    if (addr.road) streetParts.push(addr.road);
+    else if (addr.pedestrian) streetParts.push(addr.pedestrian);
+    else if (addr.footway) streetParts.push(addr.footway);
+    else if (addr.path) streetParts.push(addr.path);
+    else if (addr.neighbourhood) streetParts.push(addr.neighbourhood);
+    else if (addr.suburb) streetParts.push(addr.suburb);
+
+    const street = streetParts.join(' ').trim();
+    const city = addr.city || addr.town || addr.municipality || addr.village || addr.hamlet || '';
+    const province = addr.state || addr.region || addr.province || addr.state_district || '';
+    const country = addr.country || '';
+
+    // Full display: prefer composed parts, fall back to Nominatim's display_name.
+    const displayParts = [];
+    if (street) displayParts.push(street);
+    if (addr.suburb && addr.suburb !== street) displayParts.push(addr.suburb);
+    if (city) displayParts.push(city);
+    if (province) displayParts.push(province);
+    if (country) displayParts.push(country);
+    const display = displayParts.length > 0 ? displayParts.join(', ') : (data.display_name || `${lat}, ${lon}`);
+
+    const result = { display, street, city, province, country, raw: addr };
+    // Backwards-compat: when used as a string (e.g. `popup.setContent(\`<b>${addr}</b>\`)`)
+    // it serialises to the full display string.
+    result.toString = () => display;
+    return result;
+}
+
+/**
+ * Apply a reverse-geocode result to the Location / Province / City inputs.
+ * inputId is either "location" (create form) or "edit-location" (edit form).
+ *
+ * The Location field is set to the FULL address (street + suburb + city +
+ * province + country, joined with commas) so the user can see exactly where
+ * the pin landed; Province and City duplicate the broader administrative
+ * components for explicit form submission.
+ */
+function fillLocationFields(inputId, geo) {
+    const isEdit = inputId === 'edit-location';
+    const locationInput = document.getElementById(inputId);
+    const provinceInput = document.getElementById(isEdit ? 'edit-province' : 'province');
+    const cityInput = document.getElementById(isEdit ? 'edit-city' : 'city');
+
+    if (locationInput) {
+        // Full address; falls back to street-only if Nominatim only returned a road,
+        // and finally to an empty string so the field is never literally "undefined".
+        locationInput.value = geo.display || geo.street || '';
+    }
+    if (provinceInput && geo.province) {
+        provinceInput.value = geo.province;
+        provinceInput.dispatchEvent(new Event('input', { bubbles: true }));
+        provinceInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    if (cityInput && geo.city) {
+        cityInput.value = geo.city;
+        cityInput.dispatchEvent(new Event('input', { bubbles: true }));
+        cityInput.dispatchEvent(new Event('change', { bubbles: true }));
     }
 }
 

@@ -17,9 +17,10 @@ class UserController extends Controller
     public function dashboard()
     {
         $user = Auth::user();
-        
-        // Get user's items statistics
-        $userItems = ImageMetadata::where('uploader_email', $user->email)
+
+        // Get user's items statistics — match by user_id (preferred) OR uploader_email
+        // so legacy rows without a user_id still count toward the user's stats.
+        $userItems = ImageMetadata::ownedBy($user)
             ->get()
             ->groupBy('upload_id');
         

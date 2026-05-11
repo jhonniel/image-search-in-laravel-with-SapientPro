@@ -2,11 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\ImageMetadata;
 use App\Mail\SimilarImageNotification;
 use App\Mail\UserItemNotification;
-use Illuminate\Support\Facades\Mail;
+use App\Models\ImageMetadata;
+use App\Models\ItemMatch;
+use App\Models\Notification;
+use App\Models\Setting;
+use App\Models\User;
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use SapientPro\ImageComparator\ImageComparator;
 use SapientPro\ImageComparator\ImageResourceException;
@@ -14,17 +19,18 @@ use SapientPro\ImageComparator\ImageResourceException;
 class SimilarityNotificationService
 {
     private ImageComparator $imageComparator;
+
     private array $config;
 
     public function __construct(ImageComparator $imageComparator)
     {
         $this->imageComparator = $imageComparator;
         $this->config = config('similarity', []);
-        
+
         // Don't apply mail configuration in constructor to avoid timeout during service resolution
         // Mail configuration will be applied lazily when needed
     }
-    
+
     /**
      * Apply mail configuration from database settings
      * Made lazy to avoid timeout during service container resolution
@@ -33,26 +39,26 @@ class SimilarityNotificationService
     {
         try {
             // Check if database connection is available and settings table exists
-            if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+            if (! Schema::hasTable('settings')) {
                 return;
             }
-            
+
             // Check if email notifications are enabled
-            $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
-            $similarityAlertsEnabled = \App\Models\Setting::get('similarity_alerts', true);
-            
+            $emailNotificationsEnabled = Setting::get('email_notifications', true);
+            $similarityAlertsEnabled = Setting::get('similarity_alerts', true);
+
             // Only apply mail config if notifications are enabled
             if ($emailNotificationsEnabled && $similarityAlertsEnabled) {
                 // Get mail settings from database
-                $mailMailer = \App\Models\Setting::get('mail_mailer', env('MAIL_MAILER', 'log'));
-                $mailHost = \App\Models\Setting::get('mail_host', env('MAIL_HOST'));
-                $mailPort = \App\Models\Setting::get('mail_port', env('MAIL_PORT', 587));
-                $mailUsername = \App\Models\Setting::get('mail_username', env('MAIL_USERNAME'));
-                $mailPassword = \App\Models\Setting::get('mail_password', env('MAIL_PASSWORD'));
-                $mailEncryption = \App\Models\Setting::get('mail_encryption', env('MAIL_ENCRYPTION', 'tls'));
-                $mailFromAddress = \App\Models\Setting::get('mail_from_address', env('MAIL_FROM_ADDRESS'));
-                $mailFromName = \App\Models\Setting::get('mail_from_name', env('MAIL_FROM_NAME'));
-                
+                $mailMailer = Setting::get('mail_mailer', env('MAIL_MAILER', 'log'));
+                $mailHost = Setting::get('mail_host', env('MAIL_HOST'));
+                $mailPort = Setting::get('mail_port', env('MAIL_PORT', 587));
+                $mailUsername = Setting::get('mail_username', env('MAIL_USERNAME'));
+                $mailPassword = Setting::get('mail_password', env('MAIL_PASSWORD'));
+                $mailEncryption = Setting::get('mail_encryption', env('MAIL_ENCRYPTION', 'tls'));
+                $mailFromAddress = Setting::get('mail_from_address', env('MAIL_FROM_ADDRESS'));
+                $mailFromName = Setting::get('mail_from_name', env('MAIL_FROM_NAME'));
+
                 // Update config dynamically
                 if ($mailMailer && $mailMailer !== 'log') {
                     config([
@@ -65,10 +71,10 @@ class SimilarityNotificationService
                         'mail.from.address' => $mailFromAddress ?? config('mail.from.address'),
                         'mail.from.name' => $mailFromName ?? config('mail.from.name'),
                     ]);
-                    
+
                     // Reconfigure mailer if SMTP settings are available
                     if ($mailMailer === 'smtp' && $mailHost && $mailUsername && $mailPassword) {
-                        \Illuminate\Support\Facades\Config::set('mail.default', 'smtp');
+                        Config::set('mail.default', 'smtp');
                     }
                 }
             }
@@ -77,7 +83,7 @@ class SimilarityNotificationService
             // Log::warning('Failed to apply mail configuration from settings: ' . $e->getMessage());
         }
     }
-    
+
     /**
      * Check if email notifications are enabled
      */
@@ -85,13 +91,13 @@ class SimilarityNotificationService
     {
         try {
             // Check if database connection is available
-            if (!\Illuminate\Support\Facades\Schema::hasTable('settings')) {
+            if (! Schema::hasTable('settings')) {
                 return true; // Default to enabled if settings table doesn't exist
             }
-            
-            $emailNotificationsEnabled = \App\Models\Setting::get('email_notifications', true);
-            $similarityAlertsEnabled = \App\Models\Setting::get('similarity_alerts', true);
-            
+
+            $emailNotificationsEnabled = Setting::get('email_notifications', true);
+            $similarityAlertsEnabled = Setting::get('similarity_alerts', true);
+
             return $emailNotificationsEnabled && $similarityAlertsEnabled;
         } catch (\Exception $e) {
             // Default to enabled if settings can't be read (e.g., during migrations)
@@ -105,13 +111,13 @@ class SimilarityNotificationService
     public function checkAndNotifySimilarImages(string $newImagePath, array $newImageMetadata, ?string $newUploaderEmail = null): array
     {
         // Check if similarity checking is enabled
-        if (!$this->config['enabled'] ?? true) {
+        if (! $this->config['enabled'] ?? true) {
             return [
                 'similar_images_found' => 0,
                 'notifications_sent' => 0,
                 'emails_notified' => [],
                 'similar_images' => [],
-                'message' => 'Similarity checking is disabled'
+                'message' => 'Similarity checking is disabled',
             ];
         }
 
@@ -127,14 +133,15 @@ class SimilarityNotificationService
             Log::info('Checking similarity for new image', [
                 'new_image_path' => $newImagePath,
                 'existing_images_count' => $existingImages->count(),
-                'new_uploader_email' => $newUploaderEmail
+                'new_uploader_email' => $newUploaderEmail,
             ]);
 
             foreach ($existingImages as $existingImage) {
-                $existingImagePath = storage_path('app/public/reference-images/' . $existingImage->filename);
+                $existingImagePath = storage_path('app/public/reference-images/'.$existingImage->filename);
 
-                if (!file_exists($existingImagePath)) {
+                if (! file_exists($existingImagePath)) {
                     Log::warning('Existing image file not found', ['path' => $existingImagePath]);
+
                     continue;
                 }
 
@@ -152,7 +159,7 @@ class SimilarityNotificationService
                         'existing_image' => $existingImage->original_name,
                         'visual_similarity' => $visualSimilarity,
                         'text_similarity' => $textSimilarity,
-                        'overall_similarity' => $overallSimilarity
+                        'overall_similarity' => $overallSimilarity,
                     ]);
 
                     // Check if similarity meets threshold
@@ -162,7 +169,7 @@ class SimilarityNotificationService
                         'existing_image' => $existingImage->original_name,
                         'overall_similarity' => $overallSimilarity,
                         'visual_threshold' => $visualThreshold,
-                        'meets_threshold' => $overallSimilarity >= $visualThreshold
+                        'meets_threshold' => $overallSimilarity >= $visualThreshold,
                     ]);
 
                     if ($overallSimilarity >= $visualThreshold) {
@@ -171,73 +178,75 @@ class SimilarityNotificationService
                             'visual_similarity' => $visualSimilarity,
                             'text_similarity' => $textSimilarity,
                             'overall_similarity' => $overallSimilarity,
-                            'path' => $existingImagePath
+                            'path' => $existingImagePath,
                         ];
 
                         Log::info('Similar image found', [
                             'existing_image' => $existingImage->original_name,
-                            'similarity' => $overallSimilarity
+                            'similarity' => $overallSimilarity,
                         ]);
                     }
                 } catch (\Exception $e) {
-                    Log::error('Error calculating similarity for image: ' . $existingImage->original_name, [
+                    Log::error('Error calculating similarity for image: '.$existingImage->original_name, [
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
+
                     continue;
                 }
             }
 
-        // If there is ANY similarity (≥1), notify BOTH uploader and existing image owners
-        if (count($similarImages) >= 1) {
-            // Group similar images by uploader email
-            $emailGroups = $this->groupSimilarImagesByEmail($similarImages);
+            // If there is ANY similarity (≥1), notify BOTH uploader and existing image owners
+            if (count($similarImages) >= 1) {
+                // Group similar images by uploader email
+                $emailGroups = $this->groupSimilarImagesByEmail($similarImages);
 
-            // Send notifications to existing image owners
-            foreach ($emailGroups as $email => $images) {
-                $this->sendBulkSimilarityNotification($email, $images, $newImageMetadata);
-                $notificationsSent[] = $email;
+                // Send notifications to existing image owners
+                foreach ($emailGroups as $email => $images) {
+                    $this->sendBulkSimilarityNotification($email, $images, $newImageMetadata);
+                    $notificationsSent[] = $email;
+                }
+
+                // Also notify the new uploader if they provided an email
+                if ($newUploaderEmail) {
+                    $this->sendNewUploaderNotification($newUploaderEmail, $similarImages, $newImageMetadata);
+                    $notificationsSent[] = $newUploaderEmail;
+                }
+
+                Log::info('Similar images found - notifying all parties', [
+                    'similar_images_count' => count($similarImages),
+                    'new_uploader_email' => $newUploaderEmail,
+                    'existing_owners_notified' => array_keys($emailGroups),
+                ]);
+            } else {
+                // No similar images found - only notify the new uploader
+                if ($newUploaderEmail) {
+                    $this->sendNoMatchNotification($newUploaderEmail, $newImageMetadata);
+                    $notificationsSent[] = $newUploaderEmail;
+                }
+
+                Log::info('No similar images found - only notifying new uploader', [
+                    'similar_images_count' => count($similarImages),
+                    'new_uploader_email' => $newUploaderEmail,
+                ]);
             }
-
-            // Also notify the new uploader if they provided an email
-            if ($newUploaderEmail) {
-                $this->sendNewUploaderNotification($newUploaderEmail, $similarImages, $newImageMetadata);
-                $notificationsSent[] = $newUploaderEmail;
-            }
-
-            Log::info('Similar images found - notifying all parties', [
-                'similar_images_count' => count($similarImages),
-                'new_uploader_email' => $newUploaderEmail,
-                'existing_owners_notified' => array_keys($emailGroups)
-            ]);
-        } else {
-            // No similar images found - only notify the new uploader
-            if ($newUploaderEmail) {
-                $this->sendNoMatchNotification($newUploaderEmail, $newImageMetadata);
-                $notificationsSent[] = $newUploaderEmail;
-            }
-
-            Log::info('No similar images found - only notifying new uploader', [
-                'similar_images_count' => count($similarImages),
-                'new_uploader_email' => $newUploaderEmail
-            ]);
-        }
 
             return [
                 'similar_images_found' => count($similarImages),
                 'notifications_sent' => count($notificationsSent),
                 'emails_notified' => $notificationsSent,
-                'similar_images' => $similarImages
+                'similar_images' => $similarImages,
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error checking similar images: ' . $e->getMessage());
+            Log::error('Error checking similar images: '.$e->getMessage());
+
             return [
                 'similar_images_found' => 0,
                 'notifications_sent' => 0,
                 'emails_notified' => [],
                 'similar_images' => [],
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -249,9 +258,11 @@ class SimilarityNotificationService
     {
         try {
             $similarity = $this->imageComparator->compare($image1Path, $image2Path);
+
             return $similarity > 1 ? $similarity / 100 : $similarity;
         } catch (ImageResourceException $e) {
-            Log::warning('Could not compare images: ' . $e->getMessage());
+            Log::warning('Could not compare images: '.$e->getMessage());
+
             return 0.0;
         }
     }
@@ -265,7 +276,7 @@ class SimilarityNotificationService
         $newTags = $newMetadata['tags'] ?? [];
         $newTagsText = is_array($newTags) ? implode(' ', $newTags) : $newTags;
         $newObjects = $newMetadata['detected_objects'] ?? [];
-        $newObjectsText = is_array($newObjects) ? implode(' ', array_map(function($obj) {
+        $newObjectsText = is_array($newObjects) ? implode(' ', array_map(function ($obj) {
             return is_array($obj) ? ($obj['name'] ?? '') : $obj;
         }, $newObjects)) : '';
 
@@ -273,18 +284,18 @@ class SimilarityNotificationService
         $existingTags = $existingImage->tags ?? [];
         $existingTagsText = is_array($existingTags) ? implode(' ', $existingTags) : $existingTags;
         $existingObjects = $existingImage->detected_objects ?? [];
-        $existingObjectsText = is_array($existingObjects) ? implode(' ', array_map(function($obj) {
+        $existingObjectsText = is_array($existingObjects) ? implode(' ', array_map(function ($obj) {
             return is_array($obj) ? ($obj['name'] ?? '') : $obj;
         }, $existingObjects)) : '';
 
         // If all fields are empty, return 0
-        if (empty($newDescription) && empty($newTagsText) && empty($newObjectsText) && 
+        if (empty($newDescription) && empty($newTagsText) && empty($newObjectsText) &&
             empty($existingDescription) && empty($existingTagsText) && empty($existingObjectsText)) {
             return 0.0;
         }
 
         // If one has content and the other doesn't, return 0
-        if ((empty($newDescription) && empty($newTagsText) && empty($newObjectsText)) || 
+        if ((empty($newDescription) && empty($newTagsText) && empty($newObjectsText)) ||
             (empty($existingDescription) && empty($existingTagsText) && empty($existingObjectsText))) {
             return 0.0;
         }
@@ -330,6 +341,7 @@ class SimilarityNotificationService
         $wordOverlapWeight = $algorithms['word_overlap_weight'] ?? 0.3;
 
         $similarity = ($jaroWinkler * $jaroWeight) + ($levenshtein * $levenshteinWeight) + ($wordOverlap * $wordOverlapWeight);
+
         return min(1.0, max(0.0, $similarity));
     }
 
@@ -372,7 +384,7 @@ class SimilarityNotificationService
 
         foreach ($similarImages as $similarImage) {
             $email = $similarImage['image']->uploader_email;
-            if (!isset($emailGroups[$email])) {
+            if (! isset($emailGroups[$email])) {
                 $emailGroups[$email] = [];
             }
             $emailGroups[$email][] = $similarImage;
@@ -387,37 +399,38 @@ class SimilarityNotificationService
     private function sendBulkSimilarityNotification(string $email, array $similarImages, array $newImageMetadata): void
     {
         // Check if email notifications are enabled
-        if (!$this->areEmailNotificationsEnabled()) {
+        if (! $this->areEmailNotificationsEnabled()) {
             Log::info('Email notifications disabled - skipping bulk similarity notification', [
-                'email' => $email
+                'email' => $email,
             ]);
+
             return;
         }
-        
+
         try {
             // Apply mail configuration before sending
             $this->applyMailConfigurationFromSettings();
-            
+
             $data = [
                 'email' => $email,
                 'similar_images' => $similarImages,
                 'new_image_metadata' => $newImageMetadata,
                 'total_similar' => count($similarImages),
-                'notification_type' => 'existing_owner'
+                'notification_type' => 'existing_owner',
             ];
 
             // Send the actual email notification
             Mail::to($email)->send(new SimilarImageNotification($data));
 
-            Log::info('Similarity notification sent to: ' . $email, [
+            Log::info('Similarity notification sent to: '.$email, [
                 'total_similar' => count($similarImages),
                 'emails_sent' => 1,
-                'mail_driver' => config('mail.default')
+                'mail_driver' => config('mail.default'),
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to send similarity notification to ' . $email . ': ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+            Log::error('Failed to send similarity notification to '.$email.': '.$e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -486,8 +499,12 @@ class SimilarityNotificationService
         $len1 = strlen($s1);
         $len2 = strlen($s2);
 
-        if ($len1 === 0) return $len2 === 0 ? 1.0 : 0.0;
-        if ($len2 === 0) return 0.0;
+        if ($len1 === 0) {
+            return $len2 === 0 ? 1.0 : 0.0;
+        }
+        if ($len2 === 0) {
+            return 0.0;
+        }
 
         $distance = levenshtein($s1, $s2);
         $maxLen = max($len1, $len2);
@@ -529,37 +546,38 @@ class SimilarityNotificationService
     private function sendNewUploaderNotification(string $newUploaderEmail, array $similarImages, array $newImageMetadata): void
     {
         // Check if email notifications are enabled
-        if (!$this->areEmailNotificationsEnabled()) {
+        if (! $this->areEmailNotificationsEnabled()) {
             Log::info('Email notifications disabled - skipping new uploader notification', [
-                'email' => $newUploaderEmail
+                'email' => $newUploaderEmail,
             ]);
+
             return;
         }
-        
+
         try {
             // Apply mail configuration before sending
             $this->applyMailConfigurationFromSettings();
-            
+
             $data = [
                 'email' => $newUploaderEmail,
                 'similar_images' => $similarImages,
                 'new_image_metadata' => $newImageMetadata,
                 'total_similar' => count($similarImages),
-                'notification_type' => 'new_uploader'
+                'notification_type' => 'new_uploader',
             ];
 
-            Mail::to($newUploaderEmail)->send(new \App\Mail\SimilarImageNotification($data));
+            Mail::to($newUploaderEmail)->send(new SimilarImageNotification($data));
 
             Log::info('New uploader notification sent', [
                 'email' => $newUploaderEmail,
                 'similar_images_count' => count($similarImages),
-                'mail_driver' => config('mail.default')
+                'mail_driver' => config('mail.default'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send new uploader notification', [
                 'email' => $newUploaderEmail,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -570,39 +588,77 @@ class SimilarityNotificationService
     private function sendNoMatchNotification(string $newUploaderEmail, array $newImageMetadata): void
     {
         // Check if email notifications are enabled
-        if (!$this->areEmailNotificationsEnabled()) {
+        if (! $this->areEmailNotificationsEnabled()) {
             Log::info('Email notifications disabled - skipping no match notification', [
-                'email' => $newUploaderEmail
+                'email' => $newUploaderEmail,
             ]);
+
             return;
         }
-        
+
         try {
             // Apply mail configuration before sending
             $this->applyMailConfigurationFromSettings();
-            
+
             $data = [
                 'email' => $newUploaderEmail,
                 'similar_images' => [], // No similar images
                 'total_similar' => 0, // No similar images found
                 'new_image_metadata' => $newImageMetadata,
-                'notification_type' => 'no_match'
+                'notification_type' => 'no_match',
             ];
 
-            Mail::to($newUploaderEmail)->send(new \App\Mail\SimilarImageNotification($data));
+            Mail::to($newUploaderEmail)->send(new SimilarImageNotification($data));
 
             Log::info('No match notification sent', [
                 'email' => $newUploaderEmail,
                 'status' => $newImageMetadata['status'] ?? 'unknown',
-                'mail_driver' => config('mail.default')
+                'mail_driver' => config('mail.default'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send no match notification', [
                 'email' => $newUploaderEmail,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
+    }
+
+    /**
+     * Defer similarity comparison until after the HTTP response is sent so uploads return quickly on slow networks.
+     * Uses Laravel's terminating callback (no queue worker required).
+     */
+    public static function queueSimilarityCheckAfterResponse(int $imageMetadataId, string $userEmail): void
+    {
+        app()->terminating(function () use ($imageMetadataId, $userEmail): void {
+            try {
+                $metadata = ImageMetadata::find($imageMetadataId);
+                if (! $metadata) {
+                    Log::warning('Deferred similarity check skipped: ImageMetadata not found', [
+                        'image_metadata_id' => $imageMetadataId,
+                        'user_email' => $userEmail,
+                    ]);
+
+                    return;
+                }
+
+                $result = app(self::class)->checkAndNotifySimilarities($metadata, $userEmail);
+
+                Log::info('Deferred similarity check completed', [
+                    'image_metadata_id' => $imageMetadataId,
+                    'upload_id' => $metadata->upload_id,
+                    'user_email' => $userEmail,
+                    'similar_items_found' => $result['similar_items_found'] ?? 0,
+                    'notifications_sent' => $result['notifications_sent'] ?? 0,
+                ]);
+            } catch (\Throwable $e) {
+                Log::error('Deferred similarity check failed: '.$e->getMessage(), [
+                    'image_metadata_id' => $imageMetadataId,
+                    'user_email' => $userEmail,
+                    'trace' => $e->getTraceAsString(),
+                ]);
+            }
+        });
     }
 
     /**
@@ -615,12 +671,12 @@ class SimilarityNotificationService
             // In production with many items, checking all items is too slow
             $maxItemsToCheck = $this->config['max_items_to_check'] ?? 500; // Default: check max 500 items
             $chunkSize = 50; // Process in chunks to avoid memory issues
-            
+
             // Get existing items with limit and ordering (most recent first for better matches)
             // Only get items that have file paths (to avoid file_exists checks on null paths)
             // Only match Lost with Found and Found with Lost (opposite types)
             $oppositeStatus = ($newItem->status === 'lost') ? 'found' : 'lost';
-            
+
             $existingItemsQuery = ImageMetadata::where('uploader_email', '!=', $userEmail)
                 ->whereNotNull('uploader_email')
                 ->whereNotNull('file_path')
@@ -644,7 +700,7 @@ class SimilarityNotificationService
                 'user_email' => $userEmail,
                 'total_existing_items' => $totalExistingItems,
                 'max_items_to_check' => $maxItemsToCheck,
-                'chunk_size' => $chunkSize
+                'chunk_size' => $chunkSize,
             ]);
 
             // Process in chunks to avoid memory issues and allow early exit
@@ -656,33 +712,34 @@ class SimilarityNotificationService
                         Log::warning('Similarity check timeout - stopping early', [
                             'items_checked' => $itemsChecked,
                             'elapsed_seconds' => round($elapsed, 2),
-                            'max_execution_time' => $maxExecutionTime
+                            'max_execution_time' => $maxExecutionTime,
                         ]);
+
                         return false; // Stop chunking
                     }
-                    
+
                     $itemsChecked++;
-                    
+
                     // Only match Lost with Found and Found with Lost (opposite types)
                     $newItemStatus = $newItem->status;
                     $existingItemStatus = $existingItem->status;
-                    
+
                     // Skip if both items have the same status (Lost-Lost or Found-Found)
                     if ($newItemStatus === $existingItemStatus) {
                         continue;
                     }
-                    
+
                     // Ensure opposite types: Lost ↔ Found
-                    if (!(($newItemStatus === 'lost' && $existingItemStatus === 'found') || 
+                    if (! (($newItemStatus === 'lost' && $existingItemStatus === 'found') ||
                           ($newItemStatus === 'found' && $existingItemStatus === 'lost'))) {
                         continue;
                     }
-                    
+
                     // Get the file path for comparison
                     $newItemPath = $this->getItemFilePath($newItem);
                     $existingItemPath = $this->getItemFilePath($existingItem);
 
-                    if (!$newItemPath || !$existingItemPath) {
+                    if (! $newItemPath || ! $existingItemPath) {
                         Log::warning('File path not found for similarity comparison', [
                             'new_item_id' => $newItem->id,
                             'new_item_file_path' => $newItem->file_path,
@@ -693,6 +750,7 @@ class SimilarityNotificationService
                             'existing_item_filename' => $existingItem->filename,
                             'existing_item_path_resolved' => $existingItemPath,
                         ]);
+
                         continue;
                     }
 
@@ -702,20 +760,20 @@ class SimilarityNotificationService
                         $textSimilarity = $this->calculateTextSimilarity([
                             'description' => $newItem->description,
                             'tags' => $newItem->tags,
-                            'detected_objects' => $newItem->detected_objects
+                            'detected_objects' => $newItem->detected_objects,
                         ], $existingItem);
                         $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
 
                         // Get threshold from config - check both old and new config structure
-                        $visualThreshold = $this->config['thresholds']['visual'] ?? 
-                                           $this->config['threshold'] ?? 
+                        $visualThreshold = $this->config['thresholds']['visual'] ??
+                                           $this->config['threshold'] ??
                                            0.7;
 
                         // Store candidate matches at baseline threshold and allow a
                         // semantic fallback for same item with different backgrounds.
                         $matchThreshold = 0.5;
                         $semanticFallbackMatch = $visualSimilarity >= 0.35 && $textSimilarity >= 0.65;
-                        
+
                         if ($overallSimilarity >= $matchThreshold || $semanticFallbackMatch) {
                             $similarItems[] = [
                                 'description' => $existingItem->description,
@@ -726,12 +784,12 @@ class SimilarityNotificationService
                                 'item_id' => $existingItem->id,
                                 'upload_id' => $existingItem->upload_id,
                                 'visual_similarity' => $visualSimilarity,
-                                'text_similarity' => $textSimilarity
+                                'text_similarity' => $textSimilarity,
                             ];
 
                             // Store match in database for fast retrieval on claim-verify page
                             try {
-                                \App\Models\ItemMatch::updateOrCreate(
+                                ItemMatch::updateOrCreate(
                                     [
                                         'user_item_upload_id' => $newItem->upload_id,
                                         'matched_item_upload_id' => $existingItem->upload_id,
@@ -750,9 +808,9 @@ class SimilarityNotificationService
                                         ), // also notify high-confidence semantic+visual matches
                                     ]
                                 );
-                                
+
                                 // Also create reverse match (bidirectional) so both users see the match
-                                \App\Models\ItemMatch::updateOrCreate(
+                                ItemMatch::updateOrCreate(
                                     [
                                         'user_item_upload_id' => $existingItem->upload_id,
                                         'matched_item_upload_id' => $newItem->upload_id,
@@ -771,27 +829,28 @@ class SimilarityNotificationService
                                         ),
                                     ]
                                 );
-                                
+
                                 Log::info('Match stored in database', [
                                     'user_item_upload_id' => $newItem->upload_id,
                                     'matched_item_upload_id' => $existingItem->upload_id,
-                                    'similarity_score' => $overallSimilarity
+                                    'similarity_score' => $overallSimilarity,
                                 ]);
                             } catch (\Exception $e) {
-                                Log::error('Failed to store match in database: ' . $e->getMessage());
+                                Log::error('Failed to store match in database: '.$e->getMessage());
                             }
 
                             Log::info('Similar item found for user upload (opposite type match)', [
                                 'new_item_status' => $newItemStatus,
                                 'existing_item_status' => $existingItemStatus,
                                 'existing_item' => $existingItem->original_name,
-                                'similarity' => $overallSimilarity
+                                'similarity' => $overallSimilarity,
                             ]);
                         }
                     } catch (\Exception $e) {
-                        Log::error('Error calculating similarity for item: ' . $existingItem->original_name, [
-                            'error' => $e->getMessage()
+                        Log::error('Error calculating similarity for item: '.$existingItem->original_name, [
+                            'error' => $e->getMessage(),
                         ]);
+
                         continue;
                     }
                 }
@@ -802,7 +861,7 @@ class SimilarityNotificationService
                 'items_checked' => $itemsChecked,
                 'similar_items_found' => count($similarItems),
                 'elapsed_seconds' => round($elapsed, 2),
-                'total_existing_items' => $totalExistingItems
+                'total_existing_items' => $totalExistingItems,
             ]);
 
             // Send notification to the user
@@ -811,14 +870,14 @@ class SimilarityNotificationService
                     'user_email' => $userEmail,
                     'similar_items_count' => count($similarItems),
                     'new_item_id' => $newItem->id,
-                    'new_item_status' => $newItem->status
+                    'new_item_status' => $newItem->status,
                 ]);
-                
+
                 $this->sendUserSimilarityNotification($userEmail, $newItem, $similarItems);
                 // Create in-app notification for similar items found
                 $this->createSimilarItemsNotification($userEmail, $newItem, $similarItems);
                 $notificationsSent[] = $userEmail;
-                
+
                 // Notify the owners of matched items (both users get notified)
                 foreach ($similarItems as $similarItem) {
                     $matchedItemOwnerEmail = $similarItem['uploader_email'] ?? null;
@@ -829,19 +888,19 @@ class SimilarityNotificationService
                             // Check if it's a match (one lost, one found)
                             $isMatch = ($newItem->status === 'lost' && $matchedItem->status === 'found') ||
                                       ($newItem->status === 'found' && $matchedItem->status === 'lost');
-                            
+
                             Log::info('Checking match status', [
                                 'new_item_status' => $newItem->status,
                                 'matched_item_status' => $matchedItem->status,
                                 'is_match' => $isMatch,
                                 'matched_item_owner_email' => $matchedItemOwnerEmail,
-                                'similarity_score' => $similarItem['similarity'] ?? 0
+                                'similarity_score' => $similarItem['similarity'] ?? 0,
                             ]);
-                            
+
                             // Notify the matched item owner if it's a match (lost ↔ found)
                             // OR if similarity is high enough (>= 0.75) regardless of type
                             $highSimilarity = ($similarItem['similarity'] ?? 0) >= 0.75;
-                            
+
                             if ($isMatch || $highSimilarity) {
                                 if ($isMatch) {
                                     // Perfect match (lost ↔ found) - send match notification
@@ -850,7 +909,7 @@ class SimilarityNotificationService
                                 } else {
                                     // High similarity but same type - send similarity notification
                                     Log::info('High similarity found (same type), sending similarity notification', [
-                                        'similarity' => $similarItem['similarity'] ?? 0
+                                        'similarity' => $similarItem['similarity'] ?? 0,
                                     ]);
                                     $this->sendUserSimilarityNotification($matchedItemOwnerEmail, $matchedItem, [
                                         [
@@ -860,8 +919,8 @@ class SimilarityNotificationService
                                             'tags' => $newItem->tags,
                                             'similarity' => $similarItem['similarity'] ?? 0,
                                             'item_id' => $newItem->id,
-                                            'upload_id' => $newItem->upload_id
-                                        ]
+                                            'upload_id' => $newItem->upload_id,
+                                        ],
                                     ]);
                                     $this->createSimilarItemsNotification($matchedItemOwnerEmail, $matchedItem, [
                                         [
@@ -871,8 +930,8 @@ class SimilarityNotificationService
                                             'tags' => $newItem->tags,
                                             'similarity' => $similarItem['similarity'] ?? 0,
                                             'item_id' => $newItem->id,
-                                            'upload_id' => $newItem->upload_id
-                                        ]
+                                            'upload_id' => $newItem->upload_id,
+                                        ],
                                     ]);
                                 }
                                 $notificationsSent[] = $matchedItemOwnerEmail;
@@ -880,12 +939,12 @@ class SimilarityNotificationService
                                 Log::info('Items are similar but not matching criteria', [
                                     'new_item_status' => $newItem->status,
                                     'matched_item_status' => $matchedItem->status,
-                                    'similarity' => $similarItem['similarity'] ?? 0
+                                    'similarity' => $similarItem['similarity'] ?? 0,
                                 ]);
                             }
                         } else {
                             Log::warning('Matched item not found in database', [
-                                'upload_id' => $similarItem['upload_id'] ?? null
+                                'upload_id' => $similarItem['upload_id'] ?? null,
                             ]);
                         }
                     }
@@ -893,7 +952,7 @@ class SimilarityNotificationService
             } else {
                 Log::info('No similar items found, sending upload confirmation', [
                     'user_email' => $userEmail,
-                    'new_item_id' => $newItem->id
+                    'new_item_id' => $newItem->id,
                 ]);
                 $this->sendUserUploadConfirmation($userEmail, $newItem);
                 $notificationsSent[] = $userEmail;
@@ -903,17 +962,18 @@ class SimilarityNotificationService
                 'similar_items_found' => count($similarItems),
                 'notifications_sent' => count($notificationsSent),
                 'emails_notified' => $notificationsSent,
-                'similar_items' => $similarItems
+                'similar_items' => $similarItems,
             ];
 
         } catch (\Exception $e) {
-            Log::error('Error checking user item similarities: ' . $e->getMessage());
+            Log::error('Error checking user item similarities: '.$e->getMessage());
+
             return [
                 'similar_items_found' => 0,
                 'notifications_sent' => 0,
                 'emails_notified' => [],
                 'similar_items' => [],
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -924,34 +984,34 @@ class SimilarityNotificationService
     private function getItemFilePath(ImageMetadata $item): ?string
     {
         $path = null;
-        
+
         // Check if it's a user item or reference image
         if (str_contains($item->file_path ?? '', 'user-items')) {
             // Extract filename from file_path (e.g., /storage/user-items/filename.jpg -> filename.jpg)
             $filename = basename($item->file_path);
-            $path = storage_path('app/public/user-items/' . $filename);
+            $path = storage_path('app/public/user-items/'.$filename);
         } elseif ($item->filename) {
             // Try reference-images path
-            $path = storage_path('app/public/reference-images/' . $item->filename);
+            $path = storage_path('app/public/reference-images/'.$item->filename);
         }
-        
+
         // If path still not found, try alternative methods
-        if (!$path || !file_exists($path)) {
+        if (! $path || ! file_exists($path)) {
             // Try using filename directly from file_path
             if ($item->file_path) {
                 $filename = basename($item->file_path);
                 // Try user-items first
-                $altPath = storage_path('app/public/user-items/' . $filename);
+                $altPath = storage_path('app/public/user-items/'.$filename);
                 if (file_exists($altPath)) {
                     return $altPath;
                 }
                 // Try reference-images
-                $altPath = storage_path('app/public/reference-images/' . $filename);
+                $altPath = storage_path('app/public/reference-images/'.$filename);
                 if (file_exists($altPath)) {
                     return $altPath;
                 }
             }
-            
+
             // Log the failure for debugging
             Log::warning('File not found for item', [
                 'item_id' => $item->id,
@@ -959,7 +1019,7 @@ class SimilarityNotificationService
                 'filename' => $item->filename,
                 'attempted_path' => $path,
             ]);
-            
+
             return null;
         }
 
@@ -972,17 +1032,18 @@ class SimilarityNotificationService
     private function sendUserSimilarityNotification(string $userEmail, ImageMetadata $newItem, array $similarItems): void
     {
         // Check if email notifications are enabled
-        if (!$this->areEmailNotificationsEnabled()) {
+        if (! $this->areEmailNotificationsEnabled()) {
             Log::info('Email notifications disabled - skipping similarity notification', [
-                'email' => $userEmail
+                'email' => $userEmail,
             ]);
+
             return;
         }
-        
+
         try {
             // Apply mail configuration before sending
             $this->applyMailConfigurationFromSettings();
-            
+
             $data = [
                 'notification_type' => 'similar_item_found',
                 'item_type' => $newItem->status,
@@ -994,7 +1055,7 @@ class SimilarityNotificationService
                 'similar_items' => $similarItems,
                 'upload_date' => $newItem->created_at->format('M d, Y'),
                 'upload_id' => $newItem->upload_id,
-                'item_id' => $newItem->id
+                'item_id' => $newItem->id,
             ];
 
             Mail::to($userEmail)->send(new UserItemNotification($data));
@@ -1002,13 +1063,13 @@ class SimilarityNotificationService
             Log::info('User similarity notification sent', [
                 'email' => $userEmail,
                 'similar_items_count' => count($similarItems),
-                'mail_driver' => config('mail.default')
+                'mail_driver' => config('mail.default'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send user similarity notification', [
                 'email' => $userEmail,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -1019,17 +1080,18 @@ class SimilarityNotificationService
     private function sendUserUploadConfirmation(string $userEmail, ImageMetadata $newItem): void
     {
         // Check if email notifications are enabled
-        if (!$this->areEmailNotificationsEnabled()) {
+        if (! $this->areEmailNotificationsEnabled()) {
             Log::info('Email notifications disabled - skipping upload confirmation', [
-                'email' => $userEmail
+                'email' => $userEmail,
             ]);
+
             return;
         }
-        
+
         try {
             // Apply mail configuration before sending
             $this->applyMailConfigurationFromSettings();
-            
+
             $data = [
                 'notification_type' => 'new_item_uploaded',
                 'item_type' => $newItem->status,
@@ -1040,7 +1102,7 @@ class SimilarityNotificationService
                 'user_email' => $userEmail, // The authenticated user's email
                 'upload_date' => $newItem->created_at->format('M d, Y'),
                 'upload_id' => $newItem->upload_id,
-                'item_id' => $newItem->id
+                'item_id' => $newItem->id,
             ];
 
             Mail::to($userEmail)->send(new UserItemNotification($data));
@@ -1048,13 +1110,13 @@ class SimilarityNotificationService
             Log::info('User upload confirmation sent', [
                 'email' => $userEmail,
                 'item_type' => $newItem->status,
-                'mail_driver' => config('mail.default')
+                'mail_driver' => config('mail.default'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send user upload confirmation', [
                 'email' => $userEmail,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -1065,8 +1127,8 @@ class SimilarityNotificationService
     private function createSimilarItemsNotification(string $userEmail, ImageMetadata $newItem, array $similarItems): void
     {
         try {
-            $user = \App\Models\User::where('email', $userEmail)->first();
-            if (!$user) {
+            $user = User::where('email', $userEmail)->first();
+            if (! $user) {
                 return;
             }
 
@@ -1087,21 +1149,22 @@ class SimilarityNotificationService
                     'top_similarity' => round($topSimilarity * 100, 2),
                     'similar_items_count' => count($similarItems),
                 ]);
+
                 return;
             }
 
-            \App\Models\Notification::create([
+            Notification::create([
                 'user_id' => $user->id,
                 'type' => 'item_match',
                 'title' => 'High-confidence match found!',
-                'message' => 'We found ' . count($similarItems) . ' high-confidence similar item(s) that might match your ' . ($newItem->status === 'lost' ? 'lost' : 'found') . ' item.',
+                'message' => 'We found '.count($similarItems).' high-confidence similar item(s) that might match your '.($newItem->status === 'lost' ? 'lost' : 'found').' item.',
                 'data' => [
                     'upload_id' => $newItem->upload_id,
                     'item_type' => $newItem->status,
                     'confidence' => $confidenceLevel,
                     'top_similarity_percent' => round($topSimilarity * 100, 2),
                     'similar_items_count' => count($similarItems),
-                    'similar_items' => array_map(function($item) {
+                    'similar_items' => array_map(function ($item) {
                         return [
                             'upload_id' => $item['upload_id'] ?? null,
                             'description' => $item['description'] ?? '',
@@ -1112,7 +1175,7 @@ class SimilarityNotificationService
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::warning('Failed to create similar items notification: ' . $e->getMessage());
+            Log::warning('Failed to create similar items notification: '.$e->getMessage());
         }
     }
 
@@ -1122,17 +1185,18 @@ class SimilarityNotificationService
     private function notifyMatchedItemOwner(string $ownerEmail, ImageMetadata $matchedItem, ImageMetadata $newItem, array $similarityData): void
     {
         // Check if email notifications are enabled
-        if (!$this->areEmailNotificationsEnabled()) {
+        if (! $this->areEmailNotificationsEnabled()) {
             Log::info('Email notifications disabled - skipping matched item owner notification', [
-                'email' => $ownerEmail
+                'email' => $ownerEmail,
             ]);
+
             return;
         }
-        
+
         try {
             // Apply mail configuration before sending
             $this->applyMailConfigurationFromSettings();
-            
+
             $data = [
                 'notification_type' => 'item_matched',
                 'matched_item_type' => $matchedItem->status,
@@ -1159,13 +1223,13 @@ class SimilarityNotificationService
                 'email' => $ownerEmail,
                 'matched_item_id' => $matchedItem->id,
                 'new_item_id' => $newItem->id,
-                'mail_driver' => config('mail.default')
+                'mail_driver' => config('mail.default'),
             ]);
         } catch (\Exception $e) {
             Log::error('Failed to send matched item owner notification', [
                 'email' => $ownerEmail,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -1176,8 +1240,8 @@ class SimilarityNotificationService
     private function createMatchedItemNotification(string $ownerEmail, ImageMetadata $matchedItem, ImageMetadata $newItem, array $similarityData): void
     {
         try {
-            $owner = \App\Models\User::where('email', $ownerEmail)->first();
-            if (!$owner) {
+            $owner = User::where('email', $ownerEmail)->first();
+            if (! $owner) {
                 return;
             }
 
@@ -1194,18 +1258,19 @@ class SimilarityNotificationService
                     'matched_item_id' => $matchedItem->id,
                     'new_item_id' => $newItem->id,
                 ]);
+
                 return;
             }
 
-            $matchType = ($matchedItem->status === 'lost' && $newItem->status === 'found') ? 
-                        'Someone found an item that matches your lost item!' : 
+            $matchType = ($matchedItem->status === 'lost' && $newItem->status === 'found') ?
+                        'Someone found an item that matches your lost item!' :
                         'Someone lost an item that matches your found item!';
 
-            \App\Models\Notification::create([
+            Notification::create([
                 'user_id' => $owner->id,
                 'type' => 'item_matched',
                 'title' => 'Item Match Found!',
-                'message' => $matchType . ' (Confidence: ' . strtoupper($confidenceLevel) . ', Similarity: ' . $similarityPercent . '%)',
+                'message' => $matchType.' (Confidence: '.strtoupper($confidenceLevel).', Similarity: '.$similarityPercent.'%)',
                 'data' => [
                     'matched_item_upload_id' => $matchedItem->upload_id,
                     'matched_item_id' => $matchedItem->id,
@@ -1225,7 +1290,7 @@ class SimilarityNotificationService
                 ],
             ]);
         } catch (\Exception $e) {
-            Log::warning('Failed to create matched item notification: ' . $e->getMessage());
+            Log::warning('Failed to create matched item notification: '.$e->getMessage());
         }
     }
 
@@ -1240,6 +1305,7 @@ class SimilarityNotificationService
         if ($similarity >= 0.65) {
             return 'medium';
         }
+
         return 'low';
     }
 }
