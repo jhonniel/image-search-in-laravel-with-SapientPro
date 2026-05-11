@@ -400,44 +400,43 @@
                         </span>
                     </button>
                     
-                    <!-- Processing Indicator (Inline Below Button) -->
+                    <!-- Upload Progress (staged) -->
                     <div id="processing-indicator" class="mt-4 hidden">
-                        <div class="bg-white rounded-xl sm:rounded-2xl border border-gray-200 shadow-lg p-4 sm:p-6">
-                            <div class="text-center">
-                                <!-- Progress Percentage -->
-                                <h3 class="text-lg sm:text-xl font-semibold text-gray-900 mb-3" id="processing-title">Processing Your Item</h3>
-                                
-                                <!-- Progress Bar -->
-                                <div class="mb-4">
-                                    <div class="w-full bg-gray-200 rounded-full h-3 sm:h-4 overflow-hidden">
-                                        <div id="progress-bar" class="h-full rounded-full transition-all duration-500 ease-out" style="width: 0%"></div>
+                        <div class="rounded-xl border border-pink-200 bg-pink-50/60 p-3 sm:p-4 shadow-sm">
+                            <div class="flex items-start gap-3">
+                                <span id="upload-stage-icon" class="inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow text-pink-600 shrink-0">
+                                    <i class="fas fa-circle-notch fa-spin text-base sm:text-lg"></i>
+                                </span>
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span id="upload-stage-label" class="text-sm sm:text-base font-semibold text-gray-900 truncate">Preparing your upload…</span>
+                                        <span id="upload-progress-percent" class="text-xs sm:text-sm font-medium text-pink-700 tabular-nums">0%</span>
                                     </div>
-                                    <div class="mt-2 flex items-center justify-center space-x-2">
-                                        <span id="progress-percentage" class="text-xl sm:text-2xl font-bold text-pink-600">0%</span>
-                                    </div>
-                                </div>
-                                
-                                <!-- Current Status Message (Only shows active status) -->
-                                <div id="current-status-container" class="mb-3">
-                                    <div id="current-status" class="flex items-center justify-center space-x-2 p-3 bg-pink-50 rounded-lg border border-pink-200">
-                                        <i id="current-status-icon" class="fas fa-circle-notch text-pink-600 text-sm fa-spin"></i>
-                                        <span id="current-status-text" class="text-pink-800 text-sm sm:text-base font-medium">Uploading images...</span>
+                                    <p id="upload-stage-detail" class="text-xs sm:text-sm text-gray-600 mt-0.5">Getting your images ready</p>
+                                    <div class="w-full bg-pink-100 rounded-full h-2 sm:h-2.5 mt-2 overflow-hidden">
+                                        <div id="progress-bar" class="h-full rounded-full bg-gradient-to-r from-pink-500 to-rose-500 transition-all duration-300" style="width: 0%"></div>
                                     </div>
                                 </div>
-                                
-                                <p class="text-xs sm:text-sm text-gray-500" id="processing-message">
-                                    Please wait while we process your item...
+                            </div>
+
+                            <!-- Match-checking note -->
+                            <div id="matching-check-message" class="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg hidden">
+                                <div class="flex items-start space-x-2">
+                                    <i class="fas fa-search text-blue-600 animate-pulse mt-0.5"></i>
+                                    <span class="text-xs sm:text-sm text-blue-800">
+                                        <strong>Match checking continues in the background.</strong> Once you sign in or register, you'll see a bell notification if similar items are found.
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Warning Note -->
+                        <div id="processing-warning-note" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                            <div class="flex items-start space-x-2">
+                                <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
+                                <p class="text-xs sm:text-sm text-yellow-800">
+                                    <strong>Please don't refresh or close this page while uploading.</strong> Your images are being sent and saved.
                                 </p>
-                                
-                                <!-- Warning Note -->
-                                <div id="processing-warning-note" class="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                                    <div class="flex items-start space-x-2">
-                                        <i class="fas fa-exclamation-triangle text-yellow-600 mt-0.5"></i>
-                                        <p class="text-xs sm:text-sm text-yellow-800">
-                                            <strong>Please do not refresh or reload this page.</strong> The system is checking for similar items. Please wait for it to complete - you will be routed to the reported items page when done.
-                                        </p>
-                                    </div>
-                                </div>
                             </div>
                         </div>
                     </div>
@@ -1022,223 +1021,232 @@ document.addEventListener('DOMContentLoaded', function() {
     const submitBtnSpinner = document.getElementById('submit-btn-spinner');
     const processingIndicator = document.getElementById('processing-indicator');
     const progressBar = document.getElementById('progress-bar');
-    const progressPercentage = document.getElementById('progress-percentage');
-    const currentStatusContainer = document.getElementById('current-status-container');
-    const currentStatusIcon = document.getElementById('current-status-icon');
-    const currentStatusText = document.getElementById('current-status-text');
-    const processingTitle = document.getElementById('processing-title');
-    const processingMessage = document.getElementById('processing-message');
-    
-    function updateProgress(percent) {
-        if (!progressBar || !progressPercentage || !currentStatusIcon || !currentStatusText || !processingMessage) {
-            console.error('Progress elements not found');
-            return;
-        }
-        
-        const clampedPercent = Math.min(100, Math.max(0, percent));
-        const roundedPercent = Math.round(clampedPercent);
-        
-        // Smoothly animate the progress bar width
-        progressBar.style.width = clampedPercent + '%';
-        progressBar.style.transition = 'width 0.3s ease-out';
-        
-        // Update percentage with smooth animation
-        progressPercentage.textContent = roundedPercent + '%';
-        
-        // Add visual feedback - make the bar glow more as it fills
-        if (clampedPercent > 0) {
-            progressBar.style.boxShadow = `0 0 ${Math.min(20, clampedPercent / 5)}px rgba(236, 72, 153, 0.5)`;
-        }
-        
-        // Update status message based on progress - show only current status
-        if (clampedPercent < 30) {
-            // Uploading phase (0-30%)
-            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
-            currentStatusText.textContent = 'Uploading images...';
-            processingMessage.textContent = 'Please wait while we upload your images...';
-        } else if (clampedPercent < 60) {
-            // Uploading complete, processing (30-60%)
-            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
-            currentStatusText.textContent = 'Processing item details...';
-            processingMessage.textContent = 'Analyzing and processing your item information...';
-        } else if (clampedPercent < 90) {
-            // Processing complete, matching (60-90%)
-            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
-            currentStatusText.textContent = 'Matching similar items...';
-            processingMessage.textContent = 'Searching for similar items in our database...';
-        } else {
-            // Almost complete (90-100%) - Still checking for similarity
-            currentStatusIcon.className = 'fas fa-search text-pink-600 text-sm fa-spin';
-            currentStatusText.textContent = 'Checking for similar items...';
-            processingMessage.textContent = 'Scanning database for similar items. Please wait...';
-        }
+    const progressPercentage = document.getElementById('upload-progress-percent');
+    const stageIcon = document.getElementById('upload-stage-icon');
+    const stageLabel = document.getElementById('upload-stage-label');
+    const stageDetail = document.getElementById('upload-stage-detail');
+    const matchingMessage = document.getElementById('matching-check-message');
+
+    /** Format raw bytes into a short human-readable string. */
+    function formatBytes(bytes) {
+        if (bytes === 0 || !Number.isFinite(bytes)) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.min(units.length - 1, Math.floor(Math.log(bytes) / Math.log(1024)));
+        return (bytes / Math.pow(1024, i)).toFixed(i === 0 ? 0 : 1) + ' ' + units[i];
     }
-    
-    function resetStatusIndicators() {
-        // Reset to initial upload status
-        if (currentStatusIcon && currentStatusText && processingMessage) {
-            currentStatusIcon.className = 'fas fa-circle-notch text-pink-600 text-sm fa-spin';
-            currentStatusText.textContent = 'Uploading images...';
-            processingMessage.textContent = 'Please wait while we process your item...';
-        }
+
+    /** Update only the progress bar + percent label (no stage change). */
+    function updateProgress(percent) {
+        if (!progressBar || !progressPercentage) return;
+        const clamped = Math.max(0, Math.min(100, percent));
+        progressBar.style.width = clamped + '%';
+        progressPercentage.textContent = Math.round(clamped) + '%';
+    }
+
+    /**
+     * Staged upload status. Matches the implementation on `/reported-items`.
+     * Stages: preparing | uploading | processing | done | error
+     *
+     * opts:
+     *   fileCount  – number of files being uploaded (used in "uploading X images…")
+     *   bytesText  – e.g. "1.2 MB / 4.5 MB sent"
+     *   label      – override label (error stage)
+     *   detail     – override detail (error stage)
+     */
+    function setUploadStage(stage, opts = {}) {
+        if (!stageIcon || !stageLabel || !stageDetail) return;
+
+        const stages = {
+            preparing: {
+                icon: '<i class="fas fa-circle-notch fa-spin text-base sm:text-lg"></i>',
+                label: 'Preparing your upload…',
+                detail: opts.fileCount
+                    ? `Getting ${opts.fileCount} image${opts.fileCount === 1 ? '' : 's'} ready`
+                    : 'Getting your images ready',
+                color: 'text-pink-600',
+            },
+            uploading: {
+                icon: '<i class="fas fa-cloud-upload-alt text-base sm:text-lg"></i>',
+                label: opts.fileCount
+                    ? `Uploading ${opts.fileCount} image${opts.fileCount === 1 ? '' : 's'}…`
+                    : 'Uploading images…',
+                detail: opts.bytesText || 'Sending to FindITFast',
+                color: 'text-pink-600',
+            },
+            processing: {
+                icon: '<i class="fas fa-cog fa-spin text-base sm:text-lg"></i>',
+                label: 'Saving your item…',
+                detail: 'Almost done, finalizing your post',
+                color: 'text-pink-600',
+            },
+            done: {
+                icon: '<i class="fas fa-check text-base sm:text-lg"></i>',
+                label: 'Done! Item posted',
+                detail: 'Match checking continues in the background',
+                color: 'text-green-600',
+            },
+            error: {
+                icon: '<i class="fas fa-exclamation-triangle text-base sm:text-lg"></i>',
+                label: opts.label || 'Upload failed',
+                detail: opts.detail || 'Please try again',
+                color: 'text-red-600',
+            },
+        };
+
+        const s = stages[stage] || stages.preparing;
+        stageIcon.className = `inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-white shadow shrink-0 ${s.color}`;
+        stageIcon.innerHTML = s.icon;
+        stageLabel.textContent = s.label;
+        stageDetail.textContent = s.detail;
+    }
+
+    function showMatchingCheckMessage() {
+        if (matchingMessage) matchingMessage.classList.remove('hidden');
     }
     
     if (form) {
         form.addEventListener('submit', function(e) {
-            e.preventDefault(); // Prevent default form submission
-            
-            // Validate form first
+            e.preventDefault();
+
+            // Native validation first.
             if (!form.checkValidity()) {
-                // Find first invalid field and scroll to it
                 const firstInvalid = form.querySelector(':invalid');
                 if (firstInvalid) {
                     firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
                     firstInvalid.focus();
                 }
-                return; // Let browser show validation errors
-            }
-            
-            // Prevent double submission
-            if (submitBtn.disabled) {
                 return;
             }
-            
-            // Disable submit button
+            if (submitBtn.disabled) return;
+
+            // Lock the submit button and reveal the staged progress card.
             submitBtn.disabled = true;
             submitBtnText.classList.add('hidden');
             submitBtnSpinner.classList.remove('hidden');
-            
-            // Show processing indicator below button
+
+            const fileInput = document.getElementById('item-images');
+            const fileCount = fileInput && fileInput.files ? fileInput.files.length : 0;
+
             processingIndicator.classList.remove('hidden');
-            resetStatusIndicators();
             updateProgress(0);
-            processingTitle.textContent = 'Processing Your Item';
-            processingMessage.textContent = 'Please wait while we process your item...';
-            
-            // Scroll to processing indicator
+            setUploadStage('preparing', { fileCount });
+            // Hide the matching note until we have a successful upload.
+            if (matchingMessage) matchingMessage.classList.add('hidden');
+
             setTimeout(() => {
                 processingIndicator.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }, 100);
-            
-            // Create FormData from form
+
             const formData = new FormData(form);
-            
-            // Create XMLHttpRequest for progress tracking
             const xhr = new XMLHttpRequest();
-            
-            // Track upload progress
-            xhr.upload.addEventListener('progress', function(e) {
-                if (e.lengthComputable) {
-                    // Upload progress: 0-90% (leaving 10% for server processing)
-                    const uploadPercent = (e.loaded / e.total) * 90;
-                    console.log('Upload progress:', Math.round(uploadPercent) + '%', '(', e.loaded, '/', e.total, ')');
-                    updateProgress(uploadPercent);
-                }
+
+            // -- Real upload progress (XHR) maps to the "uploading" stage ----
+            xhr.upload.addEventListener('loadstart', function(e) {
+                setUploadStage('uploading', {
+                    fileCount,
+                    bytesText: `0 / ${formatBytes(e.total || 0)} sent`,
+                });
             });
-            
-            // Handle completion
+            xhr.upload.addEventListener('progress', function(e) {
+                if (!e.lengthComputable) return;
+                const pct = (e.loaded / e.total) * 95; // leave 5% for server work
+                updateProgress(pct);
+                setUploadStage('uploading', {
+                    fileCount,
+                    bytesText: `${formatBytes(e.loaded)} / ${formatBytes(e.total)} sent`,
+                });
+            });
+            xhr.upload.addEventListener('load', function() {
+                // Bytes are now on the server — move to "processing".
+                updateProgress(95);
+                setUploadStage('processing');
+            });
+
+            // -- Response handling -----------------------------------------
             xhr.addEventListener('load', function() {
                 if (xhr.status === 200 || xhr.status === 201) {
-                    // Upload complete, simulate server processing (90-100%)
-                    updateProgress(90);
-                    
-                    // Show success message
-                    processingTitle.textContent = 'Upload Successful!';
-                    processingMessage.textContent = 'Your item has been uploaded successfully. Checking for similar items...';
-                    
-                    // Simulate final processing - keep showing similarity check
-                    let currentProgress = 90;
-                    const processingInterval = setInterval(() => {
-                        currentProgress += 2;
-                        if (currentProgress >= 100) {
-                            clearInterval(processingInterval);
-                            updateProgress(100);
-                            // Keep showing similarity checking animation until redirect
-                            processingTitle.textContent = 'Upload Successful!';
-                            processingMessage.textContent = 'Your item has been uploaded successfully. Checking for similar items. Redirecting to reported items...';
-                            
-                            // Redirect after a brief moment
-                            setTimeout(() => {
-                                // Check for redirect in response URL
-                                if (xhr.responseURL && xhr.responseURL !== window.location.href && xhr.responseURL.includes('/reported-items')) {
-                                    window.location.href = xhr.responseURL;
-                                } else {
-                                    // Check response headers for redirect location
-                                    const location = xhr.getResponseHeader('Location');
-                                    if (location && location.includes('/reported-items')) {
-                                        window.location.href = location;
-                                    } else {
-                                        // Try to parse JSON response for redirect URL
-                                        try {
-                                            const response = JSON.parse(xhr.responseText);
-                                            if (response.redirect && response.redirect.includes('/reported-items')) {
-                                                window.location.href = response.redirect;
-                                            } else if (response.url && response.url.includes('/reported-items')) {
-                                                window.location.href = response.url;
-                                            } else {
-                                                // Default redirect to reported-items page
-                                                window.location.href = '/reported-items';
-                                            }
-                                        } catch (e) {
-                                            // Not JSON, check if response contains HTML redirect
-                                            const match = xhr.responseText.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
-                                            if (match && match[1].includes('/reported-items')) {
-                                                window.location.href = match[1];
-                                            } else {
-                                                // Default: redirect to reported-items page
-                                                window.location.href = '/reported-items';
-                                            }
-                                        }
-                                    }
-                                }
-                            }, 500);
+                    updateProgress(100);
+                    setUploadStage('done');
+                    showMatchingCheckMessage();
+
+                    // Resolve a redirect target from a variety of response shapes.
+                    let redirectTo = '/reported-items';
+                    if (xhr.responseURL && xhr.responseURL !== window.location.href
+                        && xhr.responseURL.includes('/reported-items')) {
+                        redirectTo = xhr.responseURL;
+                    } else {
+                        const location = xhr.getResponseHeader('Location');
+                        if (location && location.includes('/reported-items')) {
+                            redirectTo = location;
                         } else {
-                            updateProgress(currentProgress);
-                        }
-                    }, 100);
-                } else {
-                    // Error occurred
-                    updateProgress(0);
-                    processingIndicator.classList.add('hidden');
-                    submitBtn.disabled = false;
-                    submitBtnText.classList.remove('hidden');
-                    submitBtnSpinner.classList.add('hidden');
-                    
-                    // Try to show error message from response
-                    let errorMessage = 'Upload failed. Please check your fields and try again.';
-                    try {
-                        const response = JSON.parse(xhr.responseText);
-                        if (response.message) {
-                            errorMessage = response.message;
-                        } else if (response.error) {
-                            errorMessage = response.error;
-                        } else if (response.errors) {
-                            const firstField = Object.keys(response.errors)[0];
-                            if (firstField && Array.isArray(response.errors[firstField]) && response.errors[firstField].length > 0) {
-                                errorMessage = response.errors[firstField][0];
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.redirect && response.redirect.includes('/reported-items')) {
+                                    redirectTo = response.redirect;
+                                } else if (response.url && response.url.includes('/reported-items')) {
+                                    redirectTo = response.url;
+                                }
+                            } catch (_) {
+                                const match = xhr.responseText.match(/window\.location\.href\s*=\s*['"]([^'"]+)['"]/);
+                                if (match && match[1].includes('/reported-items')) {
+                                    redirectTo = match[1];
+                                }
                             }
                         }
-                    } catch (e) {
-                        // Not JSON response (often redirect HTML from validation failure)
-                        if (xhr.status === 302 || xhr.status === 422) {
-                            errorMessage = 'Some fields are invalid. Please check your inputs and selected image format/size.';
-                        }
                     }
-                    alert(errorMessage);
+
+                    setTimeout(() => { window.location.href = redirectTo; }, 800);
+                    return;
                 }
-            });
-            
-            // Handle errors
-            xhr.addEventListener('error', function() {
-                updateProgress(0);
-                processingIndicator.classList.add('hidden');
+
+                // -- Error path ----------------------------------------------
+                let errorMessage = 'Upload failed. Please check your fields and try again.';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.message) errorMessage = response.message;
+                    else if (response.error) errorMessage = response.error;
+                    else if (response.errors) {
+                        const firstField = Object.keys(response.errors)[0];
+                        const list = firstField ? response.errors[firstField] : null;
+                        if (Array.isArray(list) && list.length > 0) errorMessage = list[0];
+                    }
+                } catch (_) {
+                    if (xhr.status === 302 || xhr.status === 422) {
+                        errorMessage = 'Some fields are invalid. Please check your inputs and selected image format/size.';
+                    } else if (xhr.status === 413) {
+                        errorMessage = 'Your images are too large. Please reduce the size and try again.';
+                    } else if (xhr.status === 0) {
+                        errorMessage = 'Network error. Please check your connection and try again.';
+                    }
+                }
+
+                setUploadStage('error', { detail: errorMessage });
                 submitBtn.disabled = false;
                 submitBtnText.classList.remove('hidden');
                 submitBtnSpinner.classList.add('hidden');
-                alert('Network error. Please check your connection and try again.');
             });
-            
-            // Submit the form via AJAX
+
+            xhr.addEventListener('error', function() {
+                setUploadStage('error', { detail: 'Network error. Please check your connection and try again.' });
+                submitBtn.disabled = false;
+                submitBtnText.classList.remove('hidden');
+                submitBtnSpinner.classList.add('hidden');
+            });
+
+            xhr.addEventListener('timeout', function() {
+                setUploadStage('error', { detail: 'Upload timed out. Please try again with smaller images or a stronger connection.' });
+                submitBtn.disabled = false;
+                submitBtnText.classList.remove('hidden');
+                submitBtnSpinner.classList.add('hidden');
+            });
+
+            xhr.addEventListener('abort', function() {
+                setUploadStage('error', { label: 'Upload cancelled', detail: 'You stopped the upload before it finished.' });
+                submitBtn.disabled = false;
+                submitBtnText.classList.remove('hidden');
+                submitBtnSpinner.classList.add('hidden');
+            });
+
             xhr.open('POST', form.action || window.location.href);
             xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
             xhr.setRequestHeader('Accept', 'application/json');
