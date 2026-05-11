@@ -679,7 +679,7 @@
 // Build stamp — bump when you ship changes to this view.
 // If your DevTools console doesn't print this version on load, you are
 // looking at a cached HTML and need to hard-refresh (Cmd+Shift+R).
-window.__REPORTED_ITEMS_VERSION__ = '2026-05-11-pin-autofill-v1';
+window.__REPORTED_ITEMS_VERSION__ = '2026-05-12-uniform-cards-v3';
 console.info('[ReportedItems] version:', window.__REPORTED_ITEMS_VERSION__);
 
 let selectedFiles = [];
@@ -1833,7 +1833,8 @@ function displayUserItems(items) {
         }
 
         itemsContainer.innerHTML = `
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 auto-rows-fr items-stretch">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 auto-rows-fr items-stretch"
+             style="grid-auto-rows: 1fr; align-items: stretch;">
             ${items.map(item => {
                 const firstImage = item.images && item.images.length > 0 ? item.images[0] : null;
                 let imageUrl = null;
@@ -1946,13 +1947,18 @@ function displayUserItems(items) {
                     ? `<span class="absolute top-2 right-2 inline-flex items-center gap-1 bg-black/55 backdrop-blur-sm text-white text-[10px] font-medium px-2 py-0.5 rounded-full"><i class="fas fa-images text-[9px]"></i>${item.images.length}</span>`
                     : '';
 
+                // Inline `style="height: 12rem"` is a belt-and-suspenders guard
+                // in case the Tailwind CSS bundle is being served from cache
+                // and doesn't know about `h-48` yet. Inline styles always win.
                 const mediaBlock = imageUrl ? `
                     <button type="button"
                             onclick="openImageModal('${escapedImageUrl}', ${allImageUrlsJson})"
-                            class="group relative w-full h-44 sm:h-48 bg-gray-100 overflow-hidden block focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+                            class="group relative w-full bg-gray-100 overflow-hidden block focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-500"
+                            style="height: 12rem; min-height: 12rem; max-height: 12rem;">
                         <img src="${imageUrl}"
                              alt="${escapedDescription}"
-                             class="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                             class="object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                             style="width: 100%; height: 100%; display: block;"
                              loading="lazy"
                              onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\\'http://www.w3.org/2000/svg\\' width=\\'400\\' height=\\'300\\'%3E%3Crect fill=\\'%23e5e7eb\\' width=\\'400\\' height=\\'300\\'/%3E%3Ctext fill=\\'%239ca3af\\' font-family=\\'sans-serif\\' font-size=\\'20\\' x=\\'50%25\\' y=\\'50%25\\' text-anchor=\\'middle\\' dy=\\'.3em\\'%3EImage not available%3C/text%3E%3C/svg%3E'; this.parentElement.classList.add('flex','items-center','justify-center');">
                         <div class="absolute top-2 left-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold ${typeBadgeClass} shadow-sm">
@@ -1962,7 +1968,8 @@ function displayUserItems(items) {
                         ${imagesCountBadge}
                     </button>
                 ` : `
-                    <div class="relative w-full h-44 sm:h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+                    <div class="relative w-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center"
+                         style="height: 12rem; min-height: 12rem; max-height: 12rem;">
                         <div class="text-center">
                             <i class="fas fa-image text-gray-400 text-3xl mb-1"></i>
                             <p class="text-xs text-gray-500">No image</p>
@@ -1975,7 +1982,8 @@ function displayUserItems(items) {
                 `;
 
                 return `
-                <article class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col h-full">
+                <article class="group bg-white rounded-xl border border-gray-200 overflow-hidden hover:shadow-md hover:border-gray-300 transition-all duration-200 flex flex-col h-full"
+                         style="height: 100%; display: flex; flex-direction: column;">
                     ${mediaBlock}
 
                     <div class="p-4 sm:p-5 flex flex-col flex-1 min-h-0">
