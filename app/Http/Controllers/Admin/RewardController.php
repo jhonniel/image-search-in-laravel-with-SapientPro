@@ -15,20 +15,37 @@ class RewardController extends Controller
     /**
      * Display all rewards
      */
-    public function index()
+    public function index(Request $request)
     {
-        $rewards = Reward::with('user')
-            ->orderBy('created_at', 'desc')
-            ->paginate(20);
+        $filter = $request->get('filter', 'all');
+
+        $query = Reward::with('user')->orderBy('created_at', 'desc');
+
+        if ($filter === 'templates') {
+            $query->whereNull('user_id');
+        } elseif ($filter === 'assigned') {
+            $query->whereNotNull('user_id');
+        } elseif ($filter === 'active') {
+            $query->where('is_used', false)->where('status', 'active')
+                ->where(function ($q) {
+                    $q->whereNull('expires_at')->orWhere('expires_at', '>=', now()->toDateString());
+                });
+        } elseif ($filter === 'used') {
+            $query->where('is_used', true);
+        }
+
+        $rewards = $query->paginate(20)->withQueryString();
 
         $stats = [
             'total' => Reward::count(),
+            'templates' => Reward::whereNull('user_id')->count(),
+            'assigned' => Reward::whereNotNull('user_id')->count(),
             'active' => Reward::where('status', 'active')->where('is_used', false)->count(),
             'used' => Reward::where('is_used', true)->count(),
-            'auto_assign' => Reward::where('is_auto_assign', true)->count(),
+            'auto_assign' => Reward::where('is_auto_assign', true)->whereNull('user_id')->count(),
         ];
 
-        return view('admin.rewards.index', compact('rewards', 'stats'));
+        return view('admin.rewards.index', compact('rewards', 'stats', 'filter'));
     }
 
     /**

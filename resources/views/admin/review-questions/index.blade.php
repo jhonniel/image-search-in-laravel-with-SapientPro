@@ -45,54 +45,30 @@ window.toggleReviews = function(userId) {
     }
 };
 </script>
-<div class="space-y-6">
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h1 class="text-3xl font-bold text-gray-900">Review Questions & Feedback</h1>
-            <p class="text-gray-600">Manage questions and view user reviews and ratings.</p>
-        </div>
-        <div class="flex gap-3">
-            <div class="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm flex items-center gap-3">
-                <div class="p-2 bg-purple-50 rounded-lg">
-                    <i class="fas fa-question-circle text-purple-primary"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Total Questions</p>
-                    <p class="text-lg font-semibold text-gray-900">{{ $questions->count() }}</p>
-                </div>
-            </div>
-            <div class="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm flex items-center gap-3">
-                <div class="p-2 bg-green-50 rounded-lg">
-                    <i class="fas fa-star text-green-600"></i>
-                </div>
-                <div>
-                    <p class="text-sm text-gray-500">Total Reviews</p>
-                    <p class="text-lg font-semibold text-gray-900">{{ $totalReviews }}</p>
-                </div>
-            </div>
-        </div>
+<div class="admin-page">
+    @include('admin.partials.page-header', [
+        'title' => 'Review Questions & Feedback',
+        'description' => 'Manage questions and view user reviews and ratings.',
+    ])
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+        @include('admin.partials.stat-card', [
+            'label' => 'Total Questions',
+            'value' => $questions->count(),
+            'icon' => 'fa-question-circle',
+            'iconBg' => 'bg-purple-100',
+            'iconColor' => 'text-purple-600',
+        ])
+        @include('admin.partials.stat-card', [
+            'label' => 'Total Reviews',
+            'value' => number_format($totalReviews),
+            'icon' => 'fa-star',
+            'iconBg' => 'bg-emerald-100',
+            'iconColor' => 'text-emerald-600',
+        ])
     </div>
 
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg flex items-center">
-        <i class="fas fa-check-circle mr-2"></i>
-        <span>{{ session('success') }}</span>
-    </div>
-    @endif
-
-    @if($errors->any())
-    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg">
-        <div class="flex items-center mb-2">
-            <i class="fas fa-exclamation-circle mr-2"></i>
-            <span class="font-semibold">Please fix the following errors:</span>
-        </div>
-        <ul class="list-disc list-inside text-sm space-y-1">
-            @foreach($errors->all() as $error)
-                <li>{{ $error }}</li>
-            @endforeach
-        </ul>
-    </div>
-    @endif
+    @include('admin.partials.alert', ['errors' => $errors])
 
     <!-- Tabs -->
     <div class="border-b border-gray-200">
@@ -111,8 +87,8 @@ window.toggleReviews = function(userId) {
     @if($tab === 'questions')
     <!-- Questions Tab Content -->
     <!-- Add New Question Form -->
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4">Add New Question</h2>
+    <div class="admin-card admin-card-body">
+        <h2 class="admin-panel-title mb-4">Add New Question</h2>
         <form method="POST" action="{{ route('review-questions.store') }}" class="space-y-4">
             @csrf
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -164,9 +140,9 @@ window.toggleReviews = function(userId) {
     </div>
 
     <!-- Questions List -->
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h2 class="text-lg font-semibold text-gray-900">Existing Questions</h2>
+    <div class="admin-card">
+        <div class="admin-toolbar">
+            <h2 class="admin-panel-title">Existing Questions</h2>
         </div>
         <div class="divide-y divide-gray-100">
             @forelse($questions as $question)
@@ -248,48 +224,18 @@ window.toggleReviews = function(userId) {
     @if($tab === 'reviews')
     <!-- Reviews & Dashboard Tab Content -->
     <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 mb-1">Total Reviews</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ $totalReviews }}</p>
-                </div>
-                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-comment-dots text-purple-primary text-xl"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 mb-1">Users Reviewed</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ $totalUsers }}</p>
-                </div>
-                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-users text-green-600 text-xl"></i>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white border border-gray-200 rounded-xl shadow-sm p-6">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm text-gray-500 mb-1">Rating Questions</p>
-                    <p class="text-3xl font-bold text-gray-900">{{ count($ratingStats) }}</p>
-                </div>
-                <div class="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center">
-                    <i class="fas fa-star text-yellow-600 text-xl"></i>
-                </div>
-            </div>
-        </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        @include('admin.partials.stat-card', ['label' => 'Total Reviews', 'value' => number_format($totalReviews), 'icon' => 'fa-comment-dots', 'iconBg' => 'bg-purple-100', 'iconColor' => 'text-purple-600'])
+        @include('admin.partials.stat-card', ['label' => 'Users Reviewed', 'value' => number_format($totalUsers), 'icon' => 'fa-users', 'iconBg' => 'bg-emerald-100', 'iconColor' => 'text-emerald-600'])
+        @include('admin.partials.stat-card', ['label' => 'Rating Questions', 'value' => count($ratingStats), 'icon' => 'fa-star', 'iconBg' => 'bg-amber-100', 'iconColor' => 'text-amber-600'])
     </div>
 
     <!-- Rating Statistics Dashboard -->
     @if(count($ratingStats) > 0)
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm mb-6">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h2 class="text-lg font-semibold text-gray-900">Rating Scale Dashboard</h2>
-            <p class="text-sm text-gray-500 mt-1">Distribution and average ratings for each question</p>
+    <div class="admin-card admin-card-body mb-6">
+        <div class="mb-6">
+            <h2 class="admin-panel-title">Rating Scale Dashboard</h2>
+            <p class="admin-panel-subtitle">Distribution and average ratings for each question</p>
         </div>
         <div class="p-6 space-y-8">
             @foreach($ratingStats as $questionId => $stats)
@@ -335,7 +281,7 @@ window.toggleReviews = function(userId) {
         </div>
     </div>
     @else
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm p-12 text-center">
+    <div class="admin-card admin-card-body text-center">
         <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <i class="fas fa-chart-bar text-gray-400 text-2xl"></i>
         </div>
@@ -345,10 +291,10 @@ window.toggleReviews = function(userId) {
     @endif
 
     <!-- Reviews List Grouped by User -->
-    <div class="bg-white border border-gray-200 rounded-2xl shadow-sm">
-        <div class="px-6 py-4 border-b border-gray-100">
-            <h2 class="text-lg font-semibold text-gray-900">All Reviews</h2>
-            <p class="text-sm text-gray-500 mt-1">View all user reviews grouped by user. Click "Reset Reviews" to allow a user to submit new reviews.</p>
+    <div class="admin-card">
+        <div class="admin-toolbar">
+            <h2 class="admin-panel-title">All Reviews</h2>
+            <p class="admin-panel-subtitle">View all user reviews grouped by user. Click "Reset Reviews" to allow a user to submit new reviews.</p>
         </div>
         <div class="divide-y divide-gray-100">
             @forelse($reviewsByUser as $userReviewGroup)

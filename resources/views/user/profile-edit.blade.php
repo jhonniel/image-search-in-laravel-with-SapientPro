@@ -1,27 +1,18 @@
 @extends('layouts.user')
 
 @section('content')
-<div class="p-6">
-    <!-- Header -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">Edit Profile</h1>
-                <p class="text-gray-600 mt-2">Update your account information and settings</p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="{{ route('profile') }}" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Profile
-                </a>
-            </div>
-        </div>
-    </div>
+<div class="user-page">
+    @include('user.partials.page-header', [
+        'eyebrow' => 'Account',
+        'title' => 'Edit profile',
+        'description' => 'Update your account information and settings',
+        'actions' => '<a href="'.route('profile').'" class="user-btn-secondary w-full sm:w-auto"><i class="fas fa-arrow-left"></i> Back to profile</a>',
+    ])
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 gap-4 sm:gap-6 lg:grid-cols-3">
         <!-- Profile Picture Section -->
         <div class="lg:col-span-1">
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="user-card user-card-body">
                 <h3 class="text-lg font-semibold text-gray-900 mb-4">Profile Picture</h3>
 
                 <div class="text-center">
@@ -73,7 +64,7 @@
 
         <!-- Profile Form -->
         <div class="lg:col-span-2">
-            <div class="bg-white rounded-lg shadow-sm border p-6">
+            <div class="user-card user-card-body">
                 <form id="profile-form" class="space-y-6">
                     @csrf
                     @method('PUT')

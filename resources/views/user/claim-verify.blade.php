@@ -3,61 +3,49 @@
 @section('title', 'Claim and Verify - FindITFast')
 
 @section('content')
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div class="flex items-center justify-between">
-            <div>
-                <h2 class="text-2xl font-bold text-gray-900 mb-2">Claim and Verify</h2>
-                <p class="text-gray-600">
-                    These available items are automatically matched to your reported items using image and text similarity.
-                </p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <div class="text-right">
-                    <div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div>
-                    <div class="text-sm text-gray-500">Matched Available Items</div>
-                </div>
-            </div>
-        </div>
-    </div>
+<div class="user-page">
+    @include('user.partials.page-header', [
+        'eyebrow' => 'Matching',
+        'title' => 'Claim and verify',
+        'description' => 'Items automatically matched to your reports using image and text similarity.',
+        'actions' => '<div class="text-right shrink-0"><div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div><div class="text-xs text-gray-500 sm:text-sm">Matched items</div></div>',
+    ])
 
-    <!-- Filters and Search -->
-    <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
+    <div class="user-card">
+        <div class="user-card-body">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <!-- Search -->
             <div class="flex-1">
                 <div class="relative">
                     <input type="text" id="search-input" placeholder="Search items by description, location, or tags..."
-                           class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                           class="user-input pl-10">
                     <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
                 </div>
             </div>
 
             <!-- Filters -->
-            <div class="flex items-center space-x-4">
-                <select id="type-filter" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-4">
+                <select id="type-filter" class="user-input py-2">
                     <option value="">All Types</option>
                     <option value="lost">Lost Items</option>
                     <option value="found">Found Items</option>
                 </select>
 
-                <button onclick="resetFilters()" class="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors">
+                <button onclick="resetFilters()" class="user-btn-ghost text-sm">
                     <i class="fas fa-times mr-1"></i>
                     Clear Filters
                 </button>
             </div>
         </div>
+        </div>
     </div>
 
-    <!-- Items Grid -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">Available Items</h3>
-            <p class="text-sm text-gray-500 mt-1">Items that match your reported items (based on similarity)</p>
+    <div class="user-card">
+        <div class="user-card-header">
+            <h3 class="user-card-title">Available items</h3>
+            <p class="user-card-subtitle">Items that match your reported items (based on similarity)</p>
         </div>
-
-        <div class="p-6">
+        <div class="user-card-body">
             <!-- Loading State -->
             <div id="loading-state" class="text-center py-12">
                 <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -233,19 +221,18 @@ function displayOtherUsersItems(items) {
                                         }
                                         
                                         if (uniqueObjects.length > 0) {
-                                            const top5Objects = uniqueObjects.slice(0, 5);
-                                            const objectsDisplay = top5Objects.map(obj => {
+                                            const top3Objects = uniqueObjects.slice(0, 3);
+                                            const objectsDisplay = top3Objects.map(obj => {
                                                 const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
                                                 const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                                                return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
+                                                return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
                                             }).join('');
-                                            const moreHtml = uniqueObjects.length > 5 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+${uniqueObjects.length - 5} more</span>` : '';
                                             return `<div class="mb-3 flex-shrink-0">
                                                 <strong class="text-gray-700 text-sm flex items-center mb-1">
                                                     <i class="fas fa-cube mr-1 text-blue-600"></i>
-                                                    Detected Objects:
+                                                    Detected Objects (${top3Objects.length}):
                                                 </strong>
-                                                <div class="flex flex-wrap gap-2">${objectsDisplay}${moreHtml}</div>
+                                                <div class="flex flex-wrap gap-2">${objectsDisplay}</div>
                                             </div>`;
                                         }
                                         return '';
@@ -415,19 +402,18 @@ function displayOtherUsersItems(items) {
                                 }
                                 
                                 if (uniqueObjects.length > 0) {
-                                    const top5Objects = uniqueObjects.slice(0, 5);
-                                    const objectsDisplay = top5Objects.map(obj => {
+                                    const top3Objects = uniqueObjects.slice(0, 3);
+                                    const objectsDisplay = top3Objects.map(obj => {
                                         const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
                                         const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                                        return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
+                                        return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
                                     }).join('');
-                                    const moreHtml = uniqueObjects.length > 5 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+${uniqueObjects.length - 5} more</span>` : '';
                                     return `<div class="mb-2 flex-shrink-0">
                                         <strong class="text-gray-700 flex items-center mb-1">
                                             <i class="fas fa-cube mr-1 text-blue-600"></i>
-                                            Detected Objects:
+                                            Detected Objects (${top3Objects.length}):
                                         </strong>
-                                        <div class="flex flex-wrap gap-2">${objectsDisplay}${moreHtml}</div>
+                                        <div class="flex flex-wrap gap-2">${objectsDisplay}</div>
                                     </div>`;
                                 }
                                 return '';
@@ -796,19 +782,18 @@ function viewItemDetails(uploadId) {
                 }
                 
                 if (uniqueObjects.length > 0) {
-                    const top5Objects = uniqueObjects.slice(0, 5);
-                    const objectsDisplay = top5Objects.map(obj => {
+                    const top3Objects = uniqueObjects.slice(0, 3);
+                    const objectsDisplay = top3Objects.map(obj => {
                         const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
                         const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                        return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
+                        return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
                     }).join('');
-                    const moreHtml = uniqueObjects.length > 5 ? `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+${uniqueObjects.length - 5} more</span>` : '';
                     return `<div>
                         <h4 class="font-semibold text-gray-900 mb-2 flex items-center">
                             <i class="fas fa-cube mr-1 text-blue-600"></i>
-                            Detected Objects
+                            Detected Objects (${top3Objects.length}):
                         </h4>
-                        <div class="flex flex-wrap gap-2">${objectsDisplay}${moreHtml}</div>
+                        <div class="flex flex-wrap gap-2">${objectsDisplay}</div>
                     </div>`;
                 }
                 return '';

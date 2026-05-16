@@ -3,207 +3,182 @@
 @section('title', 'Rewards Management - FindITFast Admin')
 
 @section('content')
-<div class="p-6">
-    <div class="mb-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+@php
+    $rewardsHeaderActions = '<a href="'.route('rewards.create').'" class="admin-btn-primary"><i class="fas fa-plus text-xs"></i> Create reward</a>'
+        .'<a href="'.route('rewards.send').'" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-pink-600 rounded-lg shadow-sm hover:bg-pink-700 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 transition-colors"><i class="fas fa-paper-plane text-xs"></i> Send reward</a>'
+        .'<form action="'.route('rewards.auto-assign').'" method="POST" class="inline" onsubmit="return confirm(\'Run auto-assign for all eligible users?\');">'
+        .'<input type="hidden" name="_token" value="'.csrf_token().'">'
+        .'<button type="submit" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium text-white bg-emerald-600 rounded-lg shadow-sm hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 transition-colors"><i class="fas fa-wand-magic-sparkles text-xs"></i> Auto-assign</button>'
+        .'</form>';
+@endphp
+<div class="admin-page">
+    @include('admin.partials.page-header', [
+        'title' => 'Rewards Management',
+        'description' => 'Create reward templates, send them to users, or auto-assign when they meet activity rules.',
+        'actions' => $rewardsHeaderActions,
+    ])
+
+    @include('admin.partials.alert')
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        @include('admin.partials.stat-card', ['label' => 'Total rewards', 'value' => number_format($stats['total']), 'icon' => 'fa-gift', 'iconBg' => 'bg-purple-100', 'iconColor' => 'text-purple-600'])
+        @include('admin.partials.stat-card', ['label' => 'Templates', 'value' => number_format($stats['templates']), 'icon' => 'fa-layer-group', 'iconBg' => 'bg-indigo-100', 'iconColor' => 'text-indigo-600', 'subtext' => 'Ready to send'])
+        @include('admin.partials.stat-card', ['label' => 'Assigned', 'value' => number_format($stats['assigned']), 'icon' => 'fa-user-check', 'iconBg' => 'bg-blue-100', 'iconColor' => 'text-blue-600'])
+        @include('admin.partials.stat-card', ['label' => 'Auto-assign rules', 'value' => number_format($stats['auto_assign']), 'icon' => 'fa-wand-magic-sparkles', 'iconBg' => 'bg-amber-100', 'iconColor' => 'text-amber-600'])
+    </div>
+
+    <div class="admin-card">
+        <div class="admin-toolbar flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Rewards Management</h1>
-                <p class="text-gray-600 mt-1 text-sm">Manage and send rewards to users</p>
+                <h2 class="admin-panel-title">Rewards list</h2>
+                <p class="admin-panel-subtitle">{{ $rewards->total() }} record{{ $rewards->total() === 1 ? '' : 's' }} in this view</p>
             </div>
-            <div class="flex flex-wrap gap-2">
-                <a href="{{ route('rewards.create') }}" class="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm">
-                    <i class="fas fa-plus mr-2"></i>
-                    Create Reward
-                </a>
-                <a href="{{ route('rewards.send') }}" class="inline-flex items-center px-4 py-2 bg-pink-600 text-white rounded-lg hover:bg-pink-700 transition-colors text-sm">
-                    <i class="fas fa-paper-plane mr-2"></i>
-                    Send Reward
-                </a>
-                <form action="{{ route('rewards.auto-assign') }}" method="POST" class="inline">
-                    @csrf
-                    <button type="submit" class="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm">
-                        <i class="fas fa-magic mr-2"></i>
-                        Auto-Assign Rewards
-                    </button>
-                </form>
+            <div class="flex flex-wrap items-center gap-2">
+                @foreach([
+                    'all' => 'All',
+                    'templates' => 'Templates',
+                    'assigned' => 'Assigned',
+                    'active' => 'Active',
+                    'used' => 'Used',
+                ] as $key => $label)
+                    <a href="{{ route('rewards.index', ['filter' => $key]) }}"
+                       class="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {{ ($filter ?? 'all') === $key ? 'bg-purple-600 text-white shadow-sm' : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50' }}">
+                        {{ $label }}
+                    </a>
+                @endforeach
             </div>
         </div>
-    </div>
 
-    <!-- Success/Error Messages -->
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6">
-        <div class="flex items-center">
-            <i class="fas fa-check-circle mr-2"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    </div>
-    @endif
-
-    @if(session('error'))
-    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
-        <div class="flex items-center">
-            <i class="fas fa-exclamation-circle mr-2"></i>
-            <span>{{ session('error') }}</span>
-        </div>
-    </div>
-    @endif
-
-    <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
-                    <i class="fas fa-gift text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Rewards</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ $stats['total'] }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-green-100 text-green-600">
-                    <i class="fas fa-check-circle text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Active</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ $stats['active'] }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-                    <i class="fas fa-check-double text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Used</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ $stats['used'] }}</p>
-                </div>
-            </div>
-        </div>
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
-                    <i class="fas fa-magic text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Auto-Assign</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ $stats['auto_assign'] }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Rewards Table -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="px-6 py-4 border-b border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900">All Rewards</h3>
-        </div>
         <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rules</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-gray-200 bg-white">
+                        <th class="admin-th">Reward</th>
+                        <th class="admin-th">Type</th>
+                        <th class="admin-th">Code</th>
+                        <th class="admin-th hidden md:table-cell">Recipient</th>
+                        <th class="admin-th">Status</th>
+                        <th class="admin-th hidden lg:table-cell">Rules</th>
+                        <th class="admin-th text-right w-20">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     @forelse($rewards as $reward)
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div>
-                                <div class="text-sm font-medium text-gray-900">{{ $reward->title }}</div>
-                                @if($reward->description)
-                                <div class="text-xs text-gray-500 mt-1">{{ \Illuminate\Support\Str::limit($reward->description, 50) }}</div>
-                                @endif
+                    @php
+                        $typeClass = match ($reward->type) {
+                            'discount' => 'bg-blue-50 text-blue-700 ring-blue-600/10',
+                            'free_item' => 'bg-emerald-50 text-emerald-700 ring-emerald-600/10',
+                            default => 'bg-purple-50 text-purple-700 ring-purple-600/10',
+                        };
+                    @endphp
+                    <tr class="admin-table-row">
+                        <td class="admin-td">
+                            <div class="flex items-start gap-3 min-w-[200px]">
+                                <div class="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shrink-0 text-white">
+                                    <i class="fas fa-gift text-sm"></i>
+                                </div>
+                                <div class="min-w-0">
+                                    <p class="text-sm font-semibold text-gray-900">{{ $reward->title }}</p>
+                                    @if($reward->description)
+                                    <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ $reward->description }}</p>
+                                    @endif
+                                    @if($reward->value)
+                                    <p class="text-xs font-medium text-purple-600 mt-1">
+                                        @if($reward->type === 'discount')
+                                            {{ $reward->value }}% off
+                                        @else
+                                            ${{ number_format($reward->value, 2) }}
+                                        @endif
+                                    </p>
+                                    @endif
+                                </div>
                             </div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full
-                                {{ $reward->type === 'discount' ? 'bg-blue-100 text-blue-800' : 
-                                   ($reward->type === 'free_item' ? 'bg-green-100 text-green-800' : 'bg-purple-100 text-purple-800') }}">
+                        <td class="admin-td whitespace-nowrap">
+                            <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium ring-1 {{ $typeClass }}">
                                 {{ ucfirst(str_replace('_', ' ', $reward->type)) }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <span class="font-mono text-sm text-gray-900">{{ $reward->code }}</span>
+                        <td class="admin-td whitespace-nowrap">
+                            <code class="text-xs font-mono bg-gray-100 text-gray-800 px-2 py-1 rounded-md">{{ $reward->code }}</code>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td hidden md:table-cell">
                             @if($reward->user)
-                            <div class="text-sm text-gray-900">{{ $reward->user->name }}</div>
-                            <div class="text-xs text-gray-500">{{ $reward->user->email }}</div>
+                            <p class="text-sm font-medium text-gray-900">{{ $reward->user->name }}</p>
+                            <p class="text-xs text-gray-500">{{ $reward->user->email }}</p>
                             @else
-                            <span class="text-sm text-gray-400 italic">Template</span>
+                            <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-indigo-50 text-indigo-700 ring-1 ring-indigo-600/10">Template</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            @if($reward->is_used)
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">Used</span>
-                            @elseif($reward->isExpired())
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800">Expired</span>
-                            @else
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Active</span>
-                            @endif
-                            @if($reward->is_auto_assign)
-                            <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800 ml-1">Auto</span>
-                            @endif
-                        </td>
-                        <td class="px-6 py-4">
-                            @if($reward->is_auto_assign)
-                            <div class="text-xs text-gray-600">
-                                @if($reward->min_reports)
-                                <div>Min Reports: {{ $reward->min_reports }}</div>
+                        <td class="admin-td whitespace-nowrap">
+                            <div class="flex flex-wrap gap-1">
+                                @if($reward->is_used)
+                                <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-gray-100 text-gray-700 ring-1 ring-gray-500/10">Used</span>
+                                @elseif($reward->isExpired())
+                                <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-red-50 text-red-700 ring-1 ring-red-600/10">Expired</span>
+                                @else
+                                <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-emerald-50 text-emerald-700 ring-1 ring-emerald-600/10">Active</span>
                                 @endif
-                                @if($reward->min_claims)
-                                <div>Min Claims: {{ $reward->min_claims }}</div>
-                                @endif
-                                @if($reward->min_found_items)
-                                <div>Min Found: {{ $reward->min_found_items }}</div>
-                                @endif
-                                @if($reward->min_lost_items)
-                                <div>Min Lost: {{ $reward->min_lost_items }}</div>
+                                @if($reward->is_auto_assign)
+                                <span class="inline-flex px-2 py-0.5 rounded-md text-xs font-medium bg-amber-50 text-amber-700 ring-1 ring-amber-600/10">Auto</span>
                                 @endif
                             </div>
+                        </td>
+                        <td class="admin-td hidden lg:table-cell text-xs text-gray-600">
+                            @if($reward->is_auto_assign)
+                            <ul class="space-y-0.5">
+                                @if($reward->min_reports)<li>Reports ≥ {{ $reward->min_reports }}</li>@endif
+                                @if($reward->min_claims)<li>Claims ≥ {{ $reward->min_claims }}</li>@endif
+                                @if($reward->min_found_items)<li>Found ≥ {{ $reward->min_found_items }}</li>@endif
+                                @if($reward->min_lost_items)<li>Lost ≥ {{ $reward->min_lost_items }}</li>@endif
+                            </ul>
                             @else
-                            <span class="text-xs text-gray-400">Manual</span>
+                            <span class="text-gray-400">Manual send</span>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td class="admin-td text-right">
                             @if($reward->user_id === null)
-                            <form action="{{ route('rewards.destroy', $reward->id) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this reward?');">
+                            <form action="{{ route('rewards.destroy', $reward->id) }}" method="POST" class="inline" onsubmit="return confirm('Delete this reward template?');">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:text-red-900">
-                                    <i class="fas fa-trash"></i>
+                                <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete template">
+                                    <i class="fas fa-trash text-sm"></i>
                                 </button>
                             </form>
                             @else
-                            <span class="text-gray-400">-</span>
+                            <span class="text-gray-300 text-sm">—</span>
                             @endif
                         </td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="px-6 py-4 text-center text-sm text-gray-500">No rewards found</td>
+                        <td colspan="7" class="px-6 py-16 text-center">
+                            <div class="w-14 h-14 rounded-2xl bg-purple-50 flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-gift text-2xl text-purple-600"></i>
+                            </div>
+                            <p class="text-base font-semibold text-gray-900">No rewards found</p>
+                            <p class="text-sm text-gray-500 mt-1 max-w-sm mx-auto mb-4">
+                                @if(($filter ?? 'all') === 'all')
+                                    Create a template, then send it to users or enable auto-assign rules.
+                                @else
+                                    Nothing matches this filter. Try another tab or create a new reward.
+                                @endif
+                            </p>
+                            <a href="{{ route('rewards.create') }}" class="admin-btn-primary inline-flex">
+                                <i class="fas fa-plus text-xs"></i> Create reward
+                            </a>
+                        </td>
                     </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
+
         @if($rewards->hasPages())
-        <div class="px-6 py-4 border-t border-gray-200">
+        <div class="px-4 sm:px-6 py-4 border-t border-gray-100 bg-gray-50/50">
             {{ $rewards->links() }}
         </div>
         @endif
     </div>
 </div>
 @endsection
-

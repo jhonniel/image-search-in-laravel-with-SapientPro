@@ -3,33 +3,16 @@
 @section('title', 'Sponsors Management - FindITFast Admin')
 
 @section('content')
-<div class="p-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Sponsors Management</h1>
-        <p class="text-gray-600">Manage sponsors displayed on the landing page</p>
-    </div>
+<div class="admin-page">
+    @include('admin.partials.page-header', [
+        'title' => 'Sponsors Management',
+        'description' => 'Manage sponsors displayed on the landing page.',
+    ])
 
-    <!-- Success/Error Messages -->
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6">
-        <div class="flex items-center">
-            <i class="fas fa-check-circle mr-2"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    </div>
-    @endif
-
-    @if(session('error'))
-    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
-        <div class="flex items-center">
-            <i class="fas fa-exclamation-circle mr-2"></i>
-            <span>{{ session('error') }}</span>
-        </div>
-    </div>
-    @endif
+    @include('admin.partials.alert')
 
     <!-- Toggle Show Sponsors Carousel -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
+    <div class="admin-card admin-card-body mb-6">
         <div class="flex items-center justify-between">
             <div>
                 <h3 class="text-lg font-semibold text-gray-900 mb-1">Show Sponsors Carousel on Landing Page</h3>
@@ -43,8 +26,8 @@
     </div>
 
     <!-- Add New Sponsor Form -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Add New Sponsor</h2>
+    <div class="admin-card admin-card-body mb-6">
+        <h2 class="admin-panel-title mb-4">Add New Sponsor</h2>
         <form action="{{ route('sponsors.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -114,50 +97,48 @@
         </form>
     </div>
 
-    <!-- Sponsors List -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200">
-            <h2 class="text-xl font-semibold text-gray-900">Current Sponsors</h2>
+    <div class="admin-card">
+        <div class="admin-toolbar">
+            <h2 class="admin-panel-title">Current Sponsors</h2>
         </div>
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Logo</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <thead>
+                    <tr class="border-b border-gray-200 bg-white">
+                        <th class="admin-th">Logo</th>
+                        <th class="admin-th">Name</th>
+                        <th class="admin-th">Order</th>
+                        <th class="admin-th">Status</th>
+                        <th class="admin-th">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     @forelse($sponsors as $sponsor)
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                    <tr class="admin-table-row">
+                        <td class="admin-td whitespace-nowrap">
                             <img src="{{ $sponsor->image_path }}" alt="{{ $sponsor->name }}" 
                                  class="h-16 w-16 object-contain bg-gray-50 rounded-lg p-2">
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $sponsor->name }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <div class="text-sm text-gray-500">{{ $sponsor->order }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $sponsor->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                                 {{ $sponsor->is_active ? 'Active' : 'Inactive' }}
                             </span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                            <button onclick="editSponsor({{ $sponsor->id }})" 
-                                    class="text-purple-primary hover:text-purple-600 mr-4">
-                                <i class="fas fa-edit"></i> Edit
+                            <button type="button" onclick="editSponsor({{ $sponsor->id }})" class="admin-icon-btn-purple mr-1" title="Edit">
+                                <i class="fas fa-pen text-sm"></i>
                             </button>
                             <form action="{{ route('sponsors.destroy', $sponsor) }}" method="POST" class="inline" onsubmit="return confirm('Are you sure you want to delete this sponsor?')">
                                 @csrf
                                 @method('DELETE')
-                                <button type="submit" class="text-red-600 hover:text-red-800">
-                                    <i class="fas fa-trash"></i> Delete
+                                <button type="submit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-red-50 hover:text-red-600 transition-colors" title="Delete">
+                                    <i class="fas fa-trash text-sm"></i>
                                 </button>
                             </form>
                         </td>

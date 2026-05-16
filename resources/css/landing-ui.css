@@ -1,0 +1,260 @@
+/* Public landing page — pairs with Tailwind brand tokens */
+@layer components {
+    .landing-page {
+        @apply min-h-screen bg-slate-50 text-gray-900 antialiased;
+    }
+
+    .landing-nav {
+        @apply sticky top-0 z-50 border-b border-gray-200/80 bg-white/85 backdrop-blur-xl;
+    }
+
+    .landing-hero {
+        @apply relative overflow-hidden;
+    }
+
+    .landing-hero-glow {
+        @apply pointer-events-none absolute inset-0;
+        background:
+            radial-gradient(ellipse 80% 50% at 50% -20%, rgb(139 92 246 / 0.18), transparent),
+            radial-gradient(ellipse 60% 40% at 100% 0%, rgb(236 72 153 / 0.12), transparent),
+            radial-gradient(ellipse 50% 30% at 0% 50%, rgb(139 92 246 / 0.08), transparent);
+    }
+
+    .landing-eyebrow {
+        @apply inline-flex items-center gap-2 rounded-full border border-purple-200/80 bg-white/90 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-purple-700 shadow-sm;
+    }
+
+    .landing-heading-xl {
+        @apply text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl md:text-5xl md:leading-[1.15];
+    }
+
+    .landing-heading {
+        @apply text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl;
+    }
+
+    .landing-subheading {
+        @apply text-base text-gray-600 sm:text-lg md:text-xl max-w-2xl;
+    }
+
+    .landing-search-shell {
+        @apply rounded-2xl border border-gray-200/80 bg-white p-2 shadow-xl shadow-purple-500/5 ring-1 ring-gray-900/5;
+    }
+
+    .landing-input {
+        @apply w-full rounded-xl border-0 bg-gray-50 px-4 py-3.5 text-sm text-gray-900 placeholder:text-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/40 sm:px-5 sm:py-4 sm:text-base;
+    }
+
+    .landing-btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 sm:px-6 sm:py-3.5;
+    }
+
+    .landing-btn-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-pink-500/25 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-pink-500 focus:ring-offset-2 sm:px-6 sm:py-3.5;
+        background: linear-gradient(135deg, #ec4899 0%, #db2777 100%);
+    }
+
+    .landing-btn-primary:hover {
+        @apply shadow-xl shadow-pink-500/30 -translate-y-0.5;
+    }
+
+    .landing-btn-purple {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-purple-500/25 transition-all duration-200 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 sm:px-6 sm:py-3.5;
+    }
+
+    .landing-btn-purple:hover {
+        @apply -translate-y-0.5 shadow-xl shadow-purple-500/30;
+    }
+
+    .landing-btn-outline {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl border-2 border-purple-200 bg-white px-5 py-3 text-sm font-semibold text-purple-700 transition-all duration-200 hover:border-purple-400 hover:bg-purple-50 focus:outline-none focus:ring-2 focus:ring-purple-500/30 sm:px-6 sm:py-3.5;
+    }
+
+    .landing-btn-ghost {
+        @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900;
+    }
+
+    .landing-pill {
+        @apply inline-flex items-center rounded-full px-4 py-2 text-sm font-medium transition-all duration-200;
+    }
+
+    .landing-pill-active {
+        @apply inline-flex items-center rounded-full bg-purple-600 px-4 py-2 text-sm font-medium text-white shadow-md shadow-purple-500/20;
+    }
+
+    .landing-pill-inactive {
+        @apply inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-600 ring-1 ring-gray-200 hover:bg-gray-50 hover:text-gray-900;
+    }
+
+    .landing-section {
+        @apply py-14 sm:py-20;
+    }
+
+    .landing-section-alt {
+        @apply bg-white py-14 sm:py-20;
+    }
+
+    .landing-card {
+        @apply overflow-hidden rounded-2xl border border-gray-200/80 bg-white shadow-sm transition-all duration-300 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/5;
+    }
+
+    .landing-stat-card {
+        @apply rounded-2xl border border-gray-200/80 bg-white p-6 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-purple-200 hover:shadow-lg hover:shadow-purple-500/5 sm:p-8;
+    }
+
+    .landing-step-card {
+        @apply rounded-2xl border border-gray-200/80 bg-white p-6 shadow-sm transition-all duration-300 hover:border-purple-200 hover:shadow-md;
+    }
+
+    .landing-badge-lost {
+        @apply inline-flex items-center rounded-full bg-rose-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-rose-800;
+    }
+
+    .landing-badge-found {
+        @apply inline-flex items-center rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-800;
+    }
+
+    .landing-faq {
+        @apply rounded-2xl border border-gray-200/80 bg-white shadow-sm open:shadow-md open:ring-1 open:ring-purple-100;
+    }
+
+    .landing-testimonial {
+        @apply relative overflow-hidden rounded-2xl border border-gray-200/80 bg-white p-8 shadow-lg sm:p-10;
+    }
+
+    .landing-testimonial::before {
+        content: '';
+        @apply absolute left-0 top-0 h-1 w-full;
+        background: linear-gradient(90deg, #8b5cf6, #ec4899);
+    }
+
+    .landing-contact-panel {
+        @apply rounded-2xl border border-purple-100 bg-gradient-to-br from-purple-50 via-white to-pink-50 p-8 shadow-sm sm:p-10;
+    }
+
+    .landing-form-panel {
+        @apply rounded-2xl border border-gray-200/80 bg-white p-6 shadow-lg sm:p-8;
+    }
+
+    .landing-field {
+        @apply w-full rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 text-sm text-gray-900 transition placeholder:text-gray-400 focus:border-purple-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500/20;
+    }
+
+    .landing-empty {
+        @apply mx-auto max-w-lg rounded-2xl border border-dashed border-gray-200 bg-white px-6 py-12 text-center shadow-sm sm:px-10 sm:py-16;
+    }
+
+    .landing-container {
+        @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
+    }
+
+    .landing-results-grid {
+        @apply grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3 xl:grid-cols-4;
+    }
+
+    .landing-helper-row {
+        @apply flex flex-col gap-3 border-b border-gray-100 px-4 py-4 last:border-0 transition-colors hover:bg-purple-50/50 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-6;
+    }
+
+    .landing-helper-rank {
+        @apply text-xl font-extrabold tabular-nums sm:text-2xl;
+    }
+
+    .landing-helper-user {
+        @apply flex min-w-0 flex-1 items-center gap-3;
+    }
+
+    .landing-icon-btn {
+        @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border border-gray-200 bg-white text-gray-700 shadow-sm transition hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-purple-500/30;
+    }
+
+    .landing-mobile-nav {
+        @apply absolute left-0 right-0 top-full z-50 border-b border-gray-200 bg-white/95 p-4 shadow-lg backdrop-blur-xl sm:px-6;
+    }
+
+    .landing-sponsor-slide {
+        @apply w-full shrink-0 px-2 sm:w-1/2 sm:px-3 lg:w-1/4;
+    }
+
+    .landing-faq summary {
+        @apply list-none gap-3 px-4 py-3.5 sm:px-5 sm:py-4;
+    }
+
+    .landing-faq summary::-webkit-details-marker {
+        display: none;
+    }
+}
+
+/* Landing page — mobile-first tweaks */
+@media (max-width: 639px) {
+    .landing-hero.landing-section {
+        padding-top: 1.25rem;
+        padding-bottom: 2.5rem;
+    }
+
+    .landing-heading-xl {
+        font-size: 1.75rem;
+        line-height: 1.2;
+    }
+
+    .landing-subheading {
+        font-size: 0.9375rem;
+    }
+
+    .landing-search-shell {
+        padding: 0.375rem;
+    }
+
+    .landing-hero .landing-btn-outline,
+    .landing-hero .landing-btn-purple {
+        width: 100%;
+    }
+
+    .landing-stat-card .counter-value {
+        font-size: 1.875rem;
+    }
+
+    .landing-step-card {
+        padding: 1rem;
+    }
+
+    .landing-testimonial {
+        padding: 1.25rem;
+    }
+
+    .landing-testimonial p {
+        font-size: 1rem;
+    }
+
+    .landing-contact-panel {
+        padding: 1.25rem;
+    }
+
+    .landing-contact-panel h2 {
+        font-size: 1.5rem;
+    }
+
+    .landing-form-panel {
+        padding: 1.25rem;
+    }
+
+    .landing-faq summary .faq-question {
+        font-size: 0.9375rem;
+        line-height: 1.4;
+    }
+
+    .landing-empty {
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+
+    #sponsorsCarousel {
+        padding-left: 2.5rem;
+        padding-right: 2.5rem;
+    }
+}
+
+@media (min-width: 640px) and (max-width: 1023px) {
+    .landing-results-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}

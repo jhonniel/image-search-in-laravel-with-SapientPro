@@ -1,112 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FindITFast - Lost and Found Platform</title>
+    <title>FindITFast — Lost and Found Platform</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <link rel="alternate icon" href="{{ asset('favicon.ico') }}">
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    </head>
-<body class="bg-white">
-    <!-- Header -->
-    <header class="sticky top-0 z-50 bg-white shadow-sm">
-        <div class="container mx-auto px-4 sm:px-6 py-3 sm:py-4">
-            <div class="flex justify-between items-center">
-                <!-- Logo -->
-                <div class="flex items-center">
-                    <h1 class="text-xl sm:text-2xl font-bold">
-                        <span class="text-purple-primary">FindIT</span>
-                        <span class="text-pink-primary">Fast</span>
-                    </h1>
+</head>
+<body class="landing-page font-sans overflow-x-hidden">
+    @include('landing.partials.header')
+
+    <section class="landing-hero landing-section !pt-10 sm:!pt-14">
+        <div class="landing-hero-glow" aria-hidden="true"></div>
+        <div class="container relative mx-auto px-4 sm:px-6">
+            <div class="mx-auto max-w-3xl text-center">
+                <p class="landing-eyebrow mb-5">
+                    <i class="fas fa-bolt text-amber-500"></i>
+                    Community-powered lost &amp; found
+                </p>
+                <h1 class="landing-heading-xl mb-4">
+                    From <span class="bg-gradient-to-r from-purple-600 to-pink-500 bg-clip-text text-transparent">lost</span> to found — in just a few clicks
+                </h1>
+                <p class="landing-subheading mx-auto mb-8">
+                    Search reports, post what you lost or found, and let smart matching connect you with the right people.
+                </p>
+
+                <div class="landing-search-shell mx-auto mb-6 max-w-2xl">
+                    <form action="{{ route('search') }}" method="GET" id="searchForm" class="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <div class="relative flex-1">
+                            <input type="text" name="q" id="searchInput" value="{{ $searchQuery ?? '' }}"
+                                   placeholder="Search wallets, phones, IDs, locations…"
+                                   class="landing-input !pr-11"
+                                   autocomplete="off">
+                            <i class="fas fa-search absolute right-4 top-1/2 -translate-y-1/2 text-gray-400" id="searchIcon"></i>
+                            <div id="searchLoading" class="absolute right-4 top-1/2 hidden -translate-y-1/2">
+                                <i class="fas fa-spinner fa-spin text-purple-600"></i>
+                            </div>
+                        </div>
+                        <button type="submit" class="landing-btn-primary w-full shrink-0 sm:w-auto">
+                            <i class="fas fa-search"></i> Search
+                        </button>
+                    </form>
                 </div>
 
-                <!-- Navigation -->
-                <nav class="flex items-center space-x-2 sm:space-x-4">
-                    @auth
-                        <a href="{{ route('dashboard') }}" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
-                            Dashboard
-                        </a>
-                    @else
-                        <a href="/login" class="px-3 sm:px-4 py-1.5 sm:py-2 text-sm sm:text-base border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
-                            Login
-                        </a>
-                        <a href="/register" class="px-4 sm:px-6 py-1.5 sm:py-2 text-sm sm:text-base bg-purple-primary text-white rounded-lg font-medium hover:bg-purple-600 transition-colors">
-                            Sign Up
-                        </a>
-                    @endauth
-                </nav>
-            </div>
-        </div>
-        </header>
-
-    <!-- Hero Section -->
-    <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-        <div class="text-center max-w-4xl mx-auto">
-            <!-- Main Heading -->
-            <h2 class="text-3xl sm:text-4xl md:text-5xl font-bold text-gray-900 mb-3 sm:mb-4 px-4 whitespace-normal leading-tight">
-                From Lost to Found. In Just a Few Clicks.
-            </h2>
-
-            <!-- Subheading -->
-            <p class="text-base sm:text-lg md:text-xl text-gray-600 mb-6 sm:mb-8 px-4">
-                One place for lost and found. Open to everyone.
-            </p>
-
-            <!-- Search Bar -->
-            <form action="{{ route('search') }}" method="GET" class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-2 sm:gap-2 mb-4 sm:mb-6 px-4" id="searchForm">
-                <div class="flex-1 w-full sm:max-w-2xl relative">
-                    <input
-                        type="text"
-                        name="q"
-                        id="searchInput"
-                        value="{{ $searchQuery ?? '' }}"
-                        placeholder="Search for lost or found items..."
-                        class="w-full px-4 sm:px-6 py-3 sm:py-4 pr-10 sm:pr-12 text-sm sm:text-base text-gray-700 bg-white border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-500"
-                        autocomplete="off"
-                    >
-                    <i class="fas fa-search absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm sm:text-base" id="searchIcon"></i>
-                    <div id="searchLoading" class="hidden absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2">
-                        <i class="fas fa-spinner fa-spin text-purple-primary"></i>
-                    </div>
+                @if(isset($isSearch) && $isSearch)
+                <div class="mb-6 flex flex-wrap items-center justify-center gap-2">
+                    <a href="{{ route('search', ['q' => $searchQuery, 'status' => '']) }}"
+                       class="{{ empty($statusFilter) ? 'landing-pill-active' : 'landing-pill-inactive' }}">All</a>
+                    <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'lost']) }}"
+                       class="{{ $statusFilter === 'lost' ? 'landing-pill-active' : 'landing-pill-inactive' }}">Lost</a>
+                    <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'found']) }}"
+                       class="{{ $statusFilter === 'found' ? 'landing-pill-active' : 'landing-pill-inactive' }}">Found</a>
                 </div>
-                <button type="submit" class="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 text-sm sm:text-base bg-pink-primary text-white rounded-lg font-medium hover:bg-pink-600 transition-colors">
-                    Search
-                </button>
-            </form>
+                @endif
 
-            <!-- Search Filters (shown when searching) -->
-            @if(isset($isSearch) && $isSearch)
-            <div class="flex flex-wrap items-center justify-center gap-2 sm:gap-4 mb-4 sm:mb-6 px-4">
-                <a href="{{ route('search', ['q' => $searchQuery, 'status' => '']) }}"
-                   class="px-3 sm:px-4 py-2 text-sm sm:text-base {{ empty($statusFilter) ? 'bg-purple-primary text-white' : 'bg-gray-100 text-gray-700' }} rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
-                    All
-                </a>
-                <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'lost']) }}"
-                   class="px-3 sm:px-4 py-2 text-sm sm:text-base {{ $statusFilter === 'lost' ? 'bg-purple-primary text-white' : 'bg-gray-100 text-gray-700' }} rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
-                    Lost
-                </a>
-                <a href="{{ route('search', ['q' => $searchQuery, 'status' => 'found']) }}"
-                   class="px-3 sm:px-4 py-2 text-sm sm:text-base {{ $statusFilter === 'found' ? 'bg-purple-primary text-white' : 'bg-gray-100 text-gray-700' }} rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors">
-                    Found
-                </a>
-            </div>
-            @endif
-
-            <!-- Filter Buttons -->
-            <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-4 px-4">
-                <a href="{{ route('guest.post.form', ['type' => 'lost']) }}" class="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-100 border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors text-center">
-                    I Lost Something
-                </a>
-                <a href="{{ route('guest.post.form', ['type' => 'found']) }}" class="w-full sm:w-auto px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base bg-gray-100 border-2 border-purple-primary text-purple-primary rounded-lg font-medium hover:bg-purple-primary hover:text-white transition-colors text-center">
-                    I Found Something
-                </a>
+                <div class="flex w-full max-w-md flex-col items-stretch justify-center gap-3 sm:mx-auto sm:max-w-none sm:flex-row sm:items-center">
+                    <a href="{{ route('guest.post.form', ['type' => 'lost']) }}" class="landing-btn-outline w-full sm:w-auto">
+                        <i class="fas fa-exclamation-circle text-rose-500"></i> I lost something
+                    </a>
+                    <a href="{{ route('guest.post.form', ['type' => 'found']) }}" class="landing-btn-purple w-full sm:w-auto">
+                        <i class="fas fa-hand-holding-heart"></i> I found something
+                    </a>
+                </div>
             </div>
         </div>
     </section>
-
 
 
     <!-- City Illustration Section -->
@@ -116,125 +79,109 @@
             <p class="text-base sm:text-lg text-gray-600">Connect with people from all around</p>
         </div>
 
-        <!-- City skyline illustration -->
         <div class="w-full">
             <img src="{{ asset('images/city-skyline.png') }}" alt="City Skyline" class="w-full h-auto">
         </div>
     </section>
 
-    <!-- Statistics Section -->
-    <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-20">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8 max-w-5xl mx-auto">
-            <!-- Lost Reports -->
-            <div class="text-center" data-counter>
-                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-purple-100 mb-4">
-                    <i class="fas fa-shopping-bag text-purple-primary text-4xl"></i>
-                </div>
-                <div class="text-4xl font-bold text-purple-primary mb-2 counter-value" data-target="{{ $totalLostReports }}" data-plus-threshold="1000">0</div>
-                <div class="text-gray-600 text-lg">Lost&Found Reports</div>
+    <section class="landing-section">
+        <div class="container mx-auto px-4 sm:px-6">
+            <div class="mx-auto mb-10 max-w-2xl text-center">
+                <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Impact</p>
+                <h2 class="landing-heading">Trusted by the community</h2>
             </div>
-
-            <!-- Items Reunited -->
-            <div class="text-center" data-counter>
-                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-pink-100 mb-4">
-                    <i class="fas fa-hand-holding-heart text-pink-primary text-4xl"></i>
+            <div class="mx-auto grid max-w-5xl grid-cols-1 gap-6 sm:grid-cols-3 sm:gap-8">
+                <div class="landing-stat-card" data-counter>
+                    <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-100 text-purple-600">
+                        <i class="fas fa-box-open text-2xl"></i>
+                    </div>
+                    <div class="text-4xl font-bold text-purple-600 counter-value mb-1" data-target="{{ $totalLostReports }}" data-plus-threshold="1000">0</div>
+                    <p class="text-sm font-medium text-gray-600">Lost &amp; found reports</p>
                 </div>
-                <div class="text-4xl font-bold text-pink-primary mb-2 counter-value" data-target="{{ $totalItemsReunited }}" data-plus-threshold="1000">0</div>
-                <div class="text-gray-600 text-lg">Items Reunited</div>
-            </div>
-
-            <!-- Locations Covered -->
-            <div class="text-center" data-counter>
-                <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-purple-100 mb-4">
-                    <i class="fas fa-map-marker-alt text-purple-primary text-4xl"></i>
+                <div class="landing-stat-card" data-counter>
+                    <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-pink-100 text-pink-600">
+                        <i class="fas fa-hand-holding-heart text-2xl"></i>
+                    </div>
+                    <div class="text-4xl font-bold text-pink-600 counter-value mb-1" data-target="{{ $totalItemsReunited }}" data-plus-threshold="1000">0</div>
+                    <p class="text-sm font-medium text-gray-600">Items reunited</p>
                 </div>
-                <div class="text-4xl font-bold text-purple-primary mb-2 counter-value" data-target="{{ $totalLocations }}" data-plus-threshold="100">0</div>
-                <div class="text-gray-600 text-lg">Locations Covered</div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works Section -->
-    <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-20 bg-gray-50">
-        <div class="max-w-6xl mx-auto">
-            <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-8 sm:mb-12 text-center px-4">How FindITFast Works</h2>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-12 items-center">
-                <!-- Left Side: Steps -->
-                <div class="space-y-8">
-                    <!-- Step 1: Post IT -->
-                    <div class="flex items-start space-x-6">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold shrink-0">
-                            1
-                        </div>
-                        <div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Post IT</h3>
-                            <p class="text-gray-600">Let the community know what you lost or found.</p>
-                        </div>
+                <div class="landing-stat-card" data-counter>
+                    <div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 text-violet-600">
+                        <i class="fas fa-map-marker-alt text-2xl"></i>
                     </div>
-
-                    <!-- Step 2: Track IT -->
-                    <div class="flex items-start space-x-6">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold shrink-0">
-                            2
-                        </div>
-                        <div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Track IT</h3>
-                            <p class="text-gray-600">Our system uses image matching and keywords to automatically compare your post with other reports.</p>
-                        </div>
-                    </div>
-
-                    <!-- Step 3: Return IT -->
-                    <div class="flex items-start space-x-6">
-                        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-primary text-white text-2xl font-bold shrink-0">
-                            3
-                        </div>
-                        <div>
-                            <h3 class="text-2xl font-bold text-gray-900 mb-2">Return IT</h3>
-                            <p class="text-gray-600">When there's a match, we'll notify you immediately. You can then coordinate safely to return or retrieve the item.</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Right Side: Illustration -->
-                <div class="flex items-center justify-center">
-                    <div class="w-full max-w-md">
-                        <img src="{{ asset('images/how-it-works.png') }}" alt="How It Works Illustration" class="w-full h-auto">
-                    </div>
+                    <div class="text-4xl font-bold text-violet-600 counter-value mb-1" data-target="{{ $totalLocations }}" data-plus-threshold="100">0</div>
+                    <p class="text-sm font-medium text-gray-600">Locations covered</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- Fresh Reports Section / Search Results -->
-    <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-20" id="resultsSection">
-        <div class="max-w-6xl mx-auto" id="resultsContainer">
+    <section class="landing-section-alt">
+        <div class="container mx-auto px-4 sm:px-6">
+            <div class="mx-auto mb-12 max-w-2xl text-center">
+                <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Simple process</p>
+                <h2 class="landing-heading">How FindITFast works</h2>
+            </div>
+            <div class="mx-auto grid max-w-6xl grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-14">
+                <div class="space-y-4">
+                    <div class="landing-step-card flex gap-4">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 text-lg font-bold text-white shadow-md">1</span>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Post it</h3>
+                            <p class="mt-1 text-sm text-gray-600 leading-relaxed">Tell the community what you lost or found — photos and details help matching.</p>
+                        </div>
+                    </div>
+                    <div class="landing-step-card flex gap-4">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-purple-500 text-lg font-bold text-white shadow-md">2</span>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Track it</h3>
+                            <p class="mt-1 text-sm text-gray-600 leading-relaxed">Image matching and keywords automatically compare your post with other reports.</p>
+                        </div>
+                    </div>
+                    <div class="landing-step-card flex gap-4">
+                        <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-pink-500 to-purple-600 text-lg font-bold text-white shadow-md">3</span>
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">Return it</h3>
+                            <p class="mt-1 text-sm text-gray-600 leading-relaxed">Get notified on a match and coordinate safely to reunite items with owners.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-gray-200/80 bg-white p-4 shadow-lg ring-1 ring-gray-900/5">
+                    <img src="{{ asset('images/how-it-works.png') }}" alt="How it works" class="w-full h-auto rounded-xl">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Search results only (hidden until user searches) -->
+    <section class="landing-section {{ empty($isSearch) ? 'hidden' : '' }}" id="resultsSection">
+        <div class="container mx-auto px-4 sm:px-6">
+        <div class="mx-auto max-w-6xl" id="resultsContainer">
             @if(isset($isSearch) && $isSearch)
-                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
+                <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div class="flex-1">
-                        <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
-                            Search Results
+                        <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-1">Search</p>
+                        <h2 class="landing-heading">
+                            Results
                             @if(!empty($searchQuery))
-                                <span class="block sm:inline text-base sm:text-lg font-normal text-gray-600 mt-1 sm:mt-0">for "{{ $searchQuery }}"</span>
+                                <span class="mt-1 block text-base font-normal text-gray-500 sm:inline sm:ml-2">for “{{ $searchQuery }}”</span>
                             @endif
                         </h2>
                         @if(!$freshReports->isEmpty())
-                            <p class="text-sm sm:text-base text-gray-500 mt-2">
-                                <i class="fas fa-check-circle text-green-500 mr-1"></i>
-                                Found {{ $freshReports->count() }} {{ $freshReports->count() === 1 ? 'item' : 'items' }} matching your search
+                            <p class="mt-2 text-sm text-gray-500">
+                                <i class="fas fa-check-circle mr-1 text-emerald-500"></i>
+                                {{ $freshReports->count() }} {{ $freshReports->count() === 1 ? 'match' : 'matches' }} found
                             </p>
                         @endif
                     </div>
-                    <a href="{{ route('welcome') }}" class="text-sm sm:text-base text-purple-primary hover:text-purple-600 underline whitespace-nowrap self-start sm:self-center">
-                        <i class="fas fa-times mr-2"></i>Clear Search
+                    <a href="{{ route('welcome') }}" class="landing-btn-ghost self-start">
+                        <i class="fas fa-times"></i> Clear search
                     </a>
                 </div>
                 @if($freshReports->isEmpty())
-                    <div class="max-w-2xl mx-auto text-center py-16">
-                        <div class="mb-6">
-                            <i class="fas fa-search text-gray-300 text-7xl mb-4"></i>
-                        </div>
-                        <h3 class="text-2xl font-bold text-gray-900 mb-4">No Match Found</h3>
+                    <div class="landing-empty mx-auto max-w-xl">
+                        <i class="fas fa-search mb-4 text-5xl text-gray-300"></i>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">No match found</h3>
                         <p class="text-gray-600 text-lg mb-2">
                             We couldn't find any items matching "{{ $searchQuery }}".
                         </p>
@@ -244,16 +191,12 @@
                         </p>
 
                         <!-- Call to Action Buttons -->
-                        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-6">
-                            <a href="{{ route('guest.post.form', ['type' => 'lost', 'search' => $searchQuery ?? '']) }}"
-                               class="px-8 py-4 bg-pink-primary text-white rounded-lg font-medium hover:bg-pink-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center">
-                                <i class="fas fa-exclamation-circle mr-2"></i>
-                                I Lost Something
+                        <div class="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                            <a href="{{ route('guest.post.form', ['type' => 'lost', 'search' => $searchQuery ?? '']) }}" class="landing-btn-primary">
+                                <i class="fas fa-exclamation-circle"></i> I lost something
                             </a>
-                            <a href="{{ route('guest.post.form', ['type' => 'found', 'search' => $searchQuery ?? '']) }}"
-                               class="px-8 py-4 bg-purple-primary text-white rounded-lg font-medium hover:bg-purple-600 transition-colors shadow-md hover:shadow-lg flex items-center justify-center">
-                                <i class="fas fa-hand-holding-heart mr-2"></i>
-                                I Found Something
+                            <a href="{{ route('guest.post.form', ['type' => 'found', 'search' => $searchQuery ?? '']) }}" class="landing-btn-purple">
+                                <i class="fas fa-hand-holding-heart"></i> I found something
                             </a>
                         </div>
 
@@ -263,136 +206,55 @@
                                 <strong>How it works:</strong> Our system uses advanced image matching and keyword analysis to automatically compare your post with existing reports. You'll be notified instantly when a match is found!
                             </p>
                             <a href="{{ route('welcome') }}" class="text-purple-primary hover:text-purple-600 underline text-sm">
-                                <i class="fas fa-arrow-left mr-1"></i>Browse all items instead
+                                <i class="fas fa-arrow-left mr-1"></i>Clear search
                             </a>
                         </div>
                     </div>
                 @else
-                    <!-- Show search results grid when there are results -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="landing-results-grid">
+                        @foreach($freshReports as $report)
+                            @include('landing.partials.report-card', ['report' => $report])
+                        @endforeach
+                    </div>
                 @endif
-            @else
-                <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 mb-8 sm:mb-12 px-4 sm:px-0">New Reported Items</h2>
-                <!-- Show fresh reports grid -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             @endif
-
-                @forelse($freshReports as $report)
-                <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
-                    @if(isset($isSearch) && $isSearch && !empty($report['image_path']))
-                    <!-- Image Section (only for search results) -->
-                    <div class="relative h-48 bg-gray-100 group overflow-hidden">
-                        <img src="{{ $report['image_path'] }}" 
-                             alt="{{ \Illuminate\Support\Str::limit($report['title'], 50) }}" 
-                             class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                             onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'400\' height=\'300\'%3E%3Crect fill=\'%23e5e7eb\' width=\'400\' height=\'300\'/%3E%3Ctext fill=\'%239ca3af\' font-family=\'sans-serif\' font-size=\'20\' x=\'50%25\' y=\'50%25\' text-anchor=\'middle\' dy=\'.3em\'%3ENo Image%3C/text%3E%3C/svg%3E';">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                        <span class="absolute top-3 left-3 px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md z-10">
-                            {{ ucfirst($report['type']) }}
-                        </span>
-                    </div>
-                    @endif
-                    <!-- Content Section -->
-                    <div class="p-6">
-                        <div class="flex items-start justify-between mb-4 gap-3">
-                            <h3 class="text-lg font-black text-gray-900 line-clamp-2 flex-1 leading-tight">{{ \Illuminate\Support\Str::limit($report['title'], 50) }}</h3>
-                            @if(!isset($isSearch) || !$isSearch || empty($report['image_path']))
-                            <!-- Status Badge (show if no image or not search results) -->
-                            <span class="px-4 py-2 {{ $report['type'] === 'lost' ? 'bg-pink-100 text-pink-800' : 'bg-green-100 text-green-800' }} rounded-full text-sm font-bold uppercase tracking-wide shadow-md shrink-0">
-                                {{ ucfirst($report['type']) }}
-                            </span>
-                            @endif
-                        </div>
-                        <div class="space-y-3 mb-4">
-                            <div class="flex items-start space-x-2 bg-purple-50 rounded-lg p-3 border border-purple-100">
-                                <i class="fas fa-map-marker-alt text-purple-600 mt-0.5 text-sm flex-shrink-0"></i>
-                                <span class="text-sm text-gray-700 font-medium line-clamp-2 leading-relaxed">{{ \Illuminate\Support\Str::limit($report['location'], 40) }}</span>
-                            </div>
-                            
-                            <!-- Detected Objects -->
-                            @if(isset($report['detected_objects']) && !empty($report['detected_objects']) && is_array($report['detected_objects']))
-                            <div class="mb-3">
-                                <h4 class="font-semibold text-gray-900 mb-2 text-sm">Detected Objects</h4>
-                                <div class="flex flex-wrap gap-2">
-                                    @php
-                                        $displayedObjects = array_slice($report['detected_objects'], 0, 5);
-                                        $totalObjects = count($report['detected_objects']);
-                                    @endphp
-                                    @foreach($displayedObjects as $obj)
-                                        @php
-                                            $objName = is_array($obj) && isset($obj['name']) ? $obj['name'] : (is_string($obj) ? $obj : '');
-                                            $objScore = is_array($obj) && isset($obj['score']) ? $obj['score'] : 0.0;
-                                            $confidencePercent = round($objScore * 100);
-                                        @endphp
-                                        @if(!empty($objName))
-                                        <span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium" 
-                                              title="Confidence: {{ $confidencePercent }}%">
-                                            <i class="fas fa-eye mr-1 text-blue-600"></i>
-                                            {{ $objName }}
-                                        </span>
-                                        @endif
-                                    @endforeach
-                                    @if($totalObjects > 5)
-                                        <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">
-                                            +{{ $totalObjects - 5 }} more
-                                        </span>
-                                    @endif
-                                </div>
-                            </div>
-                            @endif
-                            
-                            <div class="flex items-center text-xs text-gray-600 pt-2 border-t border-gray-100">
-                                <i class="fas fa-clock text-purple-600 mr-2 text-sm"></i>
-                                <span class="font-semibold">{{ $report['time_ago'] }}</span>
-                            </div>
-                        </div>
-                    @if(isset($report['upload_id']) && !empty($report['upload_id']))
-                        <!-- View Details link intentionally hidden on public cards -->
-                    @else
-                        <span class="text-gray-400 text-sm">Details unavailable</span>
-                    @endif
-                    </div>
-                </div>
-                @empty
-                @if(!isset($isSearch) || !$isSearch)
-                    <div class="col-span-4 text-center py-12">
-                        <p class="text-gray-500 text-lg">No reports available at the moment. Be the first to post!</p>
-                    </div>
-                @endif
-                @endforelse
-            </div>
+        </div>
         </div>
     </section>
 
-    <!-- Top Helpers Section (moved below Fresh Reports) -->
-    <section class="container mx-auto px-4 sm:px-6 py-12 sm:py-16">
+    <!-- Top Helpers -->
+    <section class="landing-section-alt">
+        <div class="container mx-auto px-4 sm:px-6">
         <div class="max-w-6xl mx-auto">
             <div class="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-6 sm:mb-8 gap-2">
-                <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">Top Helpers</h2>
-                <span class="text-xs sm:text-sm text-gray-500">Most items successfully returned</span>
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-1">Community</p>
+                    <h2 class="landing-heading">Top helpers</h2>
+                </div>
+                <span class="text-sm text-gray-500">Most items successfully returned</span>
             </div>
 
-            <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+            <div class="landing-card overflow-hidden">
                 <div class="divide-y divide-gray-100">
                     @forelse($topHelpers as $index => $helper)
-                    <div class="grid grid-cols-12 items-center px-4 sm:px-6 py-3 sm:py-4 gap-3">
-                        <div class="col-span-2 sm:col-span-1 text-xl sm:text-2xl font-extrabold {{ $index === 0 ? 'text-yellow-500' : 'text-gray-500' }}">#{{ $index + 1 }}</div>
-                        <div class="col-span-6 sm:col-span-7 flex items-center space-x-2 sm:space-x-3">
-                            @if(!empty($helper['profile_picture']))
-                                <img src="{{ $helper['profile_picture'] }}" alt="{{ $helper['name'] }} profile photo" class="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-purple-100">
-                            @else
-                                <div class="w-8 h-8 sm:w-10 sm:h-10 rounded-full {{ $index === 0 ? 'bg-purple-100 text-purple-primary' : ($index === 1 ? 'bg-pink-100 text-pink-primary' : 'bg-blue-100 text-blue-600') }} flex items-center justify-center font-bold text-sm sm:text-base">
-                                    {{ $helper['initial'] }}
+                    <div class="landing-helper-row">
+                        <div class="flex min-w-0 flex-1 items-center gap-3">
+                            <span class="landing-helper-rank {{ $index === 0 ? 'text-yellow-500' : 'text-gray-500' }}">#{{ $index + 1 }}</span>
+                            <div class="landing-helper-user">
+                                @if(!empty($helper['profile_picture']))
+                                    <img src="{{ $helper['profile_picture'] }}" alt="{{ $helper['name'] }}" class="h-9 w-9 shrink-0 rounded-full border-2 border-purple-100 object-cover sm:h-10 sm:w-10">
+                                @else
+                                    <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold sm:h-10 sm:w-10 {{ $index === 0 ? 'bg-purple-100 text-purple-primary' : ($index === 1 ? 'bg-pink-100 text-pink-primary' : 'bg-blue-100 text-blue-600') }}">
+                                        {{ $helper['initial'] }}
+                                    </div>
+                                @endif
+                                <div class="min-w-0">
+                                    <p class="truncate font-semibold text-gray-900 text-sm sm:text-base">{{ $helper['name'] }}</p>
+                                    <p class="truncate text-xs text-gray-500">{{ $helper['city'] }}</p>
                                 </div>
-                            @endif
-                            <div>
-                                <div class="font-semibold text-gray-900 text-sm sm:text-base">{{ $helper['name'] }}</div>
-                                <div class="text-xs text-gray-500">{{ $helper['city'] }}</div>
                             </div>
                         </div>
-                        <div class="col-span-4 text-right sm:text-right">
-                            <span class="px-2 sm:px-3 py-1 rounded-full bg-green-100 text-green-800 text-xs sm:text-sm font-medium">{{ $helper['returned_count'] }} returned</span>
-                        </div>
+                        <span class="shrink-0 self-start rounded-full bg-green-100 px-2.5 py-1 text-xs font-medium text-green-800 sm:self-center sm:px-3 sm:text-sm">{{ $helper['returned_count'] }} returned</span>
                     </div>
                     @empty
                     <div class="px-4 sm:px-6 py-6 sm:py-8 text-center text-gray-500 text-sm sm:text-base">
@@ -408,25 +270,24 @@
         </div>
     </section>
 
-    <!-- Testimonials Section -->
-    <section class="bg-purple-50 py-12 sm:py-20">
+    <section class="landing-section">
         <div class="container mx-auto px-4 sm:px-6">
-            <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-primary mb-8 sm:mb-12 text-center">What Our Users Say</h2>
+            <div class="mx-auto mb-10 max-w-2xl text-center">
+                <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Stories</p>
+                <h2 class="landing-heading">What our users say</h2>
+            </div>
 
-            <div class="max-w-4xl mx-auto">
-                <div class="bg-white rounded-lg shadow-lg p-6 sm:p-8">
-                    <p class="text-gray-700 text-lg leading-relaxed mb-6">
+            <div class="mx-auto max-w-4xl">
+                <div class="landing-testimonial">
+                    <i class="fas fa-quote-left mb-4 text-3xl text-purple-200"></i>
+                    <p class="text-lg leading-relaxed text-gray-700 mb-6">
                         "I was honestly skeptical at first, but FindITFast proved me wrong. I lost my backpack at a coffee shop and within a few hours, someone posted it on the platform. The system matched my report, and we coordinated easily. I got everything back — even my notebook! Super thankful for this tool."
                     </p>
-                    <div class="flex items-center justify-between">
-                        <span class="text-purple-primary font-semibold">Alyssa M., Davao City</span>
-                        <div class="flex items-center space-x-2">
-                            <button class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center hover:bg-purple-primary hover:text-white transition-colors">
-                                <i class="fas fa-chevron-left"></i>
-                            </button>
-                            <button class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center hover:bg-purple-primary hover:text-white transition-colors">
-                                <i class="fas fa-chevron-right"></i>
-                            </button>
+                    <div class="flex items-center gap-3">
+                        <span class="flex h-10 w-10 items-center justify-center rounded-full bg-purple-100 text-sm font-bold text-purple-700">AM</span>
+                        <div>
+                            <p class="font-semibold text-gray-900">Alyssa M.</p>
+                            <p class="text-sm text-gray-500">Davao City</p>
                         </div>
                     </div>
                 </div>
@@ -434,35 +295,32 @@
         </div>
     </section>
 
-    <!-- Testimonials Divider -->
-    <div class="border-t border-gray-300"></div>
-
     @if($faqs->count())
     <!-- FAQ Section -->
-    <section id="faq" class="bg-gray-50 py-12 sm:py-16">
+    <section id="faq" class="landing-section-alt">
         <div class="container mx-auto px-4 sm:px-6">
-            <div class="max-w-4xl mx-auto text-center mb-10">
-                <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-purple-primary uppercase tracking-widest mb-2">Need Answers?</h2>
-                <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Frequently Asked Questions</h2>
-                <p class="text-base sm:text-lg text-gray-600">A quick guide to how FindITFast keeps lost items moving back to their owners.</p>
+            <div class="mx-auto mb-10 max-w-2xl text-center">
+                <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">FAQ</p>
+                <h2 class="landing-heading">Frequently asked questions</h2>
+                <p class="mt-2 text-gray-600">A quick guide to how FindITFast reunites people with their belongings.</p>
             </div>
 
-            <div class="max-w-4xl mx-auto space-y-4">
+            <div class="mx-auto max-w-4xl space-y-3">
                 @foreach($faqs as $index => $faq)
-                <details class="group bg-white border border-gray-200 rounded-2xl shadow-sm transition-all">
-                    <summary class="flex items-center justify-between w-full px-5 py-4 cursor-pointer">
-                        <div class="flex items-start text-left">
-                            <span class="text-sm font-semibold text-purple-primary mr-4">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</span>
-                            <span class="text-lg font-semibold text-gray-900">{{ $faq->question }}</span>
+                <details class="landing-faq group">
+                    <summary class="flex cursor-pointer items-start justify-between gap-3">
+                        <div class="flex min-w-0 flex-1 items-start gap-2 text-left sm:gap-3">
+                            <span class="shrink-0 text-sm font-semibold text-purple-600">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</span>
+                            <span class="faq-question text-base font-semibold text-gray-900 sm:text-lg">{{ $faq->question }}</span>
                         </div>
-                        <span class="ml-4 flex-shrink-0 text-purple-primary group-open:hidden">
+                        <span class="mt-0.5 shrink-0 text-purple-600 group-open:hidden">
                             <i class="fas fa-plus"></i>
                         </span>
-                        <span class="ml-4 flex-shrink-0 text-purple-primary hidden group-open:block">
+                        <span class="mt-0.5 shrink-0 text-purple-600 hidden group-open:block">
                             <i class="fas fa-minus"></i>
                         </span>
                     </summary>
-                    <div class="px-5 pb-5 text-left">
+                    <div class="px-4 pb-4 text-left sm:px-5 sm:pb-5">
                         <p class="text-gray-600 leading-relaxed">{{ $faq->answer }}</p>
                     </div>
                 </details>
@@ -472,13 +330,12 @@
     </section>
     @endif
 
-    <!-- Contact Section -->
-    <section id="contact-us" class="py-12 sm:py-16 bg-white">
+    <section id="contact-us" class="landing-section">
         <div class="container mx-auto px-4 sm:px-6">
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
-                <div class="bg-gradient-to-br from-purple-50 to-pink-50 rounded-3xl p-8 shadow-sm border border-purple-100">
-                    <p class="text-sm uppercase tracking-widest text-purple-primary font-semibold mb-2">Contact Us</p>
-                    <h2 class="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">Need help or have feedback?</h2>
+            <div class="grid grid-cols-1 items-start gap-8 lg:grid-cols-2 lg:gap-12">
+                <div class="landing-contact-panel">
+                    <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-2">Contact</p>
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4 sm:text-3xl lg:text-4xl">Need help or have feedback?</h2>
                     <p class="text-base sm:text-lg text-gray-600 mb-6">Share your questions, partnership ideas, or product feedback. Our team reviews every request within one business day.</p>
 
                     <div class="space-y-5">
@@ -531,7 +388,7 @@
                     @endif
                 </div>
 
-                <div class="bg-white rounded-3xl shadow-lg border border-gray-100 p-6 sm:p-8">
+                <div class="landing-form-panel">
                     @if(session('contact_success'))
                     <div class="mb-6 px-4 py-3 bg-green-50 border border-green-200 text-green-800 rounded-xl flex items-center">
                         <i class="fas fa-check-circle mr-2"></i>
@@ -555,32 +412,32 @@
                         <div>
                             <label for="contactName" class="block text-sm font-semibold text-gray-700 mb-1">Full Name</label>
                             <input type="text" id="contactName" name="name" value="{{ old('name') }}" required
-                                   class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                   class="landing-field"
                                    placeholder="Maria Santos">
                         </div>
 
                         <div>
                             <label for="contactEmail" class="block text-sm font-semibold text-gray-700 mb-1">Email Address</label>
                             <input type="email" id="contactEmail" name="email" value="{{ old('email') }}" required
-                                   class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                   class="landing-field"
                                    placeholder="you@email.com">
                         </div>
 
                         <div>
                             <label for="contactSubject" class="block text-sm font-semibold text-gray-700 mb-1">Subject</label>
                             <input type="text" id="contactSubject" name="subject" value="{{ old('subject') }}"
-                                   class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                   class="landing-field"
                                    placeholder="Feature request, partnership...">
                         </div>
 
                         <div>
                             <label for="contactMessage" class="block text-sm font-semibold text-gray-700 mb-1">Message</label>
                             <textarea id="contactMessage" name="message" rows="5" required
-                                      class="w-full px-4 py-3 border-2 border-gray-100 rounded-2xl focus:outline-none focus:border-purple-primary focus:ring-2 focus:ring-purple-200 transition"
+                                      class="landing-field"
                                       placeholder="Tell us how we can help...">{{ old('message') }}</textarea>
                         </div>
 
-                        <button type="submit" class="w-full inline-flex items-center justify-center px-6 py-3 bg-purple-primary text-white font-semibold rounded-2xl shadow-lg shadow-purple-200 hover:bg-purple-700 transition">
+                        <button type="submit" class="landing-btn-purple w-full">
                             <i class="fas fa-paper-plane mr-2"></i>
                             Send Request
                         </button>
@@ -599,11 +456,11 @@
 
                 <div class="relative">
                     <!-- Carousel Container -->
-                    <div id="sponsorsCarousel" class="overflow-hidden px-12">
+                    <div id="sponsorsCarousel" class="overflow-hidden px-8 sm:px-12">
                         <div class="flex transition-transform duration-500 ease-in-out" id="sponsorsTrack" style="transform: translateX(0%);">
                             @foreach($sponsors as $sponsor)
-                            <div class="shrink-0" style="width: 25%; padding: 0 1rem;">
-                                <div class="bg-white rounded-lg shadow-md p-6 h-32 flex items-center justify-center hover:shadow-lg transition-shadow">
+                            <div class="landing-sponsor-slide">
+                                <div class="flex h-28 items-center justify-center rounded-lg bg-white p-4 shadow-md transition-shadow hover:shadow-lg sm:h-32 sm:p-6">
                                     <img src="{{ $sponsor->image_path }}"
                                          alt="{{ $sponsor->name }}"
                                          class="max-h-20 max-w-full object-contain"
@@ -616,11 +473,11 @@
                     </div>
 
                     <!-- Navigation Arrows -->
-                    @if($sponsors->count() > 4)
-                    <button id="prevSponsor" class="absolute left-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow-md hover:bg-gray-100 transition-colors z-10">
+                    @if($sponsors->count() > 1)
+                    <button type="button" id="prevSponsor" class="absolute left-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-2 shadow-md transition-colors hover:bg-gray-100 sm:p-3" aria-label="Previous sponsors">
                         <i class="fas fa-chevron-left text-purple-primary"></i>
                     </button>
-                    <button id="nextSponsor" class="absolute right-0 top-1/2 transform -translate-y-1/2 bg-white rounded-full p-3 shadow-md hover:bg-gray-100 transition-colors z-10">
+                    <button type="button" id="nextSponsor" class="absolute right-0 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white p-2 shadow-md transition-colors hover:bg-gray-100 sm:p-3" aria-label="Next sponsors">
                         <i class="fas fa-chevron-right text-purple-primary"></i>
                     </button>
                     @endif
@@ -643,17 +500,19 @@
             let currentIndex = 0;
             const track = document.getElementById('sponsorsTrack');
             const totalItems = {{ $sponsors->count() }};
-            const itemsPerView = 4;
             let autoScrollInterval;
 
+            function getItemsPerView() {
+                if (window.innerWidth >= 1024) return Math.min(4, totalItems);
+                if (window.innerWidth >= 640) return Math.min(2, totalItems);
+                return 1;
+            }
+
             function updateCarousel() {
+                const itemsPerView = getItemsPerView();
                 const maxIndex = Math.max(0, totalItems - itemsPerView);
-                if (currentIndex > maxIndex) {
-                    currentIndex = 0;
-                }
-                if (currentIndex < 0) {
-                    currentIndex = maxIndex;
-                }
+                if (currentIndex > maxIndex) currentIndex = 0;
+                if (currentIndex < 0) currentIndex = maxIndex;
                 const translateX = -(currentIndex * (100 / itemsPerView));
                 track.style.transform = `translateX(${translateX}%)`;
             }
@@ -700,7 +559,10 @@
                 carousel.addEventListener('mouseenter', stopAutoScroll);
                 carousel.addEventListener('mouseleave', startAutoScroll);
 
-                // Start auto-scroll
+                window.addEventListener('resize', () => {
+                    updateCarousel();
+                });
+
                 startAutoScroll();
             }
         })();
@@ -715,12 +577,18 @@
             const searchIcon = document.getElementById('searchIcon');
             const searchLoading = document.getElementById('searchLoading');
             const resultsContainer = document.getElementById('resultsContainer');
+            const resultsSection = document.getElementById('resultsSection');
 
             let searchTimeout;
             let isSearching = false;
 
-            // Original fresh reports HTML (to restore when search is cleared)
-            const originalContent = resultsContainer ? resultsContainer.innerHTML : '';
+            function showResultsSection() {
+                if (resultsSection) resultsSection.classList.remove('hidden');
+            }
+
+            function hideResultsSection() {
+                if (resultsSection) resultsSection.classList.add('hidden');
+            }
 
             // Debounced live search
             if (searchInput) {
@@ -798,22 +666,15 @@
 
                 // Build results HTML
                 let html = `
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 gap-3 sm:gap-4">
+                    <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                         <div class="flex-1">
-                            <h2 class="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
-                                Search Results
-                                <span class="block sm:inline text-base sm:text-lg font-normal text-gray-600 mt-1 sm:mt-0">for "${escapeHtml(data.query)}"</span>
-                            </h2>
-                            <p class="text-sm sm:text-base text-gray-500 mt-2">
-                                <i class="fas fa-check-circle text-green-500 mr-1"></i>
-                                Found ${data.count} ${data.count === 1 ? 'item' : 'items'} matching your search
-                            </p>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-1">Search</p>
+                            <h2 class="landing-heading">Results <span class="mt-1 block text-base font-normal text-gray-500 sm:inline sm:ml-2">for "${escapeHtml(data.query)}"</span></h2>
+                            <p class="mt-2 text-sm text-gray-500"><i class="fas fa-check-circle mr-1 text-emerald-500"></i>${data.count} ${data.count === 1 ? 'match' : 'matches'} found</p>
                         </div>
-                        <a href="{{ route('welcome') }}" class="text-sm sm:text-base text-purple-primary hover:text-purple-600 underline whitespace-nowrap self-start sm:self-center" onclick="restoreOriginalContent(); return true;">
-                            <i class="fas fa-times mr-2"></i>Clear Search
-                        </a>
+                        <a href="{{ route('welcome') }}" class="landing-btn-ghost self-start" onclick="restoreOriginalContent(); return true;"><i class="fas fa-times"></i> Clear search</a>
                     </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                    <div class="landing-results-grid">
                 `;
 
                 data.results.forEach(report => {
@@ -822,7 +683,7 @@
                     // Process detected objects
                     let detectedObjectsHtml = '';
                     if (report.detected_objects && Array.isArray(report.detected_objects) && report.detected_objects.length > 0) {
-                        // Get unique objects (by name) and limit to top 5
+                        // Get unique labels (by name) and limit to top 3
                         const uniqueObjects = [];
                         const seenNames = new Set();
                         report.detected_objects.forEach(obj => {
@@ -833,8 +694,7 @@
                             }
                         });
                         
-                        const displayedObjects = uniqueObjects.slice(0, 5);
-                        const totalObjects = uniqueObjects.length;
+                        const displayedObjects = uniqueObjects.slice(0, 3);
                         
                         if (displayedObjects.length > 0) {
                             const objectsDisplay = displayedObjects.map(obj => {
@@ -842,17 +702,18 @@
                                 const objScore = (obj && typeof obj === 'object' && obj.score) ? obj.score : 0.0;
                                 const confidencePercent = Math.round(objScore * 100);
                                 const escapedObj = escapeHtml(objName);
-                                return `<span class="inline-flex items-center px-2 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-medium" title="Confidence: ${confidencePercent}%"><i class="fas fa-eye mr-1 text-blue-600"></i>${escapedObj}</span>`;
+                                const title = confidencePercent ? `Detected from image (${confidencePercent}% confidence)` : 'Detected from image';
+                                return `<span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="${title}"><i class="fas fa-eye mr-1"></i>${escapedObj}</span>`;
                             }).join('');
-                            
-                            const moreHtml = totalObjects > 5 ? `<span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium">+${totalObjects - 5} more</span>` : '';
                             
                             detectedObjectsHtml = `
                                 <div class="mb-3">
-                                    <h4 class="font-semibold text-gray-900 mb-2 text-sm">Detected Objects</h4>
+                                    <h4 class="font-semibold text-gray-900 mb-2 text-sm flex items-center">
+                                        <i class="fas fa-cube mr-1 text-blue-600"></i>
+                                        Detected Objects (${displayedObjects.length}):
+                                    </h4>
                                     <div class="flex flex-wrap gap-2">
                                         ${objectsDisplay}
-                                        ${moreHtml}
                                     </div>
                                 </div>
                             `;
@@ -864,7 +725,7 @@
                     const showImage = imagePath && imagePath.trim() !== '';
                     
                     html += `
-                        <div class="bg-white rounded-xl shadow-lg border-2 border-gray-200 overflow-hidden hover:shadow-2xl hover:border-purple-300 transition-all duration-300 transform hover:-translate-y-1">
+                        <div class="landing-card group flex h-full flex-col">
                             ${showImage ? `
                             <!-- Image Section -->
                             <div class="relative h-48 bg-gray-100 group overflow-hidden">
@@ -907,6 +768,7 @@
 
                 html += '</div>';
                 if (resultsContainer) {
+                    showResultsSection();
                     resultsContainer.innerHTML = html;
                 }
             }
@@ -954,22 +816,24 @@
                                 <strong>How it works:</strong> Our system uses advanced image matching and keyword analysis to automatically compare your post with existing reports. You'll be notified instantly when a match is found!
                             </p>
                             <a href="{{ route('welcome') }}" class="text-purple-primary hover:text-purple-600 underline text-xs sm:text-sm" onclick="restoreOriginalContent(); return true;">
-                                <i class="fas fa-arrow-left mr-1"></i>Browse all items instead
+                                <i class="fas fa-arrow-left mr-1"></i>Clear search
                             </a>
                         </div>
                     </div>
                 `;
                 if (resultsContainer) {
+                    showResultsSection();
                     resultsContainer.innerHTML = html;
                 }
             }
 
             function restoreOriginalContent() {
-                if (resultsContainer && originalContent) {
-                    resultsContainer.innerHTML = originalContent;
-                    if (searchInput) {
-                        searchInput.value = '';
-                    }
+                if (resultsContainer) {
+                    resultsContainer.innerHTML = '';
+                }
+                hideResultsSection();
+                if (searchInput) {
+                    searchInput.value = '';
                 }
             }
 

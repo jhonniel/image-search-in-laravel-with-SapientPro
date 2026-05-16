@@ -594,9 +594,18 @@ class AdminController extends Controller
      */
     public function users()
     {
-        $users = \App\Models\User::orderBy('created_at', 'desc')->get(); // Soft deletes automatically excludes deleted users
+        $users = \App\Models\User::orderBy('created_at', 'desc')->get();
 
-        return view('admin.users', compact('users'));
+        $reportCounts = \App\Models\ImageMetadata::query()
+            ->selectRaw('uploader_email, COUNT(DISTINCT upload_id) as reports_count')
+            ->whereNotNull('uploader_email')
+            ->groupBy('uploader_email')
+            ->pluck('reports_count', 'uploader_email');
+
+        $totalUsers = $users->count();
+        $verifiedCount = $users->where('is_verified', true)->count();
+
+        return view('admin.users', compact('users', 'reportCounts', 'totalUsers', 'verifiedCount'));
     }
 
     /**

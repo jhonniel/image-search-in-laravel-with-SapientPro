@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+@import './admin-ui.css';
+@import './landing-ui.css';
+@import './user-ui.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -95,9 +98,9 @@ p, span, div, h1, h2, h3, h4, h5, h6 {
     }
 }
 
-/* Responsive grid improvements */
+/* Responsive grid improvements (exclude landing — uses Tailwind grid breakpoints) */
 @media (max-width: 640px) {
-    .grid {
+    body:not(.landing-page):not(.user-app) .grid {
         grid-template-columns: 1fr !important;
     }
 }

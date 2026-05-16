@@ -3,298 +3,136 @@
 @section('title', 'Dashboard - FindITFast')
 
 @section('content')
-<div class="space-y-6">
-    <!-- Success Message -->
+<div class="user-page">
     @if(session('success'))
-        <div class="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <div class="flex items-center">
-                <i class="fas fa-check-circle text-green-500 mr-3"></i>
-                <p class="text-green-700 font-medium">{{ session('success') }}</p>
-            </div>
-        </div>
+        @include('user.partials.alert', ['type' => 'success', 'message' => session('success')])
     @endif
-    <!-- Action Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-        <!-- Report Lost Item Card -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div class="flex flex-col h-full">
-                <h3 class="text-lg font-semibold text-gray-900 mb-5">Report Lost Item</h3>
-                <div class="flex items-start gap-5 mb-6 flex-1">
-                    <div class="shrink-0 w-24 h-24">
-                        @if(file_exists(public_path('images/reported-item.png')))
-                            <img src="{{ asset('images/reported-item.png') }}"
-                                 alt="Report Lost Item Illustration"
-                                 class="w-full h-full object-contain">
-                        @else
-                            <img src="{{ asset('images/report-lost-item-placeholder.svg') }}"
-                                 alt="Report Lost Item Illustration"
-                                 class="w-full h-full object-contain">
-                        @endif
-                    </div>
-                    <div class="flex-1 flex flex-col">
-                        <p class="text-gray-700 text-sm leading-relaxed mb-5">Can't find something? Let the community help you.</p>
-                        <div class="mt-auto">
-                            <a href="/post?type=lost" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
-                                Report Lost Item
-                            </a>
-                        </div>
-                    </div>
+
+    <div class="grid grid-cols-1 items-stretch gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div class="user-action-card">
+            <h3 class="mb-3 text-base font-semibold text-gray-900 sm:text-lg">Report lost item</h3>
+            <div class="user-action-card-body">
+                <div class="user-action-card-media">
+                    <img src="{{ file_exists(public_path('images/reported-item.png')) ? asset('images/reported-item.png') : asset('images/report-lost-item-placeholder.svg') }}" alt="" class="h-full w-full object-contain">
+                </div>
+                <div class="user-action-card-content">
+                    <p class="user-action-card-text">Can't find something? Let the community help you.</p>
+                    <a href="/post?type=lost" class="user-action-card-btn">Report lost item</a>
                 </div>
             </div>
         </div>
-
-        <!-- Report Found Item Card -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div class="flex flex-col h-full">
-                <h3 class="text-lg font-semibold text-gray-900 mb-5">Report Found Item</h3>
-                <div class="flex items-start gap-5 mb-6 flex-1">
-                    <div class="shrink-0 w-24 h-24">
-                        @if(file_exists(public_path('images/found-item.png')))
-                            <img src="{{ asset('images/found-item.png') }}"
-                                 alt="Report Found Item Illustration"
-                                 class="w-full h-full object-contain">
-                        @else
-                            <img src="{{ asset('images/report-found-item-placeholder.svg') }}"
-                                 alt="Report Found Item Illustration"
-                                 class="w-full h-full object-contain">
-                        @endif
-                    </div>
-                    <div class="flex-1 flex flex-col">
-                        <p class="text-gray-700 text-sm leading-relaxed mb-5">Found something lying around? Post it here.</p>
-                        <div class="mt-auto">
-                            <a href="/post?type=found" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
-                                Report Found Item
-                            </a>
-                        </div>
-                    </div>
+        <div class="user-action-card">
+            <h3 class="mb-3 text-base font-semibold text-gray-900 sm:text-lg">Report found item</h3>
+            <div class="user-action-card-body">
+                <div class="user-action-card-media">
+                    <img src="{{ file_exists(public_path('images/found-item.png')) ? asset('images/found-item.png') : asset('images/report-found-item-placeholder.svg') }}" alt="" class="h-full w-full object-contain">
+                </div>
+                <div class="user-action-card-content">
+                    <p class="user-action-card-text">Found something lying around? Post it here.</p>
+                    <a href="/post?type=found" class="user-action-card-btn">Report found item</a>
                 </div>
             </div>
         </div>
-
-        <!-- Track My Reports Card -->
-        <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-            <div class="flex flex-col h-full">
-                <h3 class="text-lg font-semibold text-gray-900 mb-5">Track My Reports</h3>
-                <div class="flex items-start gap-5 mb-6 flex-1">
-                    <div class="shrink-0 w-24 h-24">
-                        @if(file_exists(public_path('images/track-reports.png')))
-                            <img src="{{ asset('images/track-reports.png') }}"
-                                 alt="Track Reports Illustration"
-                                 class="w-full h-full object-contain">
-                        @else
-                            <img src="{{ asset('images/track-reports-placeholder.svg') }}"
-                                 alt="Track Reports Illustration"
-                                 class="w-full h-full object-contain">
-                        @endif
-                    </div>
-                    <div class="flex-1 flex flex-col">
-                        <p class="text-gray-700 text-sm leading-relaxed mb-5">View the items you've reported both lost and found.</p>
-                        <div class="mt-auto">
-                            <a href="{{ route('reported-items') }}" class="inline-block bg-blue-primary text-white py-2.5 px-5 rounded-lg hover:bg-blue-600 transition-colors text-center font-medium text-sm">
-                                Track My Reports
-                            </a>
-                        </div>
-                    </div>
+        <div class="user-action-card md:col-span-2 xl:col-span-1">
+            <h3 class="mb-3 text-base font-semibold text-gray-900 sm:text-lg">Track my reports</h3>
+            <div class="user-action-card-body">
+                <div class="user-action-card-media">
+                    <img src="{{ file_exists(public_path('images/track-reports.png')) ? asset('images/track-reports.png') : asset('images/track-reports-placeholder.svg') }}" alt="" class="h-full w-full object-contain">
+                </div>
+                <div class="user-action-card-content">
+                    <p class="user-action-card-text">View items you've reported — lost and found.</p>
+                    <a href="{{ route('reported-items') }}" class="user-action-card-btn">Track reports</a>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Submit a Review Section -->
     @if($hasReviewQuestions && !$hasCompletedReviews)
-    <div class="bg-white rounded-xl shadow-sm p-6 border border-gray-200 mb-8">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-5">
-                <div class="shrink-0 w-16 h-16">
-                    <div class="w-full h-full bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg flex items-center justify-center">
-                        <i class="fas fa-star text-purple-primary text-3xl"></i>
-                    </div>
+    <div class="user-card">
+        <div class="user-card-body flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-100 to-pink-100">
+                    <i class="fas fa-star text-2xl text-purple-600"></i>
                 </div>
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900 mb-1">Submit a Review</h3>
-                    <p class="text-gray-600 text-sm">Share your feedback and help us improve FindITFast.</p>
+                    <h3 class="text-lg font-semibold text-gray-900">Submit a review</h3>
+                    <p class="text-sm text-gray-600">Share feedback and help us improve FindITFast.</p>
                 </div>
             </div>
-            <a href="{{ route('reviews.create') }}" class="inline-flex items-center justify-center px-6 py-3 bg-purple-primary text-white font-semibold rounded-lg shadow-md hover:bg-purple-700 transition-colors">
-                <i class="fas fa-star mr-2"></i>
-                Submit Review
-            </a>
+            <a href="{{ route('reviews.create') }}" class="user-btn-primary w-full shrink-0 sm:w-auto"><i class="fas fa-star"></i> Submit review</a>
         </div>
     </div>
     @endif
 
-    <!-- Welcome Section -->
-    <div class="bg-purple-50 rounded-xl p-8 md:p-10 border-2 border-blue-500 mb-8">
-        <div class="flex flex-col md:flex-row items-center md:items-center justify-between gap-6 md:gap-10">
-            <div class="flex-1 text-center md:text-left">
-                <h2 class="text-5xl md:text-6xl font-bold mb-4 leading-tight">
-                    <span class="text-blue-600">Hi,</span>
-                    <span class="text-pink-500">{{ Auth::user()->name }}</span>
-                </h2>
-                <p class="text-gray-700 text-lg mb-6">Let's help find what's missing — or return what's found.</p>
-                <button class="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium text-base">
-                    Learn more
-                </button>
-            </div>
-            <div class="shrink-0 w-48 sm:w-56 md:w-64 lg:w-72 h-48 sm:h-56 md:h-64 lg:h-72 flex items-center justify-center overflow-hidden">
-                <!-- Illustration - using uploaded image -->
-                @if(file_exists(public_path('images/dashboard-banner.png')))
-                    <img src="{{ asset('images/dashboard-banner.png') }}"
-                         alt="Lost and Found Illustration"
-                         class="w-full h-full object-contain">
-                @else
-                    <img src="{{ asset('images/dashboard-banner-placeholder.svg') }}"
-                         alt="Lost and Found Illustration Placeholder"
-                         class="w-full h-full object-contain">
-                @endif
+    <div class="user-card overflow-hidden border-purple-100 bg-gradient-to-br from-purple-50 via-white to-pink-50">
+        <div class="user-card-body">
+            <div class="flex flex-col items-center gap-6 md:flex-row md:items-center md:justify-between">
+                <div class="text-center md:text-left">
+                    <h2 class="user-welcome-title text-3xl font-bold sm:text-4xl md:text-5xl">
+                        <span class="text-purple-600">Hi,</span> <span class="text-pink-500">{{ Auth::user()->name }}</span>
+                    </h2>
+                    <p class="mt-2 text-base text-gray-600 sm:text-lg">Let's help find what's missing — or return what's found.</p>
+                    <a href="{{ route('reported-items') }}" class="user-btn-primary mt-4 inline-flex">Get started</a>
+                </div>
+                <div class="h-40 w-full max-w-xs shrink-0 sm:h-48 md:h-56 md:max-w-sm">
+                    <img src="{{ file_exists(public_path('images/dashboard-banner.png')) ? asset('images/dashboard-banner.png') : asset('images/dashboard-banner-placeholder.svg') }}" alt="" class="h-full w-full object-contain">
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Bottom Section -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <!-- Recent Activity Table -->
-        <div class="lg:col-span-2 bg-white rounded-lg shadow-sm border border-gray-200">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h3 class="text-lg font-semibold text-gray-900">Recent Activity</h3>
-            </div>
-            <div class="overflow-x-auto">
-                <table class="w-full divide-y divide-gray-200">
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        <div class="user-card lg:col-span-2">
+            <div class="user-card-header"><h3 class="text-lg font-semibold text-gray-900">Recent activity</h3></div>
+            <div class="user-table-wrap">
+                <table class="min-w-[32rem] w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Item</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="user-th">User</th>
+                            <th class="user-th">Item</th>
+                            <th class="user-th">Type</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="divide-y divide-gray-100 bg-white">
                         @forelse($recentActivity as $activity)
-                        <tr>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{{ $activity['name'] }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ $activity['item_name'] }}</td>
-                            <td class="px-6 py-4 whitespace-nowrap">
-                                <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full {{ $activity['item_type'] === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800' }}">
-                                    {{ ucfirst($activity['item_type']) }}
-                                </span>
+                        <tr class="hover:bg-purple-50/30">
+                            <td class="user-td font-medium text-gray-900">{{ $activity['name'] }}</td>
+                            <td class="user-td max-w-[12rem] truncate sm:max-w-none">{{ $activity['item_name'] }}</td>
+                            <td class="user-td">
+                                <span class="{{ $activity['item_type'] === 'lost' ? 'user-badge-lost' : 'user-badge-found' }}">{{ ucfirst($activity['item_type']) }}</span>
                             </td>
                         </tr>
                         @empty
-                        <tr>
-                            <td colspan="3" class="px-6 py-4 text-center text-sm text-gray-500">No recent activity</td>
-                        </tr>
+                        <tr><td colspan="3" class="px-4 py-8 text-center text-sm text-gray-500">No recent activity</td></tr>
                         @endforelse
                     </tbody>
                 </table>
             </div>
         </div>
-
-        <!-- Success Rate Card -->
-        <div class="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
-            <h3 class="text-lg font-semibold text-gray-900 mb-6">Success Rate</h3>
-
-            <!-- Circular Progress -->
-            <div class="flex justify-center mb-6">
-                <div class="relative w-32 h-32">
-                    <svg class="w-32 h-32 transform -rotate-90" viewBox="0 0 100 100">
-                        <!-- Background circle -->
-                        <circle cx="50" cy="50" r="40" stroke="#e5e7eb" stroke-width="8" fill="none"/>
-                        <!-- Progress circle -->
-                        @php
-                            $circumference = 2 * M_PI * 40; // 2πr where r=40
-                            $offset = $circumference - (($successRate / 100) * $circumference);
-                        @endphp
-                        <circle cx="50" cy="50" r="40" stroke="#EC4899" stroke-width="8" fill="none"
-                                stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}" stroke-linecap="round"/>
-                    </svg>
-                    <div class="absolute inset-0 flex items-center justify-center">
-                        <span class="text-2xl font-bold text-pink-primary">{{ $successRate }}%</span>
+        <div class="user-card">
+            <div class="user-card-header"><h3 class="text-lg font-semibold text-gray-900">Success rate</h3></div>
+            <div class="user-card-body">
+                @php
+                    $circumference = 2 * M_PI * 40;
+                    $offset = $circumference - (($successRate / 100) * $circumference);
+                @endphp
+                <div class="mb-6 flex justify-center">
+                    <div class="relative h-28 w-28 sm:h-32 sm:w-32">
+                        <svg class="h-full w-full -rotate-90" viewBox="0 0 100 100">
+                            <circle cx="50" cy="50" r="40" stroke="#e5e7eb" stroke-width="8" fill="none"/>
+                            <circle cx="50" cy="50" r="40" stroke="#ec4899" stroke-width="8" fill="none" stroke-dasharray="{{ $circumference }}" stroke-dashoffset="{{ $offset }}" stroke-linecap="round"/>
+                        </svg>
+                        <div class="absolute inset-0 flex items-center justify-center"><span class="text-2xl font-bold text-pink-600">{{ $successRate }}%</span></div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Statistics -->
-            <div class="space-y-4">
-                <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Lost Items Reported:</span>
-                    <span class="text-lg font-bold text-pink-primary">{{ $lostItems }}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Found Items Posted:</span>
-                    <span class="text-lg font-bold text-pink-primary">{{ $foundItems }}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Items Claimed:</span>
-                    <span class="text-lg font-bold text-pink-primary">{{ $claimedItems }}</span>
-                </div>
-                <div class="flex justify-between items-center">
-                    <span class="text-sm text-gray-600">Total Reports:</span>
-                    <span class="text-lg font-bold text-pink-primary">{{ $totalItems }}</span>
-                </div>
+                <dl class="space-y-3 text-sm">
+                    <div class="flex justify-between gap-2"><dt class="text-gray-600">Lost reported</dt><dd class="font-bold text-purple-600">{{ $lostItems }}</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="text-gray-600">Found posted</dt><dd class="font-bold text-purple-600">{{ $foundItems }}</dd></div>
+                    <div class="flex justify-between gap-2"><dt class="text-gray-600">Items claimed</dt><dd class="font-bold text-purple-600">{{ $claimedItems }}</dd></div>
+                    <div class="flex justify-between gap-2 border-t border-gray-100 pt-3"><dt class="font-medium text-gray-700">Total</dt><dd class="font-bold text-gray-900">{{ $totalItems }}</dd></div>
+                </dl>
             </div>
         </div>
     </div>
 </div>
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Make star ratings interactive with hover effects
-    document.querySelectorAll('input[type="radio"][name^="question_"]').forEach(function(radio) {
-        const questionId = radio.name;
-        const starContainer = radio.closest('.flex.items-center.space-x-2');
-        if (!starContainer) return;
-        
-        const stars = Array.from(starContainer.querySelectorAll('input[type="radio"]'));
-        const starIcons = Array.from(starContainer.querySelectorAll('i.fa-star'));
-        
-        stars.forEach(function(star, index) {
-            const starIcon = starIcons[index];
-            
-            // Update stars on change
-            star.addEventListener('change', function() {
-                updateStarDisplay(stars, starIcons);
-            });
-            
-            // Hover effect
-            star.addEventListener('mouseenter', function() {
-                starIcons.forEach(function(icon, i) {
-                    if (i <= index) {
-                        icon.classList.add('text-yellow-300');
-                    }
-                });
-            });
-            
-            star.addEventListener('mouseleave', function() {
-                updateStarDisplay(stars, starIcons);
-            });
-        });
-        
-        function updateStarDisplay(stars, icons) {
-            const checkedIndex = stars.findIndex(s => s.checked);
-            icons.forEach(function(icon, i) {
-                icon.classList.remove('text-yellow-300');
-                if (checkedIndex !== -1 && i <= checkedIndex) {
-                    icon.classList.remove('text-gray-300');
-                    icon.classList.add('text-yellow-400');
-                } else if (checkedIndex === -1 || i > checkedIndex) {
-                    icon.classList.remove('text-yellow-400');
-                    icon.classList.add('text-gray-300');
-                }
-            });
-        }
-        
-        // Initialize display
-        const checkedIndex = stars.findIndex(s => s.checked);
-        if (checkedIndex !== -1) {
-            starIcons.forEach(function(icon, i) {
-                if (i <= checkedIndex) {
-                    icon.classList.remove('text-gray-300');
-                    icon.classList.add('text-yellow-400');
-                }
-            });
-        }
-    });
-});
-</script>
-@endpush
 @endsection

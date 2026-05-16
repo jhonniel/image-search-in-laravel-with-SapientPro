@@ -7,12 +7,15 @@
     <title>@yield('title', 'FindITFast')</title>
     <link rel="icon" type="image/svg+xml" href="{{ asset('favicon.svg') }}">
     <link rel="alternate icon" href="{{ asset('favicon.ico') }}">
+    <link rel="preconnect" href="https://fonts.bunny.net">
+    <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet">
     @vite(['resources/css/app.css', 'resources/js/app.js'])
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    @stack('styles')
 </head>
-<body class="antialiased bg-gray-100" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('sidebarCollapsed', value))">
-    <div class="flex h-screen overflow-hidden bg-gray-100">
+<body class="user-app font-sans overflow-x-hidden" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('sidebarCollapsed', value))">
+    <div class="flex h-[100dvh] overflow-hidden">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="sidebarOpen" 
              @click="sidebarOpen = false"
@@ -30,7 +33,7 @@
                 sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
                 sidebarCollapsed ? 'lg:w-20' : 'lg:w-64'
              ]"
-             class="fixed lg:static inset-y-0 left-0 z-50 bg-white shadow-lg transform transition-all duration-300 ease-in-out overflow-y-auto">
+             class="user-sidebar fixed inset-y-0 left-0 z-50 transform transition-all duration-300 ease-in-out lg:static">
             <!-- Logo -->
             <div class="p-4 sm:p-6 border-b border-gray-200 flex items-center justify-between">
                 <h1 class="text-xl sm:text-2xl font-bold transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">
@@ -48,7 +51,7 @@
             </div>
 
             <!-- Navigation -->
-            <nav class="mt-4 sm:mt-6">
+            <nav class="mt-4 flex-1 overflow-y-auto sm:mt-6">
                 <ul class="space-y-2 px-2 sm:px-4">
                     <li>
                         @php
@@ -61,7 +64,7 @@
                                 && !str_starts_with($currentPath, 'profile')
                                 && !str_starts_with($currentPath, 'chat');
                         @endphp
-                        <a href="{{ route('dashboard') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ ($isDashboard ?? false) ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
+                        <a href="{{ route('dashboard') }}" class="{{ ($isDashboard ?? false) ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Dashboard' : ''">
                             <i class="fas fa-th-large w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Dashboard</span>
                         </a>
@@ -76,7 +79,7 @@
                                 && !str_starts_with($currentPath, 'profile')
                                 && !str_starts_with($currentPath, 'chat');
                         @endphp
-                        <a href="{{ route('reported-items') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
+                        <a href="{{ route('reported-items') }}" class="{{ $isReportedItems ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
                             <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
                         </a>
@@ -86,7 +89,7 @@
                             $currentPath = request()->path();
                             $isClaimVerify = str_starts_with($currentPath, 'claim-verify');
                         @endphp
-                        <a href="{{ route('claim-verify') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isClaimVerify ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Claim and Verify' : ''">
+                        <a href="{{ route('claim-verify') }}" class="{{ $isClaimVerify ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Claim and Verify' : ''">
                             <i class="fas fa-check-circle w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Claim and Verify</span>
                         </a>
@@ -96,7 +99,7 @@
                             $currentPath = request()->path();
                             $isPendingClaims = str_starts_with($currentPath, 'pending-claims');
                         @endphp
-                        <a href="{{ route('pending-claims') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isPendingClaims ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Pending Claims' : ''">
+                        <a href="{{ route('pending-claims') }}" class="{{ $isPendingClaims ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Pending Claims' : ''">
                             <i class="fas fa-clock w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Pending Claims</span>
                         </a>
@@ -111,7 +114,7 @@
                                 && !str_starts_with($currentPath, 'claim-verify')
                                 && !str_starts_with($currentPath, 'profile');
                         @endphp
-                        <a href="{{ route('chat') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isChat ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Messages' : ''">
+                        <a href="{{ route('chat') }}" class="{{ $isChat ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Messages' : ''">
                             <i class="fas fa-comments w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Messages</span>
                             <span id="messages-unread-badge" class="ml-2 px-2 py-0.5 bg-red-500 text-white text-xs font-semibold rounded-full hidden" :class="sidebarCollapsed ? 'lg:hidden' : ''">0</span>
@@ -127,7 +130,7 @@
                                 && !str_starts_with($currentPath, 'claim-verify')
                                 && !str_starts_with($currentPath, 'chat');
                         @endphp
-                        <a href="{{ route('profile') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isProfile ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Profile' : ''">
+                        <a href="{{ route('profile') }}" class="{{ $isProfile ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Profile' : ''">
                             <i class="fas fa-user w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Profile</span>
                         </a>
@@ -150,8 +153,8 @@
         <!-- Main Content -->
         <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
-            <header class="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4">
-                <div class="flex items-center justify-between gap-3">
+            <header class="user-topbar">
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3">
                     <!-- Menu Toggle Button -->
                     <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
                         <i class="fas fa-bars text-xl"></i>
@@ -160,18 +163,16 @@
                         <i class="fas fa-bars text-xl"></i>
                     </button>
 
-                    <!-- Search Bar -->
-                    <div class="flex-1 max-w-md">
+                    <div class="user-search-wrap order-3 min-w-0 flex-1 basis-full sm:order-none sm:basis-auto sm:max-w-md">
                         <div class="relative">
                             <input type="text"
                                    placeholder="Search here"
-                                   class="w-full pl-3 sm:pl-4 pr-8 sm:pr-10 py-2 text-sm sm:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
+                                   class="user-input !py-2 pl-3 pr-9 sm:pl-4 sm:pr-10">
                             <i class="fas fa-search absolute right-2 sm:right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
                         </div>
                     </div>
 
-                    <!-- Right Side -->
-                    <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="user-topbar-actions ml-auto flex items-center gap-1 sm:gap-2">
                         <!-- Notifications -->
                         <div class="relative" x-data="{ open: false, unread: 0 }" @click.away="open = false">
                             <button class="relative p-2 text-gray-600 hover:text-purple-primary" @click="open = !open; if(open){ loadNotifications(); }">
@@ -242,11 +243,8 @@
                 </div>
             </header>
 
-            <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 overflow-x-hidden">
-                <div class="max-w-full">
-                    @yield('content')
-                </div>
+            <main class="user-main">
+                @yield('content')
             </main>
         </div>
     </div>
@@ -490,6 +488,6 @@
             }, 30000);
         });
     </script>
-
+    @stack('scripts')
 </body>
 </html>

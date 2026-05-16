@@ -35,28 +35,16 @@ window.updateStarRating = function(questionId, rating) {
 };
 </script>
 
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="mb-6">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">Submit a Review</h1>
-                <p class="text-gray-600 mt-1 text-sm sm:text-base">Share your feedback and help us improve FindITFast</p>
-            </div>
-            <a href="{{ route('dashboard') }}" class="inline-flex items-center justify-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm sm:text-base">
-                <i class="fas fa-arrow-left mr-2"></i>
-                Back to Dashboard
-            </a>
-        </div>
-    </div>
+<div class="user-page">
+    @include('user.partials.page-header', [
+        'eyebrow' => 'Feedback',
+        'title' => 'Submit a review',
+        'description' => 'Share your feedback and help us improve FindITFast',
+        'actions' => '<a href="'.route('dashboard').'" class="user-btn-secondary w-full sm:w-auto"><i class="fas fa-arrow-left"></i> Back to dashboard</a>',
+    ])
 
     @if(session('success'))
-    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-        <div class="flex items-center">
-            <i class="fas fa-check-circle text-green-500 mr-3"></i>
-            <p class="text-green-700 font-medium">{{ session('success') }}</p>
-        </div>
-    </div>
+        @include('user.partials.alert', ['type' => 'success', 'message' => session('success')])
     @endif
 
     @if(isset($hasCompletedAllReviews) && $hasCompletedAllReviews)
@@ -75,7 +63,7 @@ window.updateStarRating = function(questionId, rating) {
     @endif
 
     @if($reviewQuestions->count() > 0)
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 md:p-8">
+    <div class="user-card user-card-body">
         <form action="{{ route('reviews.store') }}" method="POST" class="space-y-6" @if(isset($hasCompletedAllReviews) && $hasCompletedAllReviews) onsubmit="event.preventDefault(); alert('You have already submitted your review. Please contact an administrator to reset it if you need to submit a new one.'); return false;" @endif>
             @csrf
             @foreach($reviewQuestions as $question)

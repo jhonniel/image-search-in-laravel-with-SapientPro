@@ -3,14 +3,12 @@
 @section('title', 'Pending Claims - FindITFast')
 
 @section('content')
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl shadow-md p-6 border border-purple-100">
-        <div>
-            <h2 class="text-3xl font-bold text-gray-900 mb-2">Claims Management</h2>
-            <p class="text-gray-600 text-lg">Review pending claims and view verified claims on your items</p>
-        </div>
-    </div>
+<div class="user-page">
+    @include('user.partials.page-header', [
+        'eyebrow' => 'Claims',
+        'title' => 'Claims management',
+        'description' => 'Review pending claims and view verified claims on your items',
+    ])
 
     <!-- Success/Error Messages -->
     <div id="notification-container"></div>
@@ -20,7 +18,7 @@
         <h3 class="text-xl font-semibold text-gray-900 mb-4">Pending Claims</h3>
         @if(count($pendingClaims) === 0)
             <!-- Empty State -->
-            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
+            <div class="user-empty">
                 <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-inbox text-gray-400 text-4xl"></i>
                 </div>
@@ -29,9 +27,9 @@
             </div>
         @else
             <!-- Pending Claims Tiles -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="user-items-grid">
                 @foreach($pendingClaims as $claim)
-            <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow duration-200 flex flex-col">
+            <div class="user-card flex flex-col transition-shadow hover:shadow-md">
                 <!-- Image Carousel -->
                 <div class="relative">
                     @if(count($claim['images']) > 0)
@@ -118,11 +116,13 @@
 
                     <!-- Actions -->
                     <div class="space-y-2 pt-4 border-t border-gray-200">
-                        <a href="{{ route('chat', ['userId' => $claim['claimer']['id']]) }}" 
+                        @if(!empty($claim['claimer']['id']))
+                        <a href="{{ route('chat', ['userId' => $claim['claimer']['id']]) }}"
                            class="block w-full px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium text-center">
                             <i class="fas fa-comments mr-1"></i>
                             Message Claimer
                         </a>
+                        @endif
                         <div class="grid grid-cols-2 gap-2">
                             <button onclick="verifyClaim('{{ $claim['upload_id'] }}')" 
                                     class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium text-sm flex items-center justify-center">
@@ -148,7 +148,7 @@
         <h3 class="text-xl font-semibold text-gray-900 mb-4">Verified Claims</h3>
         @if(count($verifiedClaims) === 0)
             <!-- Empty State -->
-            <div class="bg-white rounded-xl shadow-lg border border-gray-200 p-12 text-center">
+            <div class="user-empty">
                 <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-check-circle text-gray-400 text-4xl"></i>
                 </div>
@@ -157,7 +157,7 @@
             </div>
         @else
             <!-- Verified Claims Tiles (View Only) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div class="user-items-grid">
                 @foreach($verifiedClaims as $claim)
                 <div class="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden hover:shadow-xl transition-shadow duration-200 flex flex-col opacity-90">
                     <!-- Image Carousel -->

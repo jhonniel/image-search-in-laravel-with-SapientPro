@@ -13,6 +13,7 @@ use App\Models\Notification;
 use App\Models\Setting;
 use App\Models\Tag;
 use App\Models\User;
+use App\Services\GoogleVisionService;
 use App\Services\SimilarityNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -273,35 +274,8 @@ class UserItemController extends Controller
                 $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
-                // Analyze image with Google Vision API to detect objects
-                $detectedObjects = null;
-                try {
-                    $isVisionEnabled = $this->isGoogleVisionEnabled();
-                    if ($isVisionEnabled) {
-                        $imagePath = $image->getPathname();
-                        $visionData = $this->analyzeImageWithGoogleVision($imagePath);
-
-                        // Extract detected objects
-                        if (isset($visionData['objects']) && ! empty($visionData['objects'])) {
-                            $detectedObjects = array_map(function ($obj) {
-                                return [
-                                    'name' => $obj['name'] ?? '',
-                                    'score' => $obj['score'] ?? 0.0,
-                                ];
-                            }, $visionData['objects']);
-                        }
-
-                        Log::info('Google Vision API analysis completed', [
-                            'upload_id' => $uploadId,
-                            'objects_count' => $detectedObjects ? count($detectedObjects) : 0,
-                        ]);
-                    }
-                } catch (\Exception $e) {
-                    // Log error but don't fail the upload
-                    Log::warning('Google Vision API analysis failed: '.$e->getMessage(), [
-                        'upload_id' => $uploadId,
-                    ]);
-                }
+                // Google Vision: object localization + label detection (merged in service).
+                $detectedObjects = app(GoogleVisionService::class)->detectObjects($image->getPathname());
 
                 // Create image metadata record
                 $metadataData = [
@@ -741,6 +715,7 @@ class UserItemController extends Controller
                 foreach ($request->file('images') as $index => $image) {
                     $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                     $path = $image->storeAs('user-items', $filename, 'public');
+                    $detectedObjects = app(GoogleVisionService::class)->detectObjects($image->getPathname());
 
                     // Create new image metadata record
                     $newMetadataData = [
@@ -749,6 +724,7 @@ class UserItemController extends Controller
                         'original_name' => $image->getClientOriginalName(),
                         'uploader_email' => $user->email,
                         'user_id' => $user->id,
+                        'detected_objects' => $detectedObjects,
                         'description' => $updateData['description'] ?? $firstItem->description,
                         'location' => $updateData['location'] ?? $firstItem->location,
                         'tags' => $updateData['tags'] ?? $firstItem->tags,
@@ -1884,96 +1860,6 @@ class UserItemController extends Controller
     }
 
     /**
-     * Analyze image with Google Vision API to detect objects
-     */
-    private function analyzeImageWithGoogleVision(string $imagePath): array
-    {
-        try {
-            // Check if Google Vision is enabled
-            $isEnabled = $this->isGoogleVisionEnabled();
-            if (! $isEnabled) {
-                throw new \Exception('Google Vision API is not enabled. Enable it in admin settings or set GOOGLE_VISION_ENABLED=true.');
-            }
-
-            // Get API key from settings with env fallback
-            $apiKey = $this->getGoogleVisionApiKey();
-
-            if (empty($apiKey)) {
-                throw new \Exception('Google Vision API key not configured. Save it in admin settings or set GOOGLE_VISION_API_KEY in .env.');
-            }
-
-            // Use REST API with API key
-            $url = 'https://vision.googleapis.com/v1/images:annotate?key='.urlencode($apiKey);
-
-            $imageContent = file_get_contents($imagePath);
-
-            $data = [
-                'requests' => [
-                    [
-                        'image' => [
-                            'content' => base64_encode($imageContent),
-                        ],
-                        'features' => [
-                            ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 20],
-                            ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
-                        ],
-                    ],
-                ],
-            ];
-
-            $ch = curl_init($url);
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-            curl_setopt($ch, CURLOPT_POST, true);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
-
-            if ($httpCode !== 200) {
-                $errorData = json_decode($response, true);
-                $errorMessage = $errorData['error']['message'] ?? ($curlError ?: 'Unknown error');
-                throw new \Exception('Google Vision API error: '.$errorMessage);
-            }
-
-            $responseData = json_decode($response, true);
-            $annotations = $responseData['responses'][0] ?? [];
-
-            // Extract objects
-            $objects = [];
-            if (isset($annotations['localizedObjectAnnotations'])) {
-                foreach ($annotations['localizedObjectAnnotations'] as $object) {
-                    $objects[] = [
-                        'name' => $object['name'] ?? '',
-                        'score' => $object['score'] ?? 0.0,
-                    ];
-                }
-            }
-
-            // Extract labels as fallback
-            $labels = [];
-            if (isset($annotations['labelAnnotations'])) {
-                foreach ($annotations['labelAnnotations'] as $label) {
-                    $labels[] = [
-                        'description' => $label['description'] ?? '',
-                        'score' => $label['score'] ?? 0.0,
-                    ];
-                }
-            }
-
-            return [
-                'objects' => $objects,
-                'labels' => $labels,
-            ];
-        } catch (\Exception $e) {
-            Log::error('Google Vision API analysis error: '.$e->getMessage());
-            throw $e;
-        }
-    }
-
-    /**
      * Process tags from request (handles both JSON array and comma-separated string)
      * Also increments tag usage counts
      */
@@ -2009,31 +1895,5 @@ class UserItemController extends Controller
         }
 
         return array_values($tagsArray);
-    }
-
-    /**
-     * Determine whether Google Vision is enabled via settings or env.
-     */
-    private function isGoogleVisionEnabled(): bool
-    {
-        $dbEnabled = Setting::get('google_vision_enabled', null);
-        if ($dbEnabled !== null) {
-            return (bool) $dbEnabled;
-        }
-
-        return filter_var(env('GOOGLE_VISION_ENABLED', false), FILTER_VALIDATE_BOOL);
-    }
-
-    /**
-     * Read Google Vision API key from settings, fallback to env.
-     */
-    private function getGoogleVisionApiKey(): string
-    {
-        $dbKey = Setting::get('google_vision_api_key', '');
-        if (! empty($dbKey)) {
-            return trim((string) $dbKey);
-        }
-
-        return trim((string) env('GOOGLE_VISION_API_KEY', ''));
     }
 }

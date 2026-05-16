@@ -3,34 +3,16 @@
 @section('title', 'Contributors Management - FindITFast Admin')
 
 @section('content')
-<div class="p-8">
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Contributors Management</h1>
-        <p class="text-gray-600">Manage developers and contributors who helped build the system</p>
-    </div>
+<div class="admin-page">
+    @include('admin.partials.page-header', [
+        'title' => 'Contributors Management',
+        'description' => 'Manage developers and contributors who helped build the system.',
+    ])
 
-    <!-- Success/Error Messages -->
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg mb-6">
-        <div class="flex items-center">
-            <i class="fas fa-check-circle mr-2"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    </div>
-    @endif
+    @include('admin.partials.alert')
 
-    @if(session('error'))
-    <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg mb-6">
-        <div class="flex items-center">
-            <i class="fas fa-exclamation-circle mr-2"></i>
-            <span>{{ session('error') }}</span>
-        </div>
-    </div>
-    @endif
-
-    <!-- Add New Contributor Form -->
-    <div class="bg-white rounded-lg shadow-sm p-6 mb-6 border border-gray-200">
-        <h2 class="text-xl font-semibold text-gray-900 mb-4">Add New Contributor</h2>
+    <div class="admin-card admin-card-body mb-6">
+        <h2 class="admin-panel-title mb-4">Add New Contributor</h2>
         <form id="contributorForm" action="{{ route('contributors.store') }}" method="POST" enctype="multipart/form-data">
             @csrf
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -140,10 +122,9 @@
         </form>
     </div>
 
-    <!-- Contributors List -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div class="p-6 border-b border-gray-200 flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900">Current Contributors</h2>
+    <div class="admin-card">
+        <div class="admin-toolbar flex items-center justify-between">
+            <h2 class="admin-panel-title">Current Contributors</h2>
             <a href="{{ route('contributors.index', ['trashed' => !$showTrashed]) }}" 
                class="text-sm text-purple-primary hover:text-purple-600">
                 {{ $showTrashed ? 'Show Active' : 'Show Trashed' }}
@@ -151,20 +132,20 @@
         </div>
         <div class="overflow-x-auto">
             <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avatar</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <thead>
+                    <tr class="border-b border-gray-200 bg-white">
+                        <th class="admin-th">Avatar</th>
+                        <th class="admin-th">Name</th>
+                        <th class="admin-th">Role</th>
+                        <th class="admin-th">Order</th>
+                        <th class="admin-th">Status</th>
+                        <th class="admin-th">Actions</th>
                     </tr>
                 </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
+                <tbody class="divide-y divide-gray-100">
                     @forelse($contributors as $contributor)
-                    <tr>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                    <tr class="admin-table-row">
+                        <td class="admin-td whitespace-nowrap">
                             @if($contributor->avatar_path)
                                 <img src="{{ $contributor->avatar_path }}" alt="{{ $contributor->name }}" 
                                      class="w-12 h-12 object-cover rounded-full border-2 border-gray-200">
@@ -174,24 +155,24 @@
                                 </div>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-900">{{ $contributor->name }}</div>
                             @if($contributor->bio)
                                 <div class="text-xs text-gray-500 mt-1">{{ Str::limit($contributor->bio, 50) }}</div>
                             @endif
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <div class="text-sm text-gray-500">{{ $contributor->role ?? 'N/A' }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <div class="text-sm text-gray-500">{{ $contributor->order }}</div>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
+                        <td class="admin-td whitespace-nowrap">
                             <span class="px-2 py-1 text-xs font-semibold rounded-full {{ $contributor->is_active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800' }}">
                                 {{ $contributor->is_active ? 'Active' : 'Inactive' }}
                             </span>
                         </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td class="admin-td">
                             @if($showTrashed)
                                 <form action="{{ route('contributors.restore', $contributor->id) }}" method="POST" class="inline">
                                     @csrf

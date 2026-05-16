@@ -3,88 +3,42 @@
 @section('title', 'Reported Items')
 
 @section('content')
-<div class="p-6">
-    <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Reported Items</h1>
-        <p class="text-gray-600">View and manage all items reported by users</p>
+@php
+    $totalItems = count($formattedItems);
+    $lostCount = collect($formattedItems)->where('item_type', 'lost')->count();
+    $foundCount = collect($formattedItems)->where('item_type', 'found')->count();
+    $uniqueUsers = collect($formattedItems)->pluck('uploader_email')->unique()->count();
+@endphp
+<div class="admin-page">
+    @include('admin.partials.page-header', [
+        'title' => 'Reported Items',
+        'description' => 'View and manage all lost and found reports submitted by users.',
+    ])
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        @include('admin.partials.stat-card', ['label' => 'Total Items', 'value' => number_format($totalItems), 'icon' => 'fa-inbox', 'iconBg' => 'bg-blue-100', 'iconColor' => 'text-blue-600'])
+        @include('admin.partials.stat-card', ['label' => 'Lost Items', 'value' => number_format($lostCount), 'icon' => 'fa-search', 'iconBg' => 'bg-red-100', 'iconColor' => 'text-red-600'])
+        @include('admin.partials.stat-card', ['label' => 'Found Items', 'value' => number_format($foundCount), 'icon' => 'fa-hand-holding', 'iconBg' => 'bg-emerald-100', 'iconColor' => 'text-emerald-600'])
+        @include('admin.partials.stat-card', ['label' => 'Unique Users', 'value' => number_format($uniqueUsers), 'icon' => 'fa-users', 'iconBg' => 'bg-purple-100', 'iconColor' => 'text-purple-600'])
     </div>
 
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-blue-100 text-blue-600">
-                    <i class="fas fa-inbox text-xl"></i>
+    <div class="admin-card mb-6">
+        <div class="admin-toolbar">
+            <div class="flex flex-col lg:flex-row lg:items-center gap-3 w-full">
+                <div class="relative flex-1 min-w-[200px]">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                    <input type="text" id="searchInput" placeholder="Search description, email, or tags…" class="admin-input pl-9 py-2.5">
                 </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Total Items</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ count($formattedItems) }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-red-100 text-red-600">
-                    <i class="fas fa-search text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Lost Items</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ collect($formattedItems)->where('item_type', 'lost')->count() }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-green-100 text-green-600">
-                    <i class="fas fa-hand-holding text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Found Items</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ collect($formattedItems)->where('item_type', 'found')->count() }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div class="flex items-center">
-                <div class="p-3 rounded-full bg-purple-100 text-purple-600">
-                    <i class="fas fa-users text-xl"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm font-medium text-gray-600">Unique Users</p>
-                    <p class="text-2xl font-bold text-gray-900">{{ collect($formattedItems)->pluck('uploader_email')->unique()->count() }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Filters -->
-    <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center space-x-2">
-                <label class="text-sm font-medium text-gray-700">Filter by type:</label>
-                <select id="typeFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
-                    <option value="">All Items</option>
-                    <option value="lost">Lost Items</option>
-                    <option value="found">Found Items</option>
+                <select id="typeFilter" class="admin-select min-w-[140px]">
+                    <option value="">All types</option>
+                    <option value="lost">Lost</option>
+                    <option value="found">Found</option>
                 </select>
-            </div>
-
-            <div class="flex items-center space-x-2">
-                <label class="text-sm font-medium text-gray-700">Sort by:</label>
-                <select id="sortFilter" class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent">
-                    <option value="newest">Newest First</option>
-                    <option value="oldest">Oldest First</option>
-                    <option value="email">User Email</option>
+                <select id="sortFilter" class="admin-select min-w-[140px]">
+                    <option value="newest">Newest first</option>
+                    <option value="oldest">Oldest first</option>
+                    <option value="email">User email</option>
                 </select>
-            </div>
-
-            <div class="flex items-center space-x-2">
-                <input type="text" id="searchInput" placeholder="Search by description, email, or tags..."
-                       class="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-primary focus:border-transparent w-64">
             </div>
         </div>
     </div>
@@ -92,7 +46,7 @@
     <!-- Items Grid -->
     <div id="itemsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         @forelse($formattedItems as $item)
-        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden item-card"
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden item-card hover:shadow-md transition-shadow"
              data-type="{{ $item['item_type'] }}"
              data-email="{{ $item['uploader_email'] }}"
              data-description="{{ strtolower($item['description']) }}"
@@ -130,26 +84,30 @@
                     @endif
                     @if(!empty($item['detected_objects']) && is_array($item['detected_objects']) && count($item['detected_objects']) > 0)
                     <div class="mb-2">
+                        @php
+                            $visionLabels = array_slice($item['detected_objects'], 0, 3);
+                            $visionLabelCount = count(array_filter($visionLabels, function ($obj) {
+                                $name = is_array($obj) ? ($obj['name'] ?? '') : (is_string($obj) ? $obj : '');
+                                return $name !== '';
+                            }));
+                        @endphp
                         <strong class="text-gray-700 flex items-center mb-1">
                             <i class="fas fa-cube mr-1 text-blue-600"></i>
-                            Detected Objects ({{ count($item['detected_objects']) }}):
+                            Detected Objects ({{ $visionLabelCount }}):
                         </strong>
                         <div class="flex flex-wrap gap-2">
-                            @foreach(array_slice($item['detected_objects'], 0, 5) as $obj)
+                            @foreach($visionLabels as $obj)
                             @php
                                 $objName = is_array($obj) ? ($obj['name'] ?? '') : (is_string($obj) ? $obj : '');
                                 $objScore = is_array($obj) ? ($obj['score'] ?? 0) : 0;
                                 $confidence = $objScore > 0 ? ' (' . round($objScore * 100) . '% confidence)' : '';
                             @endphp
                             @if(!empty($objName))
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API{{ $confidence }}">
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image{{ $confidence }}">
                                 <i class="fas fa-eye mr-1"></i>{{ $objName }}
                             </span>
                             @endif
                             @endforeach
-                            @if(count($item['detected_objects']) > 5)
-                            <span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">+{{ count($item['detected_objects']) - 5 }} more</span>
-                            @endif
                         </div>
                     </div>
                     @endif

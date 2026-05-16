@@ -427,12 +427,13 @@
             </header>
 
             <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 overflow-x-hidden">
-                <div class="max-w-full">
+            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 overflow-x-hidden bg-gray-50/50">
+                <div class="max-w-[1600px] mx-auto w-full">
                     @yield('content')
                 </div>
             </main>
         </div>
     </div>
+    @stack('scripts')
 </body>
 </html>

@@ -22,7 +22,14 @@ class ContactRequestController extends Controller
         $contactRequests = $query->paginate(15)->withQueryString();
         $helpSections = ContactHelpSection::orderBy('display_order')->get();
 
-        return view('admin.contact-requests.index', compact('contactRequests', 'status', 'helpSections'));
+        $stats = [
+            'total' => ContactRequest::count(),
+            'pending' => ContactRequest::where('status', 'pending')->count(),
+            'in_progress' => ContactRequest::where('status', 'in_progress')->count(),
+            'resolved' => ContactRequest::where('status', 'resolved')->count(),
+        ];
+
+        return view('admin.contact-requests.index', compact('contactRequests', 'status', 'helpSections', 'stats'));
     }
 
     public function update(Request $request, ContactRequest $contactRequest)

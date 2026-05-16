@@ -1,27 +1,20 @@
 @extends('layouts.user')
 
 @section('content')
-<div class="w-full h-full">
-    <!-- Header -->
-    <div class="mb-4 sm:mb-6">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold text-gray-900">My Profile</h1>
-                <p class="text-gray-600 mt-1 text-sm sm:text-base">View and manage your account information</p>
-            </div>
-            <a href="{{ route('profile.edit') }}" class="inline-flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm sm:text-base">
-                <i class="fas fa-edit mr-2"></i>
-                Edit Profile
-            </a>
-        </div>
-    </div>
+<div class="user-page">
+    @include('user.partials.page-header', [
+        'eyebrow' => 'Account',
+        'title' => 'My profile',
+        'description' => 'View and manage your account information',
+        'actions' => '<a href="'.route('profile.edit').'" class="user-btn-primary w-full sm:w-auto"><i class="fas fa-edit"></i> Edit profile</a>',
+    ])
 
-    <!-- Main Content Grid -->
+<!-- Main Content Grid -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-4 lg:gap-6 h-full">
         <!-- Left Column: Profile Card & Statistics -->
-        <div class="lg:col-span-3 space-y-3 sm:space-4 lg:space-4 flex flex-col">
+        <div class="lg:col-span-3 flex flex-col space-y-3 sm:space-y-4 lg:space-y-4">
             <!-- Profile Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 flex-shrink-0">
+            <div class="user-card user-card-body flex-shrink-0">
                 <div class="text-center">
                     <div class="relative inline-block mb-4">
                         @if($user->profile_picture)
@@ -57,7 +50,7 @@
             </div>
 
             <!-- Statistics -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 flex-shrink-0">
+            <div class="user-card user-card-body flex-shrink-0">
                 <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Statistics</h3>
                 <div class="space-y-3">
                     <div class="flex items-center justify-between p-3 bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg">
@@ -102,9 +95,9 @@
         </div>
 
         <!-- Right Column: Profile Details, Activity & Rewards -->
-        <div class="lg:col-span-9 space-y-3 sm:space-4 lg:space-4 flex flex-col">
+        <div class="lg:col-span-9 flex flex-col space-y-3 sm:space-y-4 lg:space-y-4">
             <!-- Profile Information -->
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 flex-shrink-0">
+            <div class="user-card user-card-body flex-shrink-0">
                 <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Profile Information</h3>
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div class="pb-3 border-b border-gray-100 sm:border-b-0 sm:border-r sm:pr-3 lg:pr-4">
@@ -128,7 +121,7 @@
 
             <!-- Recent Activity -->
             @if($recentReports->count() > 0)
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 flex-shrink-0">
+            <div class="user-card user-card-body flex-shrink-0">
                 <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Recent Activity</h3>
                 <div class="space-y-2 sm:space-y-3">
                     @foreach($recentReports as $report)

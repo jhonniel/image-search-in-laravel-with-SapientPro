@@ -1,17 +1,20 @@
 @extends('layouts.user')
 
 @section('content')
-<div class="flex flex-col min-h-0 -mx-3 px-3 sm:mx-0 sm:px-0 sm:p-0 max-lg:pb-[env(safe-area-inset-bottom,0px)]">
-    <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 shrink-0">Messages</h1>
-    <p class="text-gray-600 mb-3 sm:mb-6 text-sm sm:text-base shrink-0 hidden sm:block">Chat with other users in the system</p>
+<div class="user-page flex min-h-0 flex-col !space-y-3 sm:!space-y-4 max-lg:pb-[env(safe-area-inset-bottom,0px)]">
+    @include('user.partials.page-header', [
+        'eyebrow' => 'Inbox',
+        'title' => 'Messages',
+        'description' => 'Chat with other users in the system',
+    ])
 
-    <div id="chat-shell" class="bg-white rounded-lg shadow-sm border overflow-hidden flex flex-col lg:flex-row min-h-0 h-[min(36rem,calc(100dvh-9.5rem))] lg:h-[calc(100vh-12rem)] lg:max-h-[calc(100vh-8rem)]">
+    <div id="chat-shell" class="user-chat-shell min-h-0 h-[min(36rem,calc(100dvh-11rem))] lg:h-[calc(100vh-13rem)] lg:max-h-[calc(100vh-9rem)]">
         <!-- Users List Sidebar -->
         <div id="conversations-panel" class="w-full lg:w-72 xl:w-80 2xl:w-96 lg:flex-none lg:min-w-0 border-gray-200 lg:border-r flex flex-col min-h-0 max-lg:flex-1 max-lg:min-h-0">
             <!-- Search -->
             <div class="p-3 sm:p-4 border-b border-gray-200 shrink-0">
                     <input type="text" id="user-search" placeholder="Search users..."
-                       class="w-full px-3 sm:px-4 py-2.5 text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500">
+                       class="user-input text-base">
             </div>
 
             <!-- Users List -->

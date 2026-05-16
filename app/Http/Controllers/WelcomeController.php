@@ -28,26 +28,8 @@ class WelcomeController extends Controller
             $freshReports = $searchResults;
             $isSearch = true;
         } else {
-            // Get fresh reports (latest 8 items, grouped by upload_id)
-            // Exclude claimed items and pending claims - they are only visible to admins/owners
-            $freshReports = ImageMetadata::where(function($query) {
-                    $query->where(function($q){
-                        $q->where('is_claimed', false)
-                          ->orWhereNull('is_claimed');
-                    })
-                          ->where(function($q) {
-                              $q->whereNull('claim_verification_status')
-                                ->orWhere('claim_verification_status', '!=', 'pending');
-                          });
-                })
-                ->orderBy('created_at', 'desc')
-                ->get()
-                ->groupBy('upload_id')
-                ->take(8)
-                ->map(function ($itemGroup) {
-                    return $this->formatItemGroup($itemGroup);
-                })
-                ->values();
+            // Homepage does not list items until the user searches
+            $freshReports = collect([]);
         }
         
         // Get statistics

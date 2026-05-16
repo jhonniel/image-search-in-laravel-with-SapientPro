@@ -3,21 +3,13 @@
 @section('title', 'Settings - FindITFast Admin')
 
 @section('content')
-<div class="space-y-6">
-    <!-- Header -->
-    <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 mb-2">Settings</h1>
-        <p class="text-gray-600">Manage system configuration and preferences</p>
-    </div>
+<div class="admin-page">
+    @include('admin.partials.page-header', [
+        'title' => 'Settings',
+        'description' => 'Manage system configuration and preferences.',
+    ])
 
-    @if(session('success'))
-    <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg">
-        <div class="flex items-center">
-            <i class="fas fa-check-circle mr-2"></i>
-            <span>{{ session('success') }}</span>
-        </div>
-    </div>
-    @endif
+    @include('admin.partials.alert')
 
     <form method="POST" action="{{ route('settings.update') }}">
         @csrf

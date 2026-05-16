@@ -292,6 +292,9 @@ class AuthController extends Controller
                         continue;
                     }
 
+                    $fullImagePath = Storage::disk('public')->path($targetPath);
+                    $detectedObjects = app(\App\Services\GoogleVisionService::class)->detectObjects($fullImagePath);
+
                     // Create metadata record with explicit user email
                     $metadataData = [
                         'filename' => $filename,
@@ -302,6 +305,7 @@ class AuthController extends Controller
                         'description' => $pending['description'] ?? '',
                         'location' => $pending['location'] ?? null, // Save location field
                         'tags' => ! empty($pending['tags']) ? array_map('trim', explode(',', $pending['tags'])) : [],
+                        'detected_objects' => $detectedObjects,
                         'file_size' => $fileSize ?? 0,
                         'mime_type' => $mimeType,
                         'status' => $pending['item_type'] ?? 'lost',

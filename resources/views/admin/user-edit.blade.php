@@ -1,25 +1,19 @@
 @extends('layouts.admin')
 
-@section('content')
-<div class="p-6">
-    <!-- Header -->
-    <div class="mb-8">
-        <div class="flex items-center justify-between">
-            <div>
-                <h1 class="text-3xl font-bold text-gray-900">Edit User Profile</h1>
-                <p class="text-gray-600 mt-2">Update user information and settings</p>
-            </div>
-            <div class="flex items-center space-x-4">
-                <a href="{{ route('users') }}" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-arrow-left mr-2"></i>
-                    Back to Users
-                </a>
-            </div>
-        </div>
-    </div>
+@section('title', 'Edit User - FindITFast Admin')
 
-    <!-- Edit Form -->
-    <div class="bg-white rounded-lg shadow-sm border p-6">
+@section('content')
+<div class="admin-page">
+    @php
+        $userEditBackAction = '<a href="'.route('users').'" class="admin-btn-secondary"><i class="fas fa-arrow-left text-xs"></i> Back to Users</a>';
+    @endphp
+    @include('admin.partials.page-header', [
+        'title' => 'Edit User Profile',
+        'description' => 'Update user information and settings.',
+        'actions' => $userEditBackAction,
+    ])
+
+    <div class="admin-card admin-card-body">
         <form id="edit-user-form" class="space-y-6">
             @csrf
             @method('PUT')
@@ -29,13 +23,13 @@
                 <div>
                     <label for="name" class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
                     <input type="text" id="name" name="name" value="{{ $user->name }}"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           class="admin-input px-4 py-2.5"
                            required>
                 </div>
                 <div>
                     <label for="email" class="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                     <input type="email" id="email" name="email" value="{{ $user->email }}"
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                           class="admin-input px-4 py-2.5"
                            required>
                 </div>
             </div>
@@ -99,12 +93,10 @@
 
             <!-- Form Actions -->
             <div class="border-t pt-6 flex items-center justify-end space-x-4">
-                <button type="button" onclick="window.location.href='{{ route('users') }}'"
-                        class="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+                <button type="button" onclick="window.location.href='{{ route('users') }}'" class="admin-btn-secondary">
                     Cancel
                 </button>
-                <button type="submit"
-                        class="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center">
+                <button type="submit" class="admin-btn-primary">
                     <i class="fas fa-save mr-2"></i>
                     Save Changes
                 </button>

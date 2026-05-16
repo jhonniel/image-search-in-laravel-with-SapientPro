@@ -5,15 +5,6 @@
 @section('content')
 @csrf
 
-@if(session('success'))
-    <div class="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-        <div class="flex items-center space-x-2">
-            <i class="fas fa-check-circle text-green-600"></i>
-            <p class="text-green-800 font-medium">{{ session('success') }}</p>
-        </div>
-    </div>
-@endif
-
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
@@ -23,10 +14,14 @@
         integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
         crossorigin=""></script>
 
-<div class="space-y-6">
+<div class="user-page">
+    @if(session('success'))
+        @include('user.partials.alert', ['type' => 'success', 'message' => session('success')])
+    @endif
+
     <!-- Upload Form -->
-    <div id="upload-form" class="bg-white rounded-xl shadow-lg border border-gray-200 hidden overflow-hidden">
-        <div class="bg-gradient-to-r from-purple-50 to-pink-50 p-6 border-b border-gray-200">
+    <div id="upload-form" class="user-card hidden overflow-hidden">
+        <div class="user-card-header bg-gradient-to-r from-purple-50/80 to-pink-50/80">
             <div class="flex items-center justify-between">
                 <div>
                     <h3 class="text-xl font-bold text-gray-900">Report New Item</h3>
@@ -309,8 +304,7 @@
         </form>
     </div>
 
-    <!-- Your Reported Items -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+    <div class="user-card overflow-hidden">
         <div class="px-5 sm:px-6 py-5 border-b border-gray-200 bg-gradient-to-r from-white via-gray-50 to-white">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div class="min-w-0">
@@ -1890,7 +1884,7 @@ function displayUserItems(items) {
                     }
                 }
 
-                // Detected objects (deduped)
+                // Detected objects from image (deduped, top 3)
                 let objectsArray = [];
                 if (item.detected_objects) {
                     if (Array.isArray(item.detected_objects)) {
@@ -1914,33 +1908,45 @@ function displayUserItems(items) {
 
                 const tagPills = tagsArray.slice(0, 3).map(tag => {
                     const t = String(tag).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    return `<span class="px-2 py-0.5 bg-gray-100 text-gray-700 rounded-full text-[11px] font-medium">${t}</span>`;
+                    return `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">${t}</span>`;
                 }).join('');
                 const tagMore = tagsArray.length > 3
-                    ? `<span class="px-2 py-0.5 bg-gray-100 text-gray-500 rounded-full text-[11px] font-medium">+${tagsArray.length - 3}</span>`
+                    ? `<span class="px-2 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-medium">+${tagsArray.length - 3}</span>`
                     : '';
 
-                const objectPills = uniqueObjects.slice(0, 3).map(obj => {
+                const top3Objects = uniqueObjects.slice(0, 3);
+                const objectPills = top3Objects.map(obj => {
                     const name = ((obj && typeof obj === 'object') ? obj.name : obj) || '';
+                    if (!name) return '';
                     const score = (obj && typeof obj === 'object' && obj.score)
                         ? (obj.score * 100).toFixed(0) + '%' : '';
                     const escapedObj = String(name).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                    const title = 'Detected by Vision API' + (score ? ' (' + score + ' confidence)' : '');
-                    return `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 rounded-full text-[11px] font-medium ring-1 ring-blue-100" title="${title}"><i class="fas fa-eye text-[9px]"></i>${escapedObj}</span>`;
+                    const title = 'Detected from image' + (score ? ' (' + score + ' confidence)' : '');
+                    return `<span class="inline-flex items-center px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="${title}"><i class="fas fa-eye mr-1"></i>${escapedObj}</span>`;
                 }).join('');
-                const objectMore = uniqueObjects.length > 3
-                    ? `<span class="px-2 py-0.5 bg-blue-50 text-blue-600 rounded-full text-[11px] font-medium ring-1 ring-blue-100">+${uniqueObjects.length - 3}</span>`
+                const detectedCount = top3Objects.filter(obj => {
+                    const name = ((obj && typeof obj === 'object') ? obj.name : obj) || '';
+                    return !!name;
+                }).length;
+
+                const tagsSection = tagsArray.length > 0
+                    ? `<div class="mt-2.5">
+                            <p class="text-xs font-semibold text-gray-700 mb-1.5">Tags</p>
+                            <div class="flex flex-wrap gap-1.5">${tagPills}${tagMore}</div>
+                       </div>`
                     : '';
 
-                // Pills row is always rendered (even when empty) so every
-                // card has the exact same vertical rhythm. We cap it to a
-                // single visual row via fixed height + overflow-hidden so
-                // tag-heavy items don't make their card taller than the rest.
-                const pillsContent = `${tagPills}${tagMore}${objectPills}${objectMore}`;
-                const pillsRow = `
-                    <div class="mt-2 h-7 overflow-hidden flex flex-nowrap items-center gap-1.5">
-                        ${pillsContent}
-                    </div>`;
+                const detectedSection = detectedCount > 0
+                    ? `<div class="mt-2.5">
+                            <p class="text-xs font-semibold text-gray-900 mb-1.5 flex items-center">
+                                <i class="fas fa-cube mr-1 text-blue-600"></i>
+                                Detected Objects (${detectedCount}):
+                            </p>
+                            <div class="flex flex-wrap gap-1.5">${objectPills}</div>
+                       </div>`
+                    : '';
+
+                const metaSections = `${tagsSection}${detectedSection}`;
 
                 const dateLabel = formatRelativeDate(item.created_at);
                 const imagesCountBadge = (item.images && item.images.length > 1)
@@ -1996,7 +2002,7 @@ function displayUserItems(items) {
                             <span class="truncate" title="${escapedLocation}">${escapedLocation}</span>
                         </p>
 
-                        ${pillsRow}
+                        ${metaSections}
 
                         <div class="mt-3 text-[11px] text-gray-400 flex items-center gap-1.5">
                             <i class="far fa-clock"></i>
@@ -2425,7 +2431,7 @@ function viewItemDetails(uploadId) {
                     tagsHtml = '<div class="mb-4"><h4 class="font-semibold text-gray-900 mb-2">Tags</h4><div class="flex flex-wrap gap-2">' + tagsDisplay + '</div></div>';
                 }
                 
-                // Detected Objects - show below Tags
+                // Detected Objects (Vision) - show below Tags
                 let objectsArray = [];
                 if (item.detected_objects) {
                     if (Array.isArray(item.detected_objects)) {
@@ -2439,7 +2445,7 @@ function viewItemDetails(uploadId) {
                     }
                 }
                 
-                // Get unique objects (by name) and limit to top 5
+                // Get unique labels (by name) and limit to top 3
                 const uniqueObjects = [];
                 const seenNames = new Set();
                 if (Array.isArray(objectsArray)) {
@@ -2454,15 +2460,14 @@ function viewItemDetails(uploadId) {
                 
                 let objectsHtml = '';
                 if (uniqueObjects.length > 0) {
-                    const top5Objects = uniqueObjects.slice(0, 5);
-                    const objectsDisplay = top5Objects.map(obj => {
+                    const top3Objects = uniqueObjects.slice(0, 3);
+                    const objectsDisplay = top3Objects.map(obj => {
                         const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
                         const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
                         const escapedObj = String(objName).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-                        return '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected by Google Vision API' + (score ? ' (' + score + '% confidence)' : '') + '"><i class="fas fa-eye mr-1"></i>' + escapedObj + '</span>';
+                        return '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image' + (score ? ' (' + score + '% confidence)' : '') + '"><i class="fas fa-eye mr-1"></i>' + escapedObj + '</span>';
                     }).join('');
-                    const moreHtml = uniqueObjects.length > 5 ? '<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">+' + (uniqueObjects.length - 5) + ' more</span>' : '';
-                    objectsHtml = '<div class="mb-4"><h4 class="font-semibold text-gray-900 mb-2 flex items-center"><i class="fas fa-cube mr-1 text-blue-600"></i>Detected Objects</h4><div class="flex flex-wrap gap-2">' + objectsDisplay + moreHtml + '</div></div>';
+                    objectsHtml = '<div class="mb-4"><h4 class="font-semibold text-gray-900 mb-2 flex items-center"><i class="fas fa-cube mr-1 text-blue-600"></i>Detected Objects (' + top3Objects.length + '):</h4><div class="flex flex-wrap gap-2">' + objectsDisplay + '</div></div>';
                 }
                 
                 return tagsHtml + objectsHtml;
