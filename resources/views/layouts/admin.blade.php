@@ -11,7 +11,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="antialiased bg-gray-100" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('adminSidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('adminSidebarCollapsed', value))">
+<body class="admin-app antialiased bg-gray-100" x-data="{ sidebarOpen: false, sidebarCollapsed: localStorage.getItem('adminSidebarCollapsed') === 'true' }" x-init="$watch('sidebarCollapsed', value => localStorage.setItem('adminSidebarCollapsed', value))">
     <div class="flex h-screen overflow-hidden bg-gray-100">
         <!-- Mobile Sidebar Overlay -->
         <div x-show="sidebarOpen" 
@@ -340,17 +340,19 @@
         <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Header -->
             <header class="bg-white shadow-sm border-b border-gray-200 px-3 sm:px-4 md:px-6 py-3 sm:py-4">
-                <div class="flex items-center justify-between gap-3">
+                <div class="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 sm:gap-4">
                     <!-- Menu Toggle Button -->
+                    <div class="flex items-center gap-2">
                     <button @click="sidebarOpen = !sidebarOpen" class="lg:hidden p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
                     <button @click="sidebarCollapsed = !sidebarCollapsed" class="hidden lg:block p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
                         <i class="fas fa-bars text-xl"></i>
                     </button>
+                    </div>
 
                     <!-- Search Bar -->
-                    <div class="flex-1 max-w-md">
+                    <div class="w-full max-w-xl justify-self-center px-1 sm:px-4">
                         <div class="relative">
                             <input type="text"
                                    placeholder="Search here"
@@ -360,7 +362,7 @@
                     </div>
 
                     <!-- Right Side -->
-                    <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="flex items-center justify-end gap-2 sm:gap-4">
                         <!-- Notifications -->
                         <div class="relative" x-data="{ open: false, unread: 0 }" @click.away="open = false">
                             <button class="relative p-2 text-gray-600 hover:text-purple-primary" @click="open = !open; if(open){ fetch('/api/notifications').then(r=>r.json()).then(d=>{ unread = d.unread; const list = document.getElementById('admin-notif-list'); list.innerHTML=''; (d.notifications||[]).forEach(n=>{ const li = document.createElement('div'); li.className='px-4 py-2 hover:bg-gray-50'; li.innerHTML = `<div class=\'text-sm font-medium text-gray-900\'>${n.title}</div><div class=\'text-xs text-gray-500\'>${n.message ?? ''}</div>`; list.appendChild(li); }); }); }">
@@ -427,10 +429,8 @@
             </header>
 
             <!-- Page Content -->
-            <main class="flex-1 overflow-y-auto p-3 sm:p-4 md:p-6 overflow-x-hidden bg-gray-50/50">
-                <div class="max-w-[1600px] mx-auto w-full">
-                    @yield('content')
-                </div>
+            <main class="admin-main">
+                @yield('content')
             </main>
         </div>
     </div>

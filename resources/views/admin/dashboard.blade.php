@@ -40,17 +40,40 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div class="admin-card admin-card-body">
             <h3 class="admin-panel-title mb-4">Lost vs Found Items</h3>
-            <div class="h-64 flex items-end justify-between gap-1 px-1">
+            @php
+                $chartTotal = collect($monthlyData)->sum(fn ($row) => $row['lost'] + $row['found']);
+            @endphp
+            @if($chartTotal === 0)
+            <p class="flex h-48 items-center justify-center text-sm text-gray-500">No lost or found reports in the last 6 months yet.</p>
+            @else
+            <div class="admin-chart">
                 @foreach($monthlyData as $data)
-                <div class="flex flex-col items-center gap-2 flex-1 min-w-0">
-                    <div class="flex gap-0.5 items-end h-48">
-                        <div class="w-full max-w-[14px] bg-pink-500 rounded-t" style="height: {{ max($data['lost_height'], 5) }}px;" title="Lost: {{ $data['lost'] }}"></div>
-                        <div class="w-full max-w-[14px] bg-blue-500 rounded-t" style="height: {{ max($data['found_height'], 5) }}px;" title="Found: {{ $data['found'] }}"></div>
+                <div class="admin-chart-column">
+                    <div class="admin-chart-bars">
+                        <div class="flex flex-col items-center justify-end gap-0.5">
+                            @if($data['lost'] > 0)
+                            <span class="admin-chart-value text-pink-600">{{ $data['lost'] }}</span>
+                            @endif
+                            <div
+                                class="admin-chart-bar-lost"
+                                style="height: {{ max($data['lost_height'], $data['lost'] > 0 ? 12 : 0) }}px;"
+                                title="Lost: {{ $data['lost'] }}"></div>
+                        </div>
+                        <div class="flex flex-col items-center justify-end gap-0.5">
+                            @if($data['found'] > 0)
+                            <span class="admin-chart-value text-blue-600">{{ $data['found'] }}</span>
+                            @endif
+                            <div
+                                class="admin-chart-bar-found"
+                                style="height: {{ max($data['found_height'], $data['found'] > 0 ? 12 : 0) }}px;"
+                                title="Found: {{ $data['found'] }}"></div>
+                        </div>
                     </div>
-                    <span class="text-[10px] sm:text-xs text-gray-500 truncate w-full text-center">{{ $data['month'] }}</span>
+                    <span class="admin-chart-month">{{ $data['month'] }}</span>
                 </div>
                 @endforeach
             </div>
+            @endif
             <div class="flex items-center justify-center gap-6 mt-4 pt-4 border-t border-gray-100">
                 <div class="flex items-center gap-2 text-sm text-gray-600">
                     <span class="w-2.5 h-2.5 rounded-full bg-pink-500"></span> Lost
@@ -130,7 +153,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="px-6 py-12 text-center text-sm text-gray-500">No claimed items yet</td>
+                        <td colspan="6" class="px-6 py-8 text-center text-sm text-gray-500">No claimed items yet</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -149,10 +172,10 @@
                     <tr class="border-b border-gray-200 bg-white">
                         <th class="admin-th w-16">Rank</th>
                         <th class="admin-th">User</th>
-                        <th class="admin-th text-center">Reports</th>
-                        <th class="admin-th text-center hidden sm:table-cell">Verified</th>
-                        <th class="admin-th text-center hidden sm:table-cell">Claimed</th>
-                        <th class="admin-th hidden md:table-cell">Last active</th>
+                        <th class="admin-th text-center whitespace-nowrap">Reports</th>
+                        <th class="admin-th text-center whitespace-nowrap hidden sm:table-cell">Verified</th>
+                        <th class="admin-th text-center whitespace-nowrap hidden sm:table-cell">Claimed</th>
+                        <th class="admin-th whitespace-nowrap hidden md:table-cell">Last active</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">

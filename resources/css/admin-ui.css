@@ -1,7 +1,11 @@
 /* Shared admin panel polish — used with Tailwind */
 @layer components {
     .admin-page {
-        @apply space-y-6;
+        @apply w-full space-y-4 sm:space-y-6;
+    }
+
+    .admin-main {
+        @apply flex-1 overflow-y-auto overflow-x-hidden bg-gray-50/50 p-3 sm:p-4 md:p-6;
     }
 
     .admin-card {
@@ -62,5 +66,33 @@
 
     .admin-panel-subtitle {
         @apply text-sm text-gray-500 mt-0.5;
+    }
+
+    .admin-chart {
+        @apply flex h-52 items-end justify-between gap-1 border-b border-gray-200 px-1 pb-2;
+    }
+
+    .admin-chart-column {
+        @apply flex min-w-0 flex-1 flex-col items-center gap-1;
+    }
+
+    .admin-chart-bars {
+        @apply flex h-40 w-full items-end justify-center gap-1.5;
+    }
+
+    .admin-chart-bar-lost {
+        @apply w-4 shrink-0 rounded-t bg-pink-500 shadow-sm;
+    }
+
+    .admin-chart-bar-found {
+        @apply w-4 shrink-0 rounded-t bg-blue-500 shadow-sm;
+    }
+
+    .admin-chart-value {
+        @apply text-[10px] font-semibold tabular-nums leading-none text-gray-600 sm:text-xs;
+    }
+
+    .admin-chart-month {
+        @apply w-full truncate text-center text-[10px] font-medium text-gray-500 sm:text-xs;
     }
 }

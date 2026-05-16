@@ -7,7 +7,7 @@
         <p class="text-xs font-semibold uppercase tracking-wider text-purple-600 mb-1">{{ $eyebrow }}</p>
         <h1 class="text-2xl sm:text-3xl font-bold text-gray-900 tracking-tight">{{ $title }}</h1>
         @if($description)
-            <p class="text-sm text-gray-500 mt-1 max-w-2xl">{{ $description }}</p>
+            <p class="text-sm text-gray-500 mt-1">{{ $description }}</p>
         @endif
     </div>
     @isset($actions)

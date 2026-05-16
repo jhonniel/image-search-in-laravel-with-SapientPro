@@ -75,11 +75,10 @@ class AdminController extends Controller
             ? round((($contributorsLast30Days - $contributorsPrevious30Days) / $contributorsPrevious30Days) * 100)
             : 0;
 
-        // Lost vs Found items by month (last 9 months)
+        // Lost vs Found items by month (last 6 months — tighter chart on dashboard)
         $monthlyData = [];
-        $months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        for ($i = 11; $i >= 0; $i--) {
+        for ($i = 5; $i >= 0; $i--) {
             $monthStart = now()->subMonths($i)->startOfMonth();
             $monthEnd = now()->subMonths($i)->endOfMonth();
 
@@ -95,13 +94,8 @@ class AdminController extends Controller
                 ->distinct()
                 ->count('upload_id');
 
-            $index = (now()->month - 1 - $i);
-            if ($index < 0) {
-                $index += 12;
-            }
-
             $monthlyData[] = [
-                'month' => $months[$index],
+                'month' => $monthStart->format('M'),
                 'lost' => $lostCount,
                 'found' => $foundCount,
             ];
@@ -113,11 +107,12 @@ class AdminController extends Controller
         $maxValue = max($lostMax, $foundMax);
         $maxValue = $maxValue > 0 ? $maxValue : 1; // Prevent division by zero
 
-        // Normalize heights for chart (max height 150px)
+        // Normalize heights for chart (max bar height 160px ≈ admin-chart-bars h-40)
         foreach ($monthlyData as &$data) {
-            $data['lost_height'] = $maxValue > 0 ? round(($data['lost'] / $maxValue) * 150) : 0;
-            $data['found_height'] = $maxValue > 0 ? round(($data['found'] / $maxValue) * 150) : 0;
+            $data['lost_height'] = $maxValue > 0 ? round(($data['lost'] / $maxValue) * 160) : 0;
+            $data['found_height'] = $maxValue > 0 ? round(($data['found'] / $maxValue) * 160) : 0;
         }
+        unset($data);
 
         // Recent Activity - last 5 items (grouped by upload_id)
         $recentItems = ImageMetadata::orderBy('created_at', 'desc')

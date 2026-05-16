@@ -100,7 +100,7 @@ p, span, div, h1, h2, h3, h4, h5, h6 {
 
 /* Responsive grid improvements (exclude landing — uses Tailwind grid breakpoints) */
 @media (max-width: 640px) {
-    body:not(.landing-page):not(.user-app) .grid {
+    body:not(.landing-page):not(.user-app):not(.admin-app) .grid {
         grid-template-columns: 1fr !important;
     }
 }
