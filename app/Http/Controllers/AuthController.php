@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\SimilarityNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -123,6 +124,8 @@ class AuthController extends Controller
 
             // Process guest pending item if exists
             $itemsLinked = $this->processGuestPendingItem($request, $user);
+            $request->session()->regenerate();
+            $this->logoutOtherDevices($request, $user);
 
             $successMessage = 'Account created successfully! Welcome to FindITFast!';
             if ($itemsLinked > 0) {
@@ -170,7 +173,7 @@ class AuthController extends Controller
         // If identifier looks like an email
         if (str_contains($identifier, '@')) {
             if (Auth::attempt(['email' => $identifier, 'password' => $password], $remember)) {
-                return $this->afterSuccessfulLogin($request);
+                return $this->afterSuccessfulLogin($request, $remember);
             }
         } else {
             // Try username, then code_name, then email equal to identifier
@@ -182,7 +185,7 @@ class AuthController extends Controller
             if ($user && Hash::check($password, $user->password)) {
                 Auth::login($user, $remember);
 
-                return $this->afterSuccessfulLogin($request);
+                return $this->afterSuccessfulLogin($request, $remember);
             }
         }
 
@@ -191,12 +194,13 @@ class AuthController extends Controller
         ]);
     }
 
-    private function afterSuccessfulLogin(Request $request)
+    private function afterSuccessfulLogin(Request $request, bool $remember = false)
     {
         $user = Auth::user();
         // Link pending guest item before regenerating session
         $this->processGuestPendingItem($request, $user);
         $request->session()->regenerate();
+        $this->logoutOtherDevices($request, $user, $remember);
 
         // Redirect to stored redirect first
         $redirectUrl = $request->session()->pull('redirect_after_login', null);
@@ -375,6 +379,28 @@ class AuthController extends Controller
         }
 
         return $itemsLinked;
+    }
+
+    /**
+     * End all other sessions for this account (single active login per user).
+     */
+    private function logoutOtherDevices(Request $request, User $user, bool $remember = false): void
+    {
+        if (config('session.driver') === 'database') {
+            DB::table(config('session.table', 'sessions'))
+                ->where('user_id', $user->id)
+                ->where('id', '!=', $request->session()->getId())
+                ->delete();
+        }
+
+        // Invalidate "remember me" cookies on other browsers/devices.
+        $user->forceFill([
+            'remember_token' => Str::random(60),
+        ])->save();
+
+        if ($remember) {
+            Auth::login($user, true);
+        }
     }
 
     /**
