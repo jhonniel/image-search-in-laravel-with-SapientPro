@@ -8,6 +8,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\UserItemNotification;
 use App\Models\ImageMetadata;
 use App\Models\ItemMatch;
+use App\Models\ItemReport;
 use App\Models\Message;
 use App\Models\Notification;
 use App\Models\Setting;
@@ -1784,6 +1785,98 @@ class UserItemController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to cancel claim: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Report a matched item (scam, fake, etc.) from Claim & Verify.
+     */
+    public function reportItem(Request $request, string $uploadId)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'error' => 'User not authenticated',
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'label' => 'required|string|in:'.implode(',', array_keys(ItemReport::LABELS)),
+            'explanation' => 'required|string|min:10|max:2000',
+        ], [
+            'label.required' => 'Please select a report reason.',
+            'label.in' => 'Invalid report reason selected.',
+            'explanation.required' => 'Please explain why you are reporting this item.',
+            'explanation.min' => 'Explanation must be at least 10 characters.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $item = ImageMetadata::where('upload_id', $uploadId)->first();
+        if (! $item) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Item not found.',
+            ], 404);
+        }
+
+        if (strcasecmp((string) $item->uploader_email, (string) $user->email) === 0) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You cannot report your own item.',
+            ], 403);
+        }
+
+        $existing = ItemReport::where('reporter_user_id', $user->id)
+            ->where('upload_id', $uploadId)
+            ->first();
+
+        if ($existing) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You have already reported this item.',
+            ], 409);
+        }
+
+        try {
+            $report = ItemReport::create([
+                'reporter_user_id' => $user->id,
+                'upload_id' => $uploadId,
+                'label' => $request->input('label'),
+                'explanation' => $request->input('explanation'),
+                'status' => 'pending',
+            ]);
+
+            Log::info('Item reported by user', [
+                'report_id' => $report->id,
+                'upload_id' => $uploadId,
+                'reporter_user_id' => $user->id,
+                'label' => $report->label,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Thank you. Your report has been submitted for admin review.',
+                'report' => [
+                    'id' => $report->id,
+                    'label' => $report->label,
+                    'label_name' => $report->labelName(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to report item: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to submit report. Please try again.',
             ], 500);
         }
     }

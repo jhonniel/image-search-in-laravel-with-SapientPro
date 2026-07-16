@@ -86,6 +86,13 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/reported-items-admin/{uploadId}', [\App\Http\Controllers\AdminController::class, 'deleteItem'])->name('delete-item');
     Route::post('/reported-items-admin/{uploadId}/restore', [\App\Http\Controllers\AdminController::class, 'restoreItem'])->name('restore-item');
     Route::delete('/reported-items-admin/{uploadId}/force', [\App\Http\Controllers\AdminController::class, 'forceDeleteItem'])->name('force-delete-item');
+
+        // User scam / abuse reports from Claim & Verify
+        Route::get('/admin/item-reports', [\App\Http\Controllers\Admin\ItemReportController::class, 'index'])->name('item-reports.index');
+        Route::put('/admin/item-reports/{itemReport}', [\App\Http\Controllers\Admin\ItemReportController::class, 'updateStatus'])->name('item-reports.update');
+        Route::delete('/admin/item-reports/{uploadId}/delete-item', [\App\Http\Controllers\Admin\ItemReportController::class, 'deleteItem'])->name('item-reports.delete-item');
+        Route::put('/admin/user-reports/{userReport}', [\App\Http\Controllers\Admin\ItemReportController::class, 'updateUserReportStatus'])->name('user-reports.update');
+
     Route::get('/claimed', [\App\Http\Controllers\AdminController::class, 'claimVerify'])->name('claimed');
     Route::get('/users', [\App\Http\Controllers\AdminController::class, 'users'])->name('users');
     Route::get('/users/{user}', [\App\Http\Controllers\AdminController::class, 'showUser'])->name('users.show');
@@ -149,6 +156,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
     Route::post('/api/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
     Route::post('/api/items/{uploadId}/cancel-claim', [\App\Http\Controllers\Api\UserItemController::class, 'cancelClaim']);
+    Route::post('/api/items/{uploadId}/report', [\App\Http\Controllers\Api\UserItemController::class, 'reportItem']);
 
     // User Profile Routes
     Route::get('/profile', [\App\Http\Controllers\UserProfileController::class, 'show'])->name('profile');
@@ -164,6 +172,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/chat/mark-read/{userId}', [\App\Http\Controllers\ChatController::class, 'markAsRead'])->name('chat.mark-read');
     Route::post('/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('chat.get-user-by-email');
     Route::post('/chat/image-view/{messageId}', [\App\Http\Controllers\ChatController::class, 'recordImageView'])->name('chat.image-view');
+    Route::post('/chat/report-user', [\App\Http\Controllers\ChatController::class, 'reportUser'])->name('chat.report-user');
 
     // Review Routes
     Route::get('/reviews', [\App\Http\Controllers\ReviewController::class, 'create'])->name('reviews.create');

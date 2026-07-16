@@ -94,6 +94,14 @@
                     <div class="ml-1 sm:ml-2 min-w-0 flex-1">
                         <p id="chat-user-name" class="text-sm font-medium text-gray-900 truncate"></p>
                     </div>
+                    <button type="button"
+                            id="btn-report-user"
+                            onclick="openUserReportModal()"
+                            class="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs sm:text-sm font-medium bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 touch-manipulation"
+                            title="Report this user">
+                        <i class="fas fa-flag"></i>
+                        <span class="hidden sm:inline">Report user</span>
+                    </button>
                 </div>
             </div>
 
@@ -245,8 +253,63 @@
     </div>
 </div>
 
+<!-- Report User Modal -->
+<div id="user-report-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-flag text-red-500 mr-2"></i>Report this user
+            </h3>
+            <button type="button" onclick="closeUserReportModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="user-report-form" class="p-4 sm:p-6 space-y-4" onsubmit="submitUserReport(event)">
+            <p class="text-sm text-gray-600">
+                Report someone trying to claim an item that is not theirs, or other scam behavior in this conversation.
+            </p>
+            <p class="text-xs text-gray-500">
+                Reporting: <span id="user-report-target-name" class="font-medium text-gray-800">—</span>
+                <span id="user-report-item-hint" class="hidden"> · Related item linked</span>
+            </p>
+
+            <div>
+                <label for="user-report-label" class="block text-sm font-medium text-gray-700 mb-1">Reason <span class="text-red-500">*</span></label>
+                <select id="user-report-label" name="label" required class="user-input">
+                    <option value="">Select a reason…</option>
+                    <option value="false_claim">False Claim</option>
+                    <option value="scam_claimer">Scam Claimer</option>
+                    <option value="impersonation">Impersonation</option>
+                    <option value="harassment">Harassment</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="user-report-explanation" class="block text-sm font-medium text-gray-700 mb-1">Explanation <span class="text-red-500">*</span></label>
+                <textarea id="user-report-explanation" name="explanation" rows="4" required minlength="10" maxlength="2000"
+                          class="user-input"
+                          placeholder="Explain why you believe this person is falsely claiming or scamming…"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Minimum 10 characters.</p>
+            </div>
+
+            <p id="user-report-form-error" class="hidden text-sm text-red-600"></p>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeUserReportModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                    Cancel
+                </button>
+                <button type="submit" id="user-report-submit-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 text-sm font-medium">
+                    <i class="fas fa-paper-plane mr-1"></i> Submit report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 let currentUserId = null;
+let currentChatUserName = '';
 let selectedImage = null;
 
 function isMobileChatLayout() {
@@ -370,10 +433,24 @@ function selectUser(userId) {
     syncChatResponsiveLayout();
 }
 
+function getChatItemQueryParam() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('item') || urlParams.get('item_id') || '';
+}
+
+function messagesUrlForUser(userId) {
+    const itemId = getChatItemQueryParam()
+        || itemContext?.upload_id
+        || itemContext?.uploadId
+        || '';
+    const base = `/chat/messages/${userId}`;
+    return itemId ? `${base}?item=${encodeURIComponent(itemId)}` : base;
+}
+
 // Load messages
 async function loadMessages(userId) {
     try {
-        const response = await fetch(`/chat/messages/${userId}`, {
+        const response = await fetch(messagesUrlForUser(userId), {
             method: 'GET',
             headers: {
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
@@ -395,20 +472,20 @@ async function loadMessages(userId) {
                 document.getElementById('chat-user-name').textContent = data.other_user.name;
                 const initials = data.other_user.name.substring(0, 2).toUpperCase();
                 document.getElementById('chat-user-initials').textContent = initials;
+                currentChatUserName = data.other_user.name || 'User';
             }
             
-            // Update item context if provided - show based on claim, even if verified
+            // Prefer API item context; never wipe a claim/URL context already on the page
             if (data.item_context) {
                 itemContext = data.item_context;
-                
-                // Always show item context when opening conversation (shows claim status)
+                showItemContext();
+                showChatItemContext();
+            } else if (itemContext) {
                 showItemContext();
                 showChatItemContext();
             } else {
-                    hideItemContext();
+                hideItemContext();
                 hideChatItemContext();
-                itemContext = null;
-                // Hide the show button if there's no item context
                 const showBtn = document.getElementById('show-chat-item-context-btn');
                 if (showBtn) showBtn.classList.add('hidden');
             }
@@ -706,10 +783,9 @@ function hideItemContext() {
 
 // Show item context in chat area (visible to both users)
 function showChatItemContext() {
-    // If itemContext is not set, try to get it from the current conversation
+    // If itemContext is not set, try to get it from the current conversation (include ?item=)
     if (!itemContext && currentUserId) {
-        // Try to fetch item context from the current conversation
-        fetch(`/chat/messages/${currentUserId}`, {
+        fetch(messagesUrlForUser(currentUserId), {
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
@@ -966,10 +1042,8 @@ function initializeChat() {
         });
     });
     
-    // Auto-select user from URL
+    // Auto-select user from URL (claim-verify redirect)
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('user');
-    const itemId = urlParams.get('item');
     const selectedUserId = urlParams.get('user');
 
     // Load item context if itemId is provided (from claim-verify redirect)
@@ -977,19 +1051,6 @@ function initializeChat() {
         itemContext = @json($itemContextData);
         console.log('Item context loaded from claim:', itemContext);
     @endif
-    
-    // Auto-select user if provided in URL (from claim-verify redirect)
-    if (selectedUserId) {
-        // Wait for DOM to be ready, then select the user
-        setTimeout(() => {
-            selectUser(parseInt(selectedUserId));
-            // Show item context if available
-            if (itemContext) {
-                showItemContext();
-                showChatItemContext();
-            }
-        }, 100);
-    }
     
     // Restore privacy notice preference on page load
     const privacyNoticeHidden = localStorage.getItem('privacy-notice-hidden') === 'true';
@@ -999,9 +1060,16 @@ function initializeChat() {
         showPrivacyNotice();
     }
     
-    if (userId) {
-        console.log('Auto-selecting user from URL:', userId);
-        setTimeout(() => selectUser(parseInt(userId)), 100);
+    // Single auto-select so loadMessages does not race / wipe claim item context
+    if (selectedUserId) {
+        console.log('Auto-selecting user from URL:', selectedUserId);
+        setTimeout(() => {
+            selectUser(parseInt(selectedUserId));
+            if (itemContext) {
+                showItemContext();
+                showChatItemContext();
+            }
+        }, 100);
     }
     
     // User search
@@ -1038,6 +1106,98 @@ function initializeChat() {
     }
 }
 
+function openUserReportModal() {
+    if (!currentUserId) {
+        alert('Select a conversation first.');
+        return;
+    }
+
+    document.getElementById('user-report-target-name').textContent = currentChatUserName || 'this user';
+    document.getElementById('user-report-label').value = '';
+    document.getElementById('user-report-explanation').value = '';
+    const err = document.getElementById('user-report-form-error');
+    err.classList.add('hidden');
+    err.textContent = '';
+
+    const hint = document.getElementById('user-report-item-hint');
+    if (itemContext && (itemContext.upload_id || itemContext.uploadId)) {
+        hint.classList.remove('hidden');
+    } else {
+        hint.classList.add('hidden');
+    }
+
+    document.getElementById('user-report-modal').classList.remove('hidden');
+}
+
+function closeUserReportModal() {
+    document.getElementById('user-report-modal').classList.add('hidden');
+}
+
+async function submitUserReport(event) {
+    event.preventDefault();
+
+    if (!currentUserId) {
+        return;
+    }
+
+    const label = document.getElementById('user-report-label').value;
+    const explanation = document.getElementById('user-report-explanation').value.trim();
+    const err = document.getElementById('user-report-form-error');
+    const btn = document.getElementById('user-report-submit-btn');
+
+    err.classList.add('hidden');
+    err.textContent = '';
+
+    if (!label || explanation.length < 10) {
+        err.textContent = 'Please select a reason and write an explanation (at least 10 characters).';
+        err.classList.remove('hidden');
+        return;
+    }
+
+    const payload = {
+        reported_user_id: currentUserId,
+        label,
+        explanation,
+    };
+
+    const linkedUploadId = itemContext?.upload_id || itemContext?.uploadId || null;
+    if (linkedUploadId) {
+        payload.upload_id = linkedUploadId;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting…';
+
+    try {
+        const response = await fetch('/chat/report-user', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify(payload),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            closeUserReportModal();
+            alert(data.message || 'Report submitted. Thank you.');
+        } else {
+            err.textContent = data.error || 'Could not submit report.';
+            err.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error(error);
+        err.textContent = 'Could not submit report. Please try again.';
+        err.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Submit report';
+    }
+}
+
 // Initialize when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
@@ -1045,6 +1205,13 @@ if (document.readyState === 'loading') {
         ensureSendButtonVisible();
         // Check periodically to ensure button stays visible
         setInterval(ensureSendButtonVisible, 1000);
+
+        const userReportModal = document.getElementById('user-report-modal');
+        if (userReportModal) {
+            userReportModal.addEventListener('click', function(e) {
+                if (e.target === this) closeUserReportModal();
+            });
+        }
     });
         } else {
     // DOM is already ready
@@ -1052,6 +1219,13 @@ if (document.readyState === 'loading') {
     ensureSendButtonVisible();
     // Check periodically to ensure button stays visible
     setInterval(ensureSendButtonVisible, 1000);
+
+    const userReportModal = document.getElementById('user-report-modal');
+    if (userReportModal) {
+        userReportModal.addEventListener('click', function(e) {
+            if (e.target === this) closeUserReportModal();
+        });
+    }
 }
 </script>
 @endsection

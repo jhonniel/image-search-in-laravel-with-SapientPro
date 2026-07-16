@@ -1,6 +1,6 @@
 @extends('layouts.admin')
 
-@section('title', 'Reported Items')
+@section('title', 'All Items')
 
 @section('content')
 @php
@@ -11,7 +11,7 @@
 @endphp
 <div class="admin-page">
     @include('admin.partials.page-header', [
-        'title' => 'Reported Items',
+        'title' => 'All Items',
         'description' => 'View and manage all lost and found reports submitted by users.',
     ])
 

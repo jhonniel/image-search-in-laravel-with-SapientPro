@@ -83,8 +83,19 @@
                                 && !str_starts_with($currentPath, 'rewards')
                                 && !str_starts_with($currentPath, 'image-comparison');
                         @endphp
-                        <a href="{{ route('reported-items-admin') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
+                        <a href="{{ route('reported-items-admin') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isReportedItems ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'All Items' : ''">
                             <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
+                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">All Items</span>
+                        </a>
+                    </li>
+                    <li>
+                        @php
+                            $currentRoute = request()->route()->getName() ?? '';
+                            $currentPath = request()->path();
+                            $isItemReports = (str_starts_with($currentRoute, 'item-reports') || str_starts_with($currentPath, 'admin/item-reports'));
+                        @endphp
+                        <a href="{{ route('item-reports.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isItemReports ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
+                            <i class="fas fa-flag w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
                             <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
                         </a>
                     </li>

@@ -84,6 +84,56 @@
     </div>
 </div>
 
+<!-- Report Item Modal -->
+<div id="report-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden">
+        <div class="flex items-center justify-between p-4 border-b border-gray-200">
+            <h3 class="text-lg font-semibold text-gray-900">
+                <i class="fas fa-flag text-red-500 mr-2"></i>Report this item
+            </h3>
+            <button type="button" onclick="closeReportModal()" class="text-gray-400 hover:text-gray-600">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="report-item-form" class="p-4 sm:p-6 space-y-4" onsubmit="submitItemReport(event)">
+            <input type="hidden" id="report-upload-id" name="upload_id" value="">
+            <p class="text-sm text-gray-600">Help us keep FindITFast safe. Choose a reason and explain what you noticed.</p>
+
+            <div>
+                <label for="report-label" class="block text-sm font-medium text-gray-700 mb-1">Reason <span class="text-red-500">*</span></label>
+                <select id="report-label" name="label" required class="user-input">
+                    <option value="">Select a reason…</option>
+                    <option value="scam">Scam</option>
+                    <option value="fake">Fake / Misleading</option>
+                    <option value="inappropriate">Inappropriate Content</option>
+                    <option value="spam">Spam</option>
+                    <option value="stolen">Stolen Goods</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="report-explanation" class="block text-sm font-medium text-gray-700 mb-1">Explanation <span class="text-red-500">*</span></label>
+                <textarea id="report-explanation" name="explanation" rows="4" required minlength="10" maxlength="2000"
+                          class="user-input"
+                          placeholder="Describe why this listing looks like a scam or why you selected that reason…"></textarea>
+                <p class="text-xs text-gray-500 mt-1">Minimum 10 characters.</p>
+            </div>
+
+            <p id="report-form-error" class="hidden text-sm text-red-600"></p>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" onclick="closeReportModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                    Cancel
+                </button>
+                <button type="submit" id="report-submit-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 text-sm font-medium">
+                    <i class="fas fa-paper-plane mr-1"></i> Submit report
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
 let allItems = [];
 let filteredItems = [];
@@ -493,12 +543,18 @@ function displayOtherUsersItems(items) {
 
                     <!-- Actions -->
                     <div class="p-6 border-t border-gray-200 bg-gray-50">
-                        <div class="flex items-center justify-between">
-                            <button onclick="viewItemDetails('${item.upload_id}')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium">
-                                <i class="fas fa-info-circle mr-1"></i>
-                                View Details
-                            </button>
-                            <div class="flex space-x-2">
+                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div class="flex flex-wrap gap-2">
+                                <button onclick="viewItemDetails('${item.upload_id}')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    View Details
+                                </button>
+                                <button onclick="openReportModal('${item.upload_id}')" class="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium border border-red-200">
+                                    <i class="fas fa-flag mr-1"></i>
+                                    Report
+                                </button>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
                                 <button onclick="messageAboutItem('${item.upload_id}', '${item.description || ''}', '${item.item_type || ''}', '${item.location || ''}')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium">
                                     <i class="fas fa-comments mr-1"></i>
                                     Message Owner
@@ -942,6 +998,72 @@ async function cancelClaim(uploadId) {
     }
 }
 
+function openReportModal(uploadId) {
+    document.getElementById('report-upload-id').value = uploadId;
+    document.getElementById('report-label').value = '';
+    document.getElementById('report-explanation').value = '';
+    const err = document.getElementById('report-form-error');
+    err.classList.add('hidden');
+    err.textContent = '';
+    document.getElementById('report-modal').classList.remove('hidden');
+}
+
+function closeReportModal() {
+    document.getElementById('report-modal').classList.add('hidden');
+}
+
+async function submitItemReport(event) {
+    event.preventDefault();
+
+    const uploadId = document.getElementById('report-upload-id').value;
+    const label = document.getElementById('report-label').value;
+    const explanation = document.getElementById('report-explanation').value.trim();
+    const err = document.getElementById('report-form-error');
+    const btn = document.getElementById('report-submit-btn');
+
+    err.classList.add('hidden');
+    err.textContent = '';
+
+    if (!label || explanation.length < 10) {
+        err.textContent = 'Please select a reason and write an explanation (at least 10 characters).';
+        err.classList.remove('hidden');
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Submitting…';
+
+    try {
+        const response = await fetch(`/api/items/${uploadId}/report`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+            },
+            body: JSON.stringify({ label, explanation }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            closeReportModal();
+            showToast(data.message || 'Report submitted. Thank you.', 'success');
+        } else {
+            err.textContent = data.error || 'Could not submit report.';
+            err.classList.remove('hidden');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        err.textContent = 'Could not submit report. Please try again.';
+        err.classList.remove('hidden');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane mr-1"></i> Submit report';
+    }
+}
+
 // Toast notification function
 function showToast(message, type = 'info') {
     const toast = document.createElement('div');
@@ -984,6 +1106,12 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('image-modal').addEventListener('click', function(e) {
         if (e.target === this) {
             closeImageModal();
+        }
+    });
+
+    document.getElementById('report-modal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeReportModal();
         }
     });
 });

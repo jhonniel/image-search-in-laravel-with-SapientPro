@@ -4,10 +4,14 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
+use App\Models\ImageMetadata;
 use App\Models\Message;
 use App\Models\MessageImageView;
 use App\Models\User;
+use App\Models\UserReport;
 use App\Events\MessageSent as MessageSentEvent;
 
 class ChatController extends Controller
@@ -29,49 +33,8 @@ class ChatController extends Controller
         $selectedUserId = $request->get('user');
         $itemId = $request->get('item');
         
-        // Get item context if itemId is provided
-        // Always show item context when item parameter is provided (including claimed items)
-        // This ensures claimed items are displayed in chat "Item Details"
-        $itemContextData = null;
-        if ($itemId) {
-            $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
-            if ($items->count() > 0) {
-                $firstItem = $items->first();
-                $uploader = User::where('email', $firstItem->uploader_email)->first();
-                
-                $images = $items->map(function ($item) {
-                    $filePath = $item->file_path;
-                    if (str_starts_with($filePath, '/storage/')) {
-                        $filePath = substr($filePath, 9);
-                    }
-                    return [
-                        'path' => \Illuminate\Support\Facades\Storage::url($filePath),
-                        'original_name' => $item->original_name ?? basename($filePath),
-                        'filename' => $item->filename
-                    ];
-                })->toArray();
-                
-                $claimer = $firstItem->claimed_by_email ? User::where('email', $firstItem->claimed_by_email)->first() : null;
-                
-                $itemContextData = [
-                    'upload_id' => $firstItem->upload_id,
-                    'uploadId' => $firstItem->upload_id,
-                    'item_type' => $firstItem->status,
-                    'itemType' => $firstItem->status,
-                    'description' => $firstItem->description,
-                    'location' => $firstItem->location ?? 'Location not specified',
-                    'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
-                    'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
-                    'uploader_email' => $firstItem->uploader_email,
-                    'images' => $images,
-                    'claim_status' => $firstItem->claim_verification_status,
-                    'is_claimed' => $firstItem->is_claimed ?? false,
-                    'claimed_by_email' => $firstItem->claimed_by_email,
-                    'claimed_by_id' => $claimer ? $claimer->id : null,
-                    'claimed_by_name' => $claimer ? $claimer->name : null,
-                ];
-            }
-        }
+        // Always show item context when item parameter is provided (claim / message-about-item redirect)
+        $itemContextData = $itemId ? $this->buildItemContextFromUploadId((string) $itemId) : null;
 
         return view('user.chat', compact('user', 'conversations', 'selectedUserId', 'itemId', 'itemContextData'));
     }
@@ -107,6 +70,14 @@ class ChatController extends Controller
             // Ensure proper date formatting
             $messageArray['created_at'] = $message->created_at ? $message->created_at->toIso8601String() : now()->toIso8601String();
             $messageArray['read_at'] = $message->read_at ? $message->read_at->toIso8601String() : null;
+
+            // Decode item_context so the frontend always gets an object
+            if (! empty($messageArray['item_context']) && is_string($messageArray['item_context'])) {
+                $decoded = json_decode($messageArray['item_context'], true);
+                if (is_array($decoded)) {
+                    $messageArray['item_context'] = $decoded;
+                }
+            }
             
             // Ensure sender and receiver are properly formatted
             if (isset($messageArray['sender']) && is_array($messageArray['sender'])) {
@@ -143,206 +114,164 @@ class ChatController extends Controller
                 'read_at' => now(),
             ]);
 
-        // Priority 1: Check if item context is provided via request parameter (from claim redirect)
-        // This takes highest priority - shows the item that was just claimed
-        $itemContext = null;
-        
-        if ($request->has('item') || $request->has('item_id')) {
-            $itemId = $request->get('item') ?? $request->get('item_id');
-            $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
-            if ($items->count() > 0) {
-                $firstItem = $items->first();
-                $uploader = User::where('email', $firstItem->uploader_email)->first();
-                $claimer = $firstItem->claimed_by_email ? User::where('email', $firstItem->claimed_by_email)->first() : null;
-                
-                $images = $items->map(function ($item) {
-                    $filePath = $item->file_path;
-                    if (str_starts_with($filePath, '/storage/')) {
-                        $filePath = substr($filePath, 9);
-                    }
-                    return [
-                        'path' => \Illuminate\Support\Facades\Storage::url($filePath),
-                        'original_name' => $item->original_name ?? basename($filePath),
-                        'filename' => $item->filename
-                    ];
-                })->toArray();
-                
-                $itemContext = [
-                    'upload_id' => $firstItem->upload_id,
-                    'uploadId' => $firstItem->upload_id,
-                    'description' => $firstItem->description,
-                    'location' => $firstItem->location ?? 'Location not specified',
-                    'item_type' => $firstItem->status,
-                    'itemType' => $firstItem->status,
-                    'status' => $firstItem->status,
-                    'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
-                    'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
-                    'uploader_email' => $firstItem->uploader_email,
-                    'images' => $images,
-                    'claim_status' => $firstItem->claim_verification_status ?? null,
-                    'is_claimed' => $firstItem->is_claimed ?? false,
-                    'claimed_by_email' => $firstItem->claimed_by_email,
-                    'claimed_by_id' => $claimer ? $claimer->id : null,
-                    'claimed_by_name' => $claimer ? $claimer->name : null,
-                    'claimed_at' => $firstItem->claimed_at ? $firstItem->claimed_at->toIso8601String() : null,
-                ];
-            }
-        }
-        
-        // Priority 2: Get the most recent claimed item between these two users
-        // This ensures the Item Details shows the item that was most recently claimed
-        if (!$itemContext) {
-            // Find the most recent claimed item between current user and other user
-            $recentClaimedItem = \App\Models\ImageMetadata::where(function($query) use ($currentUser, $otherUser) {
-                // Item owned by other user, claimed by current user
-                $query->where('uploader_email', $otherUser->email)
-                      ->where('claimed_by_email', $currentUser->email);
-            })->orWhere(function($query) use ($currentUser, $otherUser) {
-                // Item owned by current user, claimed by other user
-                $query->where('uploader_email', $currentUser->email)
-                      ->where('claimed_by_email', $otherUser->email);
-            })
-            ->whereNotNull('claimed_by_email')
-            ->whereNotNull('claim_verification_status')
-            ->orderBy('claimed_at', 'desc')
-            ->first();
-        
-        if ($recentClaimedItem) {
-            // Get all images for this item
-            $items = \App\Models\ImageMetadata::where('upload_id', $recentClaimedItem->upload_id)->get();
-            $uploader = User::where('email', $recentClaimedItem->uploader_email)->first();
-            $claimer = User::where('email', $recentClaimedItem->claimed_by_email)->first();
-            
-            $images = $items->map(function ($item) {
-                $filePath = $item->file_path;
-                if (str_starts_with($filePath, '/storage/')) {
-                    $filePath = substr($filePath, 9);
-                }
-                return [
-                    'path' => \Illuminate\Support\Facades\Storage::url($filePath),
-                    'original_name' => $item->original_name ?? basename($filePath),
-                    'filename' => $item->filename
-                ];
-            })->toArray();
-            
-            $itemContext = [
-                'upload_id' => $recentClaimedItem->upload_id,
-                'uploadId' => $recentClaimedItem->upload_id,
-                'description' => $recentClaimedItem->description,
-                'location' => $recentClaimedItem->location ?? 'Location not specified',
-                'item_type' => $recentClaimedItem->status,
-                'itemType' => $recentClaimedItem->status,
-                'status' => $recentClaimedItem->status,
-                'tags' => $recentClaimedItem->tags ? (is_string($recentClaimedItem->tags) ? json_decode($recentClaimedItem->tags, true) : $recentClaimedItem->tags) : [],
-                'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
-                'uploader_email' => $recentClaimedItem->uploader_email,
-                'images' => $images,
-                'claim_status' => $recentClaimedItem->claim_verification_status ?? null,
-                'is_claimed' => $recentClaimedItem->is_claimed ?? false,
-                'claimed_by_email' => $recentClaimedItem->claimed_by_email,
-                'claimed_by_id' => $claimer ? $claimer->id : null,
-                'claimed_by_name' => $claimer ? $claimer->name : null,
-                'claimed_at' => $recentClaimedItem->claimed_at ? $recentClaimedItem->claimed_at->toIso8601String() : null,
-            ];
-        }
-        }
-        
-        // Priority 3: If no claimed item found, get item context from the first message that has item context
-        if (!$itemContext) {
-            $firstMessageWithContext = $messages->where('item_upload_id', '!=', null)->whereNotNull('item_context')->first();
-            if ($firstMessageWithContext && isset($firstMessageWithContext['item_context']) && $firstMessageWithContext['item_context']) {
-                $decodedContext = json_decode($firstMessageWithContext['item_context'], true);
-                
-                // If decoding failed, try to get from database
-                if (!$decodedContext && isset($firstMessageWithContext['item_upload_id']) && $firstMessageWithContext['item_upload_id']) {
-                    $itemId = $firstMessageWithContext['item_upload_id'];
-                    $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
-                    if ($items->count() > 0) {
-                        $firstItem = $items->first();
-                        $uploader = User::where('email', $firstItem->uploader_email)->first();
-                        $claimer = $firstItem->claimed_by_email ? User::where('email', $firstItem->claimed_by_email)->first() : null;
-                        
-                        $images = $items->map(function ($item) {
-                            $filePath = $item->file_path;
-                            if (str_starts_with($filePath, '/storage/')) {
-                                $filePath = substr($filePath, 9);
-                            }
-                            return [
-                                'path' => \Illuminate\Support\Facades\Storage::url($filePath),
-                                'original_name' => $item->original_name ?? basename($filePath),
-                                'filename' => $item->filename
-                            ];
-                        })->toArray();
-                        
-                        $decodedContext = [
-                            'upload_id' => $firstItem->upload_id,
-                            'uploadId' => $firstItem->upload_id,
-                            'description' => $firstItem->description,
-                            'location' => $firstItem->location ?? 'Location not specified',
-                            'item_type' => $firstItem->status,
-                            'itemType' => $firstItem->status,
-                            'status' => $firstItem->status,
-                            'tags' => $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [],
-                            'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
-                            'uploader_email' => $firstItem->uploader_email,
-                            'images' => $images,
-                            'claim_status' => $firstItem->claim_verification_status ?? null,
-                            'claimed_by_id' => $claimer ? $claimer->id : null,
-                            'created_at' => $firstItem->created_at->toIso8601String(),
-                        ];
-                    }
-                }
-                
-                // Always return context if it exists (show based on claim, even if verified)
-                if ($decodedContext && (isset($decodedContext['upload_id']) || isset($decodedContext['uploadId']))) {
-                    $itemId = $decodedContext['upload_id'] ?? $decodedContext['uploadId'];
-                    $item = \App\Models\ImageMetadata::where('upload_id', $itemId)->first();
-                    
-                    if ($item) {
-                        $itemContext = $decodedContext;
-                        // Always update claim status from database (get latest status)
-                        $itemContext['claim_status'] = $item->claim_verification_status ?? null;
-                        $itemContext['is_claimed'] = $item->is_claimed ?? false;
-                        $itemContext['claimed_by_id'] = $item->claimed_by_email ? (User::where('email', $item->claimed_by_email)->first()?->id ?? null) : null;
-                        
-                        // Ensure all required fields are present for display
-                        if (!isset($itemContext['images']) || empty($itemContext['images'])) {
-                            $items = \App\Models\ImageMetadata::where('upload_id', $itemId)->get();
-                            $images = $items->map(function ($item) {
-                                $filePath = $item->file_path;
-                                if (str_starts_with($filePath, '/storage/')) {
-                                    $filePath = substr($filePath, 9);
-                                }
-                                return [
-                                    'path' => \Illuminate\Support\Facades\Storage::url($filePath),
-                                    'original_name' => $item->original_name ?? basename($filePath),
-                                    'filename' => $item->filename
-                                ];
-                            })->toArray();
-                            $itemContext['images'] = $images;
-                        }
-                        if (!isset($itemContext['item_type']) && isset($itemContext['status'])) {
-                            $itemContext['item_type'] = $itemContext['status'];
-                            $itemContext['itemType'] = $itemContext['status'];
-                        }
-                        if (!isset($itemContext['uploader_name']) && isset($itemContext['uploader_email'])) {
-                            $uploader = User::where('email', $itemContext['uploader_email'])->first();
-                            $itemContext['uploader_name'] = $uploader ? $uploader->name : 'Unknown User';
-                        }
-                    }
-                } elseif ($decodedContext) {
-                    // If no upload_id but we have context, return it (might be old format)
-                    $itemContext = $decodedContext;
-                }
-            }
-        }
+        $itemContext = $this->resolveConversationItemContext(
+            $request,
+            $currentUser,
+            $otherUser,
+            $messages
+        );
 
         return response()->json([
             'success' => true,
             'messages' => $messages,
             'other_user' => $otherUser,
-            'item_context' => $itemContext
+            'item_context' => $itemContext,
         ]);
+    }
+
+    /**
+     * Resolve item details for a chat conversation (claim redirect, claimed items, or message context).
+     */
+    private function resolveConversationItemContext(Request $request, User $currentUser, User $otherUser, $mappedMessages): ?array
+    {
+        // Priority 1: explicit item from URL / query (claim or message-about-item redirect)
+        $itemId = $request->query('item') ?? $request->query('item_id') ?? $request->input('item') ?? $request->input('item_id');
+        if ($itemId) {
+            $context = $this->buildItemContextFromUploadId((string) $itemId);
+            if ($context) {
+                return $context;
+            }
+        }
+
+        // Priority 2: most recent claim between these two users (case-insensitive emails for SQLite)
+        $currentEmail = strtolower((string) $currentUser->email);
+        $otherEmail = strtolower((string) $otherUser->email);
+
+        $recentClaimedItem = ImageMetadata::query()
+            ->whereNotNull('claimed_by_email')
+            ->whereNotNull('claim_verification_status')
+            ->where(function ($query) use ($currentEmail, $otherEmail) {
+                $query->where(function ($q) use ($currentEmail, $otherEmail) {
+                    $q->whereRaw('LOWER(uploader_email) = ?', [$otherEmail])
+                        ->whereRaw('LOWER(claimed_by_email) = ?', [$currentEmail]);
+                })->orWhere(function ($q) use ($currentEmail, $otherEmail) {
+                    $q->whereRaw('LOWER(uploader_email) = ?', [$currentEmail])
+                        ->whereRaw('LOWER(claimed_by_email) = ?', [$otherEmail]);
+                });
+            })
+            ->orderByDesc('claimed_at')
+            ->first();
+
+        if ($recentClaimedItem) {
+            $context = $this->buildItemContextFromUploadId((string) $recentClaimedItem->upload_id);
+            if ($context) {
+                return $context;
+            }
+        }
+
+        // Priority 3: latest message in this thread that references an item
+        $messageWithItem = collect($mappedMessages)
+            ->reverse()
+            ->first(function ($message) {
+                $uploadId = $message['item_upload_id'] ?? null;
+                $ctx = $message['item_context'] ?? null;
+
+                return ! empty($uploadId) || ! empty($ctx);
+            });
+
+        if ($messageWithItem) {
+            $uploadId = $messageWithItem['item_upload_id']
+                ?? (is_array($messageWithItem['item_context'] ?? null) ? ($messageWithItem['item_context']['upload_id'] ?? $messageWithItem['item_context']['uploadId'] ?? null) : null);
+
+            if ($uploadId) {
+                $context = $this->buildItemContextFromUploadId((string) $uploadId);
+                if ($context) {
+                    return $context;
+                }
+            }
+
+            if (is_array($messageWithItem['item_context'] ?? null)) {
+                return $messageWithItem['item_context'];
+            }
+
+            if (is_string($messageWithItem['item_context'] ?? null)) {
+                $decoded = json_decode($messageWithItem['item_context'], true);
+                if (is_array($decoded)) {
+                    return $decoded;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build a full item-context payload from an upload_id.
+     */
+    private function buildItemContextFromUploadId(string $uploadId): ?array
+    {
+        $items = ImageMetadata::where('upload_id', $uploadId)->get();
+        if ($items->isEmpty()) {
+            return null;
+        }
+
+        $firstItem = $items->first();
+        $uploader = User::whereRaw('LOWER(email) = ?', [strtolower((string) $firstItem->uploader_email)])->first();
+        $claimer = $firstItem->claimed_by_email
+            ? User::whereRaw('LOWER(email) = ?', [strtolower((string) $firstItem->claimed_by_email)])->first()
+            : null;
+
+        $images = $items->map(function ($item) {
+            return $this->normalizeItemImage($item);
+        })->filter()->values()->all();
+
+        $tags = $firstItem->tags
+            ? (is_string($firstItem->tags) ? (json_decode($firstItem->tags, true) ?: []) : (array) $firstItem->tags)
+            : [];
+
+        return [
+            'upload_id' => $firstItem->upload_id,
+            'uploadId' => $firstItem->upload_id,
+            'description' => $firstItem->description,
+            'location' => $firstItem->location ?? 'Location not specified',
+            'item_type' => $firstItem->status,
+            'itemType' => $firstItem->status,
+            'status' => $firstItem->status,
+            'tags' => $tags,
+            'uploader_name' => $uploader->name ?? 'Unknown User',
+            'uploader_email' => $firstItem->uploader_email,
+            'images' => $images,
+            'claim_status' => $firstItem->claim_verification_status,
+            'is_claimed' => (bool) ($firstItem->is_claimed ?? false),
+            'claimed_by_email' => $firstItem->claimed_by_email,
+            'claimed_by_id' => $claimer->id ?? null,
+            'claimed_by_name' => $claimer->name ?? null,
+            'claimed_at' => $firstItem->claimed_at ? $firstItem->claimed_at->toIso8601String() : null,
+        ];
+    }
+
+    private function normalizeItemImage(ImageMetadata $item): ?array
+    {
+        $filePath = (string) ($item->file_path ?? '');
+        if ($filePath === '') {
+            return null;
+        }
+
+        if (str_starts_with($filePath, '/storage/')) {
+            $path = $filePath;
+        } elseif (str_starts_with($filePath, 'storage/')) {
+            $path = '/'.$filePath;
+        } elseif (str_starts_with($filePath, 'http')) {
+            $path = $filePath;
+        } else {
+            $path = Storage::url(ltrim(str_replace('/storage/', '', $filePath), '/'));
+        }
+
+        return [
+            'path' => $path,
+            'original_name' => $item->original_name ?? basename($filePath),
+            'filename' => $item->filename,
+        ];
     }
 
     /**
@@ -594,6 +523,124 @@ class ChatController extends Controller
                 'profile_picture' => $user->profile_picture
             ]
         ]);
+    }
+
+    /**
+     * Report another user (e.g. false claimer) from chat.
+     */
+    public function reportUser(Request $request)
+    {
+        $reporter = Auth::user();
+        if (! $reporter) {
+            return response()->json([
+                'success' => false,
+                'error' => 'User not authenticated',
+            ], 401);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'reported_user_id' => 'required|integer|exists:users,id',
+            'upload_id' => 'nullable|string|max:100',
+            'label' => 'required|string|in:'.implode(',', array_keys(UserReport::LABELS)),
+            'explanation' => 'required|string|min:10|max:2000',
+        ], [
+            'reported_user_id.required' => 'Please select the user to report.',
+            'label.required' => 'Please select a report reason.',
+            'label.in' => 'Invalid report reason selected.',
+            'explanation.required' => 'Please explain why you are reporting this user.',
+            'explanation.min' => 'Explanation must be at least 10 characters.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'error' => $validator->errors()->first(),
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $reportedUserId = (int) $request->input('reported_user_id');
+        if ($reportedUserId === (int) $reporter->id) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You cannot report yourself.',
+            ], 403);
+        }
+
+        $reportedUser = User::find($reportedUserId);
+        if (! $reportedUser) {
+            return response()->json([
+                'success' => false,
+                'error' => 'User not found.',
+            ], 404);
+        }
+
+        $uploadId = $request->filled('upload_id') ? trim((string) $request->input('upload_id')) : null;
+        if ($uploadId === '') {
+            $uploadId = null;
+        }
+
+        if ($uploadId !== null) {
+            $itemExists = ImageMetadata::withTrashed()->where('upload_id', $uploadId)->exists();
+            if (! $itemExists) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Related item not found.',
+                ], 404);
+            }
+        }
+
+        $existingQuery = UserReport::where('reporter_user_id', $reporter->id)
+            ->where('reported_user_id', $reportedUserId);
+
+        if ($uploadId === null) {
+            $existingQuery->whereNull('upload_id');
+        } else {
+            $existingQuery->where('upload_id', $uploadId);
+        }
+
+        if ($existingQuery->exists()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'You have already reported this user for this item.',
+            ], 409);
+        }
+
+        try {
+            $report = UserReport::create([
+                'reporter_user_id' => $reporter->id,
+                'reported_user_id' => $reportedUserId,
+                'upload_id' => $uploadId,
+                'label' => $request->input('label'),
+                'explanation' => $request->input('explanation'),
+                'status' => 'pending',
+            ]);
+
+            Log::info('User reported from chat', [
+                'report_id' => $report->id,
+                'reporter_user_id' => $reporter->id,
+                'reported_user_id' => $reportedUserId,
+                'upload_id' => $uploadId,
+                'label' => $report->label,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Thank you. Your report has been submitted for admin review.',
+                'report' => [
+                    'id' => $report->id,
+                    'label' => $report->label,
+                    'label_name' => $report->labelName(),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to report user: '.$e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to submit report. Please try again.',
+            ], 500);
+        }
     }
 
     /**
