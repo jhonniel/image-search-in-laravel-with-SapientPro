@@ -1877,6 +1877,8 @@ class UserItemController extends Controller
                 ]);
             }
 
+            \App\Http\Controllers\ReportAppealController::notifyAdminsOfItemReport($report);
+
             Log::info('Item reported by user', [
                 'report_id' => $report->id,
                 'upload_id' => $uploadId,

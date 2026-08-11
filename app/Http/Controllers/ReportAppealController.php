@@ -240,4 +240,92 @@ class ReportAppealController extends Controller
             ]);
         }
     }
+
+    /**
+     * Notify all admins that a user was reported (bell + Reported Items page).
+     */
+    public static function notifyAdminsOfUserReport(UserReport $report, User $reportedUser): void
+    {
+        $admins = User::where('role', 'admin')->get();
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $reporterName = optional($report->reporter)->name ?? 'A user';
+        $title = 'User reported';
+        $message = $reporterName.' reported '.$reportedUser->name.' ('.$report->labelName().'). Review in Reported Items → Reported users.';
+
+        foreach ($admins as $admin) {
+            try {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'type' => 'admin_user_reported',
+                    'title' => $title,
+                    'message' => $message,
+                    'data' => [
+                        'report_type' => 'user',
+                        'report_id' => $report->id,
+                        'reported_user_id' => $reportedUser->id,
+                        'label' => $report->label,
+                        'url' => route('item-reports.index', ['tab' => 'users', 'status' => 'pending'], false),
+                    ],
+                    'is_read' => false,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to notify admin of user report: '.$e->getMessage(), [
+                    'admin_id' => $admin->id,
+                    'report_id' => $report->id,
+                ]);
+            }
+        }
+
+        Log::info('Admins notified of user report', [
+            'report_id' => $report->id,
+            'admin_count' => $admins->count(),
+        ]);
+    }
+
+    /**
+     * Notify all admins that a listing was reported.
+     */
+    public static function notifyAdminsOfItemReport(ItemReport $report): void
+    {
+        $admins = User::where('role', 'admin')->get();
+        if ($admins->isEmpty()) {
+            return;
+        }
+
+        $reporterName = optional($report->reporter)->name ?? 'A user';
+        $title = 'Listing reported';
+        $message = $reporterName.' reported a listing ('.$report->labelName().'). Review in Reported Items.';
+
+        foreach ($admins as $admin) {
+            try {
+                Notification::create([
+                    'user_id' => $admin->id,
+                    'type' => 'admin_item_reported',
+                    'title' => $title,
+                    'message' => $message,
+                    'data' => [
+                        'report_type' => 'item',
+                        'report_id' => $report->id,
+                        'upload_id' => $report->upload_id,
+                        'label' => $report->label,
+                        'url' => route('item-reports.index', ['tab' => 'items', 'status' => 'pending'], false),
+                    ],
+                    'is_read' => false,
+                ]);
+            } catch (\Exception $e) {
+                Log::error('Failed to notify admin of item report: '.$e->getMessage(), [
+                    'admin_id' => $admin->id,
+                    'report_id' => $report->id,
+                ]);
+            }
+        }
+
+        Log::info('Admins notified of item report', [
+            'report_id' => $report->id,
+            'admin_count' => $admins->count(),
+        ]);
+    }
 }

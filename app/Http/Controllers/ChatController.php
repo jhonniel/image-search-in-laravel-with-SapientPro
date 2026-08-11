@@ -617,8 +617,9 @@ class ChatController extends Controller
                 'status' => 'pending',
             ]);
 
-            // Notify the reported user so they can appeal if their claim is legitimate
+            // Notify the reported user (appeal) and admins (review queue)
             ReportAppealController::notifyUserReported($report, $reportedUser);
+            ReportAppealController::notifyAdminsOfUserReport($report, $reportedUser);
 
             Log::info('User reported from chat', [
                 'report_id' => $report->id,

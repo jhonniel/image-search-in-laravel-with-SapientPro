@@ -94,9 +94,16 @@
                             $currentPath = request()->path();
                             $isItemReports = (str_starts_with($currentRoute, 'item-reports') || str_starts_with($currentPath, 'admin/item-reports'));
                         @endphp
+                        @php
+                            $pendingReportCount = \App\Models\ItemReport::where('status', 'pending')->count()
+                                + \App\Models\UserReport::where('status', 'pending')->count();
+                        @endphp
                         <a href="{{ route('item-reports.index') }}" class="flex items-center px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base {{ $isItemReports ? 'bg-pink-50 text-purple-primary border-l-4 border-purple-primary font-medium' : 'text-gray-600 hover:bg-gray-50' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
                             <i class="fas fa-flag w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
-                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
+                            <span class="transition-opacity duration-300 flex-1" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
+                            @if($pendingReportCount > 0)
+                                <span class="ml-auto bg-red-500 text-white text-xs font-semibold rounded-full min-w-[1.25rem] h-5 px-1.5 flex items-center justify-center transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden lg:ml-0' : 'lg:opacity-100'">{{ $pendingReportCount > 99 ? '99+' : $pendingReportCount }}</span>
+                            @endif
                         </a>
                     </li>
                     <li>
@@ -375,15 +382,15 @@
                     <!-- Right Side -->
                     <div class="flex items-center justify-end gap-2 sm:gap-4">
                         <!-- Notifications -->
-                        <div class="relative" x-data="{ open: false, unread: 0 }" @click.away="open = false">
-                            <button class="relative p-2 text-gray-600 hover:text-purple-primary" @click="open = !open; if(open){ fetch('/api/notifications').then(r=>r.json()).then(d=>{ unread = d.unread; const list = document.getElementById('admin-notif-list'); list.innerHTML=''; (d.notifications||[]).forEach(n=>{ const li = document.createElement('div'); li.className='px-4 py-2 hover:bg-gray-50'; li.innerHTML = `<div class=\'text-sm font-medium text-gray-900\'>${n.title}</div><div class=\'text-xs text-gray-500\'>${n.message ?? ''}</div>`; list.appendChild(li); }); }); }">
+                        <div class="relative" x-data="{ open: false, unread: 0 }" x-init="fetch('/api/notifications').then(r=>r.json()).then(d=>{ unread = d.unread || 0; })" @click.away="open = false">
+                            <button class="relative p-2 text-gray-600 hover:text-purple-primary" @click="open = !open; if(open){ fetch('/api/notifications').then(r=>r.json()).then(d=>{ unread = d.unread; const list = document.getElementById('admin-notif-list'); list.innerHTML=''; if(!(d.notifications||[]).length){ list.innerHTML='<div class=\'px-4 py-3 text-sm text-gray-500\'>No notifications</div>'; return; } (d.notifications||[]).forEach(n=>{ const url = (n.data && n.data.url) ? n.data.url : '{{ route('item-reports.index') }}'; const li = document.createElement('a'); li.href = url; li.className='block px-4 py-2 hover:bg-gray-50'; li.innerHTML = `<div class=\'text-sm font-medium text-gray-900\'>${n.title}</div><div class=\'text-xs text-gray-500\'>${n.message ?? ''}</div>`; list.appendChild(li); }); }); }">
                                 <i class="fas fa-bell w-4 h-4 sm:w-5 sm:h-5"></i>
                                 <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center" x-text="unread" x-show="unread > 0"></span>
                             </button>
-                            <div x-show="open" class="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50" style="display:none;">
+                            <div x-show="open" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50" style="display:none;">
                                 <div class="px-4 py-2 border-b flex items-center justify-between">
                                     <span class="text-sm font-semibold text-gray-700">Notifications</span>
-                                    <button class="text-xs text-purple-primary hover:underline" onclick="fetch('/api/notifications/mark-read',{method:'POST', headers:{'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content}})">Mark all read</button>
+                                    <button type="button" class="text-xs text-purple-primary hover:underline" @click="fetch('/api/notifications/mark-read',{method:'POST', headers:{'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content}}).then(()=>{ unread = 0; })">Mark all read</button>
                                 </div>
                                 <div id="admin-notif-list" class="max-h-80 overflow-y-auto"></div>
                             </div>
