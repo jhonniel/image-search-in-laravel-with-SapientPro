@@ -156,11 +156,17 @@ class UserController extends Controller
                         'profile_picture' => $claimer->profile_picture ?? null,
                     ] : null,
                     'images' => $group->map(function ($item) {
+                        // Images are purged after verification — admin retains full audit data
+                        if (empty($item->file_path) || $item->images_purged_at) {
+                            return null;
+                        }
+
                         return [
                             'path' => $item->file_path,
                             'original_name' => $item->original_name,
                         ];
-                    })->toArray(),
+                    })->filter()->values()->toArray(),
+                    'images_purged' => (bool) ($group->first()->images_purged_at ?? false),
                 ];
             })
             ->sortByDesc(function ($claim) {
@@ -207,6 +213,15 @@ class UserController extends Controller
                     'claim_verified_at' => now()
                 ]);
 
+            // Delete image files; keep metadata rows for admin audit and counts
+            try {
+                ImageMetadata::purgeImagesForUpload($uploadId);
+            } catch (\Exception $e) {
+                Log::warning('Failed to purge images after claim verify: '.$e->getMessage(), [
+                    'upload_id' => $uploadId,
+                ]);
+            }
+
             // Update all messages with this item to remove item context (since it's verified)
             // This ensures both users' conversations are updated
             \App\Models\Message::where('item_upload_id', $uploadId)
@@ -226,8 +241,11 @@ class UserController extends Controller
                 ->each(function($message) {
                     $existingContext = json_decode($message->item_context, true);
                     if ($existingContext) {
-                        // Mark as verified in context
+                        // Mark as verified in context and strip images (files purged)
                         $existingContext['claim_status'] = 'verified';
+                        $existingContext['is_claimed'] = true;
+                        $existingContext['images'] = [];
+                        $existingContext['images_purged'] = true;
                         $message->update(['item_context' => json_encode($existingContext)]);
                     }
                 });

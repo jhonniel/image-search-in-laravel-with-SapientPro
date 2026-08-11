@@ -200,6 +200,9 @@ class ItemReportController extends Controller
                     'reporter_name' => $r->reporter->name ?? 'Unknown',
                     'reporter_email' => $r->reporter->email ?? null,
                     'created_at' => $r->created_at?->format('M d, Y g:i A'),
+                    'appeal_message' => $r->appeal_message,
+                    'appealed_at' => $r->appealed_at?->format('M d, Y g:i A'),
+                    'has_appeal' => $r->hasAppeal(),
                 ])->values()->all(),
             ];
         })->sortByDesc('report_count')->values();
@@ -241,6 +244,9 @@ class ItemReportController extends Controller
                     'reported_email' => $report->reportedUser->email ?? null,
                     'reported_user_id' => $report->reported_user_id,
                     'created_at' => $report->created_at?->format('M d, Y g:i A'),
+                    'appeal_message' => $report->appeal_message,
+                    'appealed_at' => $report->appealed_at?->format('M d, Y g:i A'),
+                    'has_appeal' => $report->hasAppeal(),
                 ];
             });
     }

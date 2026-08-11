@@ -172,8 +172,9 @@
                         </div>
                         @endif
                         @else
-                        <div class="aspect-video bg-gray-100 flex items-center justify-center">
-                            <i class="fas fa-image text-gray-400 text-4xl"></i>
+                        <div class="aspect-video bg-gray-100 flex flex-col items-center justify-center px-4 text-center">
+                            <i class="fas fa-archive text-gray-400 text-3xl mb-2"></i>
+                            <p class="text-xs text-gray-500">Images removed after claim</p>
                         </div>
                         @endif
                         <!-- Status Badge -->
@@ -189,7 +190,11 @@
                         <!-- Item Info -->
                         <div class="flex-1">
                             <h3 class="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">{{ $claim['description'] }}</h3>
-                            
+                            @if(!empty($claim['images_purged']))
+                                <p class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2 py-1 mb-3">
+                                    <i class="fas fa-info-circle mr-1"></i>Images deleted; full audit retained for admins.
+                                </p>
+                            @endif
                             <div class="space-y-2 mb-4">
                                 <div class="flex items-center text-sm text-gray-600">
                                     <i class="fas fa-map-marker-alt mr-2 text-purple-500 w-4"></i>

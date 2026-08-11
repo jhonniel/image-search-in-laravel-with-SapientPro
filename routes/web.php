@@ -173,6 +173,12 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/chat/get-user-by-email', [\App\Http\Controllers\ChatController::class, 'getUserByEmail'])->name('chat.get-user-by-email');
     Route::post('/chat/image-view/{messageId}', [\App\Http\Controllers\ChatController::class, 'recordImageView'])->name('chat.image-view');
     Route::post('/chat/report-user', [\App\Http\Controllers\ChatController::class, 'reportUser'])->name('chat.report-user');
+    Route::post('/api/reports/item/{itemReport}/appeal', [\App\Http\Controllers\ReportAppealController::class, 'appealItemReport'])->name('reports.item.appeal');
+    Route::post('/api/reports/user/{userReport}/appeal', [\App\Http\Controllers\ReportAppealController::class, 'appealUserReport'])->name('reports.user.appeal');
+
+    // In-app notifications (bell)
+    Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
+    Route::post('/api/notifications/mark-read', [\App\Http\Controllers\NotificationController::class, 'markRead']);
 
     // Review Routes
     Route::get('/reviews', [\App\Http\Controllers\ReviewController::class, 'create'])->name('reviews.create');
@@ -189,10 +195,6 @@ Route::post('/api/compare-urls', [ImageComparisonController::class, 'compareUrls
 Route::post('/api/compare-images-vision', [ImageComparisonController::class, 'compareWithGoogleVision']);
 Route::post('/api/compare-urls-vision', [ImageComparisonController::class, 'compareUrlsWithGoogleVision']);
 Route::post('/api/analyze-image-vision', [ImageComparisonController::class, 'analyzeImage']);
-
-// Notifications (user)
-Route::get('/api/notifications', [\App\Http\Controllers\NotificationController::class, 'index']);
-Route::post('/api/notifications/mark-read', [\App\Http\Controllers\NotificationController::class, 'markRead']);
 
 // Tags API (public - for dropdown)
 Route::get('/api/tags', [\App\Http\Controllers\Admin\TagController::class, 'getAllTags'])->name('api.tags');

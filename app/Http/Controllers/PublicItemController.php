@@ -25,14 +25,18 @@ class PublicItemController extends Controller
 
         $firstItem = $items->first();
         
-        // Check if item is claimed or has pending claim - if so, restrict access
         $user = auth()->user();
         $isOwner = $user && $user->email === $firstItem->uploader_email;
         $isClaimer = $user && $firstItem->claimed_by_email === $user->email;
-        
-        if ($firstItem->is_claimed || $firstItem->claim_verification_status === 'pending') {
-            // Allow access if user is admin, owner, or the claimer
-            if (!$user || (!$this->isAdmin($user) && !$isOwner && !$isClaimer)) {
+
+        // Verified claimed items are admin-only audit records (images purged)
+        if ($firstItem->isClaimArchived()) {
+            if (! $user || ! $this->isAdmin($user)) {
+                abort(403, 'This item has been claimed. Details are retained for administrators only.');
+            }
+        } elseif ($firstItem->is_claimed || $firstItem->claim_verification_status === 'pending') {
+            // Pending claims: owner and claimer can still view
+            if (! $user || (! $this->isAdmin($user) && ! $isOwner && ! $isClaimer)) {
                 if ($firstItem->is_claimed) {
                     abort(403, 'This item has been claimed and is only visible to administrators, the owner, or the claimer.');
                 } else {

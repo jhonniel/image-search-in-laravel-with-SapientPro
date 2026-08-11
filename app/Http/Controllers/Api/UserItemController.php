@@ -376,7 +376,9 @@ class UserItemController extends Controller
             // Get all items uploaded by the user.
             // Match by user_id (preferred) OR uploader_email so legacy rows
             // and guest-uploaded-then-attached items both show up.
+            // Verified claimed items are archived for admin audit only (images purged).
             $items = ImageMetadata::ownedBy($user)
+                ->availableForUsers()
                 ->orderBy('created_at', 'desc')
                 ->get()
                 ->groupBy('upload_id');
@@ -1193,17 +1195,19 @@ class UserItemController extends Controller
                 ]);
             }
 
-            // Show ALL matched items regardless of claim status
-            // This ensures all similar and matched items are visible on the claim-verify page
-            // The frontend will display the claim status so users know which items are available
+            // Show matched items that are still available (exclude verified/claimed archives)
             $claimableMatchedItems = [];
             foreach ($matchedItems as $otherUploadId => $matchData) {
                 $group = $matchData['item'];
                 $firstItem = $group->first();
 
-                // Include ALL matched items - don't filter by claim status
-                // This ensures all similar items are listed, even if they're claimed/verified
-                // The UI will show the status so users can see which items are available
+                if ($firstItem->isClaimArchived()) {
+                    Log::debug('Skipping verified claimed item from claim-verify', [
+                        'upload_id' => $otherUploadId,
+                    ]);
+                    continue;
+                }
+
                 $claimableMatchedItems[$otherUploadId] = $matchData;
 
                 Log::debug('Including matched item in claim-verify', [
@@ -1854,6 +1858,24 @@ class UserItemController extends Controller
                 'explanation' => $request->input('explanation'),
                 'status' => 'pending',
             ]);
+
+            // Notify the listing owner so they can appeal if the post is legitimate
+            $owner = null;
+            if (! empty($item->user_id)) {
+                $owner = User::find($item->user_id);
+            }
+            if (! $owner && $item->uploader_email) {
+                $owner = User::whereRaw('LOWER(email) = ?', [strtolower((string) $item->uploader_email)])->first();
+            }
+            if ($owner) {
+                \App\Http\Controllers\ReportAppealController::notifyItemReported($report, $owner);
+            } else {
+                Log::warning('Item reported but owner user not found for notification', [
+                    'report_id' => $report->id,
+                    'upload_id' => $uploadId,
+                    'uploader_email' => $item->uploader_email,
+                ]);
+            }
 
             Log::info('Item reported by user', [
                 'report_id' => $report->id,

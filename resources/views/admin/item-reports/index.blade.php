@@ -115,6 +115,17 @@
                             </td>
                             <td class="admin-td hidden lg:table-cell max-w-xs">
                                 <p class="text-sm text-gray-700 line-clamp-3">{{ $report['explanation'] }}</p>
+                                @if(!empty($report['has_appeal']))
+                                    <div class="mt-2 p-2 rounded-md bg-emerald-50 border border-emerald-100">
+                                        <p class="text-xs font-semibold text-emerald-800 mb-1">
+                                            <i class="fas fa-balance-scale mr-1"></i> Appeal
+                                            @if(!empty($report['appealed_at']))
+                                                <span class="font-normal text-emerald-600">({{ $report['appealed_at'] }})</span>
+                                            @endif
+                                        </p>
+                                        <p class="text-xs text-emerald-900 line-clamp-4">{{ $report['appeal_message'] }}</p>
+                                    </div>
+                                @endif
                             </td>
                             <td class="admin-td hidden md:table-cell">
                                 @if($report['item'])
@@ -244,6 +255,17 @@
                                     <span class="text-xs text-gray-500">{{ $report['created_at'] }}</span>
                                 </div>
                                 <p class="text-sm text-gray-800 mb-2">{{ $report['explanation'] }}</p>
+                                @if(!empty($report['has_appeal']))
+                                    <div class="mb-3 p-3 rounded-lg bg-emerald-50 border border-emerald-100">
+                                        <p class="text-xs font-semibold text-emerald-800 mb-1">
+                                            <i class="fas fa-balance-scale mr-1"></i> Owner appeal
+                                            @if(!empty($report['appealed_at']))
+                                                <span class="font-normal text-emerald-600">· {{ $report['appealed_at'] }}</span>
+                                            @endif
+                                        </p>
+                                        <p class="text-sm text-emerald-900">{{ $report['appeal_message'] }}</p>
+                                    </div>
+                                @endif
                                 <p class="text-xs text-gray-500 mb-3">
                                     Reported by {{ $report['reporter_name'] }}
                                     @if($report['reporter_email'])

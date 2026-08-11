@@ -22,6 +22,12 @@ class ItemReport extends Model
         'label',
         'explanation',
         'status',
+        'appeal_message',
+        'appealed_at',
+    ];
+
+    protected $casts = [
+        'appealed_at' => 'datetime',
     ];
 
     public function reporter(): BelongsTo
@@ -32,5 +38,10 @@ class ItemReport extends Model
     public function labelName(): string
     {
         return self::LABELS[$this->label] ?? ucfirst($this->label);
+    }
+
+    public function hasAppeal(): bool
+    {
+        return $this->appealed_at !== null && filled($this->appeal_message);
     }
 }

@@ -241,6 +241,7 @@ class ChatController extends Controller
             'uploader_name' => $uploader->name ?? 'Unknown User',
             'uploader_email' => $firstItem->uploader_email,
             'images' => $images,
+            'images_purged' => (bool) $firstItem->images_purged_at,
             'claim_status' => $firstItem->claim_verification_status,
             'is_claimed' => (bool) ($firstItem->is_claimed ?? false),
             'claimed_by_email' => $firstItem->claimed_by_email,
@@ -615,6 +616,9 @@ class ChatController extends Controller
                 'explanation' => $request->input('explanation'),
                 'status' => 'pending',
             ]);
+
+            // Notify the reported user so they can appeal if their claim is legitimate
+            ReportAppealController::notifyUserReported($report, $reportedUser);
 
             Log::info('User reported from chat', [
                 'report_id' => $report->id,

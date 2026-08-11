@@ -226,6 +226,18 @@ class AdminController extends Controller
                     // Handle file path - ensure it's a valid URL
                     $filePath = $item->file_path;
 
+                    // Claim archives: images deleted, keep metadata only
+                    if (empty($filePath) && $item->images_purged_at) {
+                        return [
+                            'filename' => $item->filename,
+                            'original_name' => $item->original_name,
+                            'path' => '',
+                            'file_size' => $item->file_size,
+                            'mime_type' => $item->mime_type,
+                            'purged' => true,
+                        ];
+                    }
+
                     // Fallback to stored filename paths when file_path is missing
                     if (empty($filePath) && !empty($item->full_path)) {
                         $filePath = $item->full_path;
@@ -258,8 +270,12 @@ class AdminController extends Controller
                         'path' => $imagePath,
                         'file_size' => $item->file_size,
                         'mime_type' => $item->mime_type,
+                        'purged' => false,
                     ];
-                })->toArray()
+                })->toArray(),
+                'is_claimed' => (bool) ($firstItem->is_claimed ?? false),
+                'claim_status' => $firstItem->claim_verification_status,
+                'images_purged' => (bool) $firstItem->images_purged_at,
             ];
         }
 
@@ -768,12 +784,15 @@ class AdminController extends Controller
                 'upload_id' => $uploadId,
                 'item_type' => $firstItem->status,
                 'description' => $firstItem->description,
-                'location' => $firstItem->description, // You might want to add a location field
+                'location' => $firstItem->location ?? 'No location specified',
                 'tags' => $this->parseTags($firstItem->tags),
                 'uploader_email' => $firstItem->uploader_email,
                 'claimed_by_email' => $firstItem->claimed_by_email,
                 'claimed_by_name' => $claimedByUser ? $claimedByUser->name : 'Unknown',
                 'claimed_at' => $firstItem->claimed_at,
+                'claim_verified_at' => $firstItem->claim_verified_at,
+                'images_purged' => (bool) $firstItem->images_purged_at,
+                'images_purged_at' => $firstItem->images_purged_at,
                 'created_at' => $firstItem->created_at,
                 'images' => $itemGroup->map(function ($item) {
                     // Handle file path - ensure it's a valid URL
@@ -802,6 +821,7 @@ class AdminController extends Controller
                         'url' => $this->resolveImageUrl($imagePath),
                         'original_name' => $item->original_name,
                         'size' => $item->file_size,
+                        'purged' => (bool) $item->images_purged_at || empty($filePath),
                     ];
                 })->toArray(),
             ];

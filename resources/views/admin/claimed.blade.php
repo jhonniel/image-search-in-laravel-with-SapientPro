@@ -11,7 +11,7 @@
 <div class="admin-page">
     @include('admin.partials.page-header', [
         'title' => 'Claimed Items',
-        'description' => 'View all items that have been successfully claimed by users.',
+        'description' => 'Successfully claimed items. Images are deleted after verification; metadata is kept for audit and counts.',
     ])
 
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -86,6 +86,18 @@
                                     <p class="text-xs text-emerald-700">{{ $item['claimed_by_email'] }}</p>
                                 </div>
 
+                                @if(!empty($item['images_purged']))
+                                    <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-3">
+                                        <p class="text-xs font-semibold text-amber-800 mb-1"><i class="fas fa-archive mr-1"></i>Images removed</p>
+                                        <p class="text-xs text-amber-700">
+                                            Image files were deleted after claim verification. Listing metadata is retained here for admin audit and counts.
+                                            @if(!empty($item['images_purged_at']))
+                                                ({{ \Carbon\Carbon::parse($item['images_purged_at'])->format('M d, Y g:i A') }})
+                                            @endif
+                                        </p>
+                                    </div>
+                                @endif
+
                                 <p class="text-xs text-gray-500">
                                     <i class="fas fa-clock mr-1"></i>
                                     Originally posted {{ \Carbon\Carbon::parse($item['created_at'])->format('M d, Y') }}
@@ -93,10 +105,15 @@
                             </div>
 
                             <div class="p-5">
+                                @php
+                                    $visibleImages = collect($item['images'])->filter(fn ($img) => !empty($img['path']) && empty($img['purged']))->values();
+                                    $hasVisibleImages = $visibleImages->isNotEmpty();
+                                @endphp
+                                @if($hasVisibleImages)
                                 <div class="relative">
                                     <div class="carousel-container overflow-hidden rounded-lg">
                                         <div class="carousel-track flex transition-transform duration-300 ease-in-out" id="carousel-{{ $item['upload_id'] }}">
-                                            @foreach($item['images'] as $index => $image)
+                                            @foreach($visibleImages as $index => $image)
                                                 <div class="carousel-slide flex-shrink-0 w-full">
                                                     <div class="relative group">
                                                         <img src="{{ $image['url'] ?? $image['path'] }}" alt="{{ $image['original_name'] }}" class="w-full h-48 object-cover rounded-lg border border-gray-200 bg-gray-100" onerror="this.onerror=null; this.src='{{ asset('images/report-found-item-placeholder.svg') }}';">
@@ -111,20 +128,20 @@
                                         </div>
                                     </div>
 
-                                    @if(count($item['images']) > 1)
+                                    @if($visibleImages->count() > 1)
                                         <div class="flex items-center justify-between mt-4">
                                             <button type="button" onclick="previousSlide('{{ $item['upload_id'] }}')" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">
                                                 <i class="fas fa-chevron-left text-sm"></i>
                                             </button>
                                             <div class="flex items-center gap-2">
                                                 <div class="flex gap-1">
-                                                    @foreach($item['images'] as $index => $image)
+                                                    @foreach($visibleImages as $index => $image)
                                                         <button type="button" onclick="goToSlide('{{ $item['upload_id'] }}', {{ $index }})"
                                                                 class="carousel-dot w-2 h-2 rounded-full bg-gray-300 transition-colors"
                                                                 id="dot-{{ $item['upload_id'] }}-{{ $index }}"></button>
                                                     @endforeach
                                                 </div>
-                                                <span class="carousel-counter text-sm text-gray-500" id="counter-{{ $item['upload_id'] }}">1 / {{ count($item['images']) }}</span>
+                                                <span class="carousel-counter text-sm text-gray-500" id="counter-{{ $item['upload_id'] }}">1 / {{ $visibleImages->count() }}</span>
                                             </div>
                                             <button type="button" onclick="nextSlide('{{ $item['upload_id'] }}')" class="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors">
                                                 <i class="fas fa-chevron-right text-sm"></i>
@@ -132,6 +149,13 @@
                                         </div>
                                     @endif
                                 </div>
+                                @else
+                                    <div class="h-48 rounded-lg border border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-center px-4">
+                                        <i class="fas fa-archive text-2xl text-gray-400 mb-2"></i>
+                                        <p class="text-sm font-medium text-gray-700">No images on file</p>
+                                        <p class="text-xs text-gray-500 mt-1">Deleted after claim — audit data kept above.</p>
+                                    </div>
+                                @endif
                             </div>
 
                             <div class="px-5 py-4 border-t border-gray-100 bg-gray-50/80 flex items-center justify-between">
@@ -140,7 +164,11 @@
                                     View Details
                                 </button>
                                 <span class="text-xs text-gray-500">
-                                    <i class="fas fa-images mr-1"></i>{{ count($item['images']) }} image(s)
+                                    @if(!empty($item['images_purged']))
+                                        <i class="fas fa-archive mr-1"></i>Images purged · audit retained
+                                    @else
+                                        <i class="fas fa-images mr-1"></i>{{ $visibleImages->count() }} image(s)
+                                    @endif
                                 </span>
                             </div>
                         </div>

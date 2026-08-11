@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Facades\Storage;
 
 class ImageMetadata extends Model
 {
@@ -38,6 +39,7 @@ class ImageMetadata extends Model
         'claimed_at',
         'claim_verification_status',
         'claim_verified_at',
+        'images_purged_at',
     ];
 
     /**
@@ -51,6 +53,7 @@ class ImageMetadata extends Model
         'updated_at' => 'datetime',
         'claimed_at' => 'datetime',
         'claim_verified_at' => 'datetime',
+        'images_purged_at' => 'datetime',
         'deleted_at' => 'datetime',
     ];
 
@@ -192,6 +195,99 @@ class ImageMetadata extends Model
             $q->whereNull('uploader_email')
                 ->orWhere('uploader_email', '!=', $user->email);
         });
+    }
+
+    /**
+     * Scope: items still available for matching / public user listings
+     * (exclude verified claims whose images were archived for admin-only audit).
+     */
+    public function scopeAvailableForUsers($query)
+    {
+        return $query->where(function ($q) {
+            $q->where('is_claimed', false)
+                ->orWhereNull('is_claimed')
+                ->orWhere(function ($inner) {
+                    $inner->where('is_claimed', true)
+                        ->where('claim_verification_status', '!=', 'verified');
+                });
+        });
+    }
+
+    /**
+     * Whether this row is a verified claim archived for admin audit.
+     */
+    public function isClaimArchived(): bool
+    {
+        return (bool) $this->is_claimed
+            && $this->claim_verification_status === 'verified';
+    }
+
+    /**
+     * Delete stored image files for a verified claim, keep metadata for admin audit/counts.
+     * Clears file_path so users no longer receive image URLs.
+     */
+    public static function purgeImagesForUpload(string $uploadId): int
+    {
+        $items = static::where('upload_id', $uploadId)->get();
+        if ($items->isEmpty()) {
+            return 0;
+        }
+
+        $purged = 0;
+        $now = now();
+
+        foreach ($items as $item) {
+            $relativePath = static::relativeStoragePath($item->file_path, $item->filename);
+
+            if ($relativePath && Storage::disk('public')->exists($relativePath)) {
+                Storage::disk('public')->delete($relativePath);
+                $purged++;
+            }
+
+            // Keep filename / original_name for audit; clear path so images are not served
+            $item->file_path = null;
+            $item->images_purged_at = $now;
+            $item->save();
+        }
+
+        \Illuminate\Support\Facades\Log::info('Purged claim images for audit archive', [
+            'upload_id' => $uploadId,
+            'rows' => $items->count(),
+            'files_deleted' => $purged,
+        ]);
+
+        return $purged;
+    }
+
+    /**
+     * Resolve a public-disk relative path from stored file_path / filename.
+     */
+    public static function relativeStoragePath(?string $filePath, ?string $filename = null): ?string
+    {
+        if (! empty($filePath)) {
+            $path = $filePath;
+            if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+                $parsed = parse_url($path, PHP_URL_PATH);
+                $path = is_string($parsed) ? $parsed : $path;
+            }
+            $path = ltrim(str_replace('/storage/', '', $path), '/');
+            if (str_starts_with($path, 'storage/')) {
+                $path = substr($path, 8);
+            }
+
+            return $path !== '' ? $path : null;
+        }
+
+        if (! empty($filename)) {
+            if (Storage::disk('public')->exists('user-items/'.$filename)) {
+                return 'user-items/'.$filename;
+            }
+            if (Storage::disk('public')->exists('reference-images/'.$filename)) {
+                return 'reference-images/'.$filename;
+            }
+        }
+
+        return null;
     }
 
     /**

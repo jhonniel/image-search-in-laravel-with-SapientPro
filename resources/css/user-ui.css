@@ -151,6 +151,107 @@
     .user-items-grid {
         @apply grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3;
     }
+
+    /* Claim & Verify — compact compare tiles (3 per row) */
+    .cv-compare-list {
+        @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3;
+    }
+
+    .cv-compare {
+        @apply flex flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:shadow-md;
+    }
+
+    .cv-compare-header {
+        @apply flex items-center justify-between gap-2 border-b border-purple-100 bg-purple-50/80 px-3 py-2;
+    }
+
+    .cv-compare-header-title {
+        @apply flex min-w-0 items-center gap-2;
+    }
+
+    .cv-compare-header-icon {
+        @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-purple-600 text-white;
+    }
+
+    .cv-compare-panels {
+        @apply grid flex-1 grid-cols-2 divide-x divide-gray-100;
+    }
+
+    .cv-compare-panel {
+        @apply flex min-w-0 flex-col p-2.5;
+    }
+
+    .cv-compare-panel-label {
+        @apply mb-1.5 truncate text-[10px] font-semibold uppercase tracking-wide;
+    }
+
+    .cv-compare-panel-label-yours {
+        @apply text-blue-700;
+    }
+
+    .cv-compare-panel-label-match {
+        @apply text-gray-700;
+    }
+
+    .cv-compare-badge {
+        @apply inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium;
+    }
+
+    .cv-compare-badge-lost {
+        @apply bg-red-100 text-red-800;
+    }
+
+    .cv-compare-badge-found {
+        @apply bg-emerald-100 text-emerald-800;
+    }
+
+    .cv-compare-desc {
+        @apply mt-1 text-[11px] leading-snug text-gray-700 line-clamp-2;
+    }
+
+    .cv-compare-meta {
+        @apply mt-1 truncate text-[10px] text-gray-500;
+    }
+
+    .cv-compare-image-wrap {
+        @apply relative mt-2 overflow-hidden rounded-md border border-gray-200 bg-gray-50;
+    }
+
+    .cv-compare-image {
+        @apply block h-24 w-full cursor-pointer object-cover;
+    }
+
+    .cv-compare-image-empty {
+        @apply flex h-24 items-center justify-center text-gray-300;
+    }
+
+    .cv-compare-actions {
+        @apply mt-auto flex flex-wrap items-center gap-1.5 border-t border-gray-100 bg-gray-50/80 px-2.5 py-2;
+    }
+
+    .cv-compare-btn-secondary {
+        @apply inline-flex items-center justify-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[10px] font-semibold text-gray-700 transition hover:bg-gray-50;
+    }
+
+    .cv-compare-btn-message {
+        @apply inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-purple-100 px-2 py-1.5 text-[10px] font-semibold text-purple-800 transition hover:bg-purple-200;
+    }
+
+    .cv-compare-btn-claim {
+        @apply inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-emerald-100 px-2 py-1.5 text-[10px] font-semibold text-emerald-800 transition hover:bg-emerald-200;
+    }
+
+    .cv-compare-btn-danger {
+        @apply inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-[10px] font-semibold text-red-700 transition hover:bg-red-100;
+    }
+
+    .cv-compare-btn-muted {
+        @apply inline-flex flex-1 cursor-not-allowed items-center justify-center gap-1 rounded-md bg-gray-100 px-2 py-1.5 text-[10px] font-semibold text-gray-500;
+    }
+
+    .cv-compare-btn-report {
+        @apply inline-flex items-center justify-center rounded-md border border-red-100 bg-red-50 px-2 py-1.5 text-[10px] font-semibold text-red-700 transition hover:bg-red-100;
+    }
 }
 
 @media (max-width: 639px) {

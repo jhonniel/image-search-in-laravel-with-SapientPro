@@ -249,6 +249,43 @@
         </div>
     </div>
 
+    <!-- Report appeal modal -->
+    <div id="report-appeal-modal" class="fixed inset-0 z-[80] hidden items-center justify-center p-4" style="display: none;">
+        <div class="absolute inset-0 bg-black/40" onclick="closeReportAppealModal()"></div>
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+            <div class="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-gray-100">
+                <h3 class="text-lg font-semibold text-gray-900">Submit an appeal</h3>
+                <button type="button" onclick="closeReportAppealModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="report-appeal-form" class="p-4 sm:p-6 space-y-4" onsubmit="submitReportAppeal(event)">
+                <input type="hidden" id="appeal-report-type" value="">
+                <input type="hidden" id="appeal-report-id" value="">
+                <input type="hidden" id="appeal-notification-id" value="">
+                <p id="appeal-help-text" class="text-sm text-gray-600">
+                    Explain why this report is incorrect. Admins will review your response.
+                </p>
+                <div>
+                    <label for="appeal-message" class="block text-sm font-medium text-gray-700 mb-1">Your appeal</label>
+                    <textarea id="appeal-message" name="appeal_message" rows="5" required minlength="10" maxlength="2000"
+                              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                              placeholder="Explain why your listing or claim is legitimate..."></textarea>
+                    <p class="text-xs text-gray-400 mt-1">Minimum 10 characters</p>
+                </div>
+                <div id="appeal-error" class="hidden text-sm text-red-600"></div>
+                <div class="flex justify-end gap-2 pt-2">
+                    <button type="button" onclick="closeReportAppealModal()" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 text-sm font-medium">
+                        Cancel
+                    </button>
+                    <button type="submit" id="appeal-submit-btn" class="px-4 py-2 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 text-sm font-medium">
+                        Submit appeal
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <script>
         // Fetch and update unread message count
         function updateUnreadMessageCount() {
@@ -303,7 +340,10 @@
                                 const icon = n.type === 'item_uploaded' ? 'fa-check-circle text-green-500' : 
                                             n.type === 'item_match' ? 'fa-search text-blue-500' : 
                                             n.type === 'item_matched' ? 'fa-link text-purple-500' :
-                                            n.type === 'item_claimed' ? 'fa-hand-holding text-purple-500' : 
+                                            n.type === 'item_claimed' ? 'fa-hand-holding text-purple-500' :
+                                            n.type === 'item_reported' ? 'fa-flag text-red-500' :
+                                            n.type === 'user_reported' ? 'fa-user-slash text-red-500' :
+                                            n.type === 'report_appeal_submitted' ? 'fa-balance-scale text-emerald-500' :
                                             'fa-bell text-gray-500';
                                 
                                 // Get notification data
@@ -362,6 +402,36 @@
                                     itemUrl = `/item/${notifData.upload_id}`;
                                 } else if (n.type === 'item_claimed' && notifData.upload_id) {
                                     itemUrl = `/item/${notifData.upload_id}`;
+                                } else if ((n.type === 'item_reported' || n.type === 'user_reported') && notifData.report_id) {
+                                    const reason = notifData.label_name || notifData.label || 'Reported';
+                                    const isItem = n.type === 'item_reported';
+                                    itemDetails = `
+                                        <div class="mt-2 p-2 bg-red-50 rounded border border-red-200">
+                                            <div class="text-xs font-semibold text-red-700 mb-1">${isItem ? 'Listing report' : 'User report'}</div>
+                                            <div class="text-xs text-gray-700">
+                                                <div><strong>Reason:</strong> ${reason}</div>
+                                                ${notifData.upload_id ? `<div><strong>Item:</strong> ${notifData.upload_id}</div>` : ''}
+                                            </div>
+                                        </div>
+                                    `;
+                                    if (notifData.can_appeal !== false && !notifData.appealed) {
+                                        viewButton = `
+                                            <button type="button"
+                                                    onclick="event.stopPropagation(); openReportAppealModal(${n.id}, '${notifData.report_type || (isItem ? 'item' : 'user')}', ${notifData.report_id});"
+                                                    class="mt-2 px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded hover:bg-emerald-700 transition-colors">
+                                                Submit appeal
+                                            </button>
+                                        `;
+                                    } else {
+                                        viewButton = `
+                                            <span class="mt-2 inline-block px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded">
+                                                Appeal submitted
+                                            </span>
+                                        `;
+                                    }
+                                    if (notifData.upload_id) {
+                                        itemUrl = `/item/${notifData.upload_id}`;
+                                    }
                                 }
                                 
                                 // For item_matched, redirect to Claim and Verify to see matched items
@@ -475,6 +545,104 @@
                     }
                 })
                 .catch(error => console.error('Error updating notification count:', error));
+        }
+
+        function openReportAppealModal(notificationId, reportType, reportId) {
+            const modal = document.getElementById('report-appeal-modal');
+            if (!modal) return;
+
+            document.getElementById('appeal-notification-id').value = notificationId || '';
+            document.getElementById('appeal-report-type').value = reportType || '';
+            document.getElementById('appeal-report-id').value = reportId || '';
+            document.getElementById('appeal-message').value = '';
+            const err = document.getElementById('appeal-error');
+            if (err) {
+                err.classList.add('hidden');
+                err.textContent = '';
+            }
+
+            const help = document.getElementById('appeal-help-text');
+            if (help) {
+                help.textContent = reportType === 'item'
+                    ? 'Explain why your listing is legitimate. Admins will review your appeal with the original report.'
+                    : 'Explain why your claim or activity is legitimate. Admins will review your appeal with the original report.';
+            }
+
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            markNotificationRead(notificationId);
+        }
+
+        function closeReportAppealModal() {
+            const modal = document.getElementById('report-appeal-modal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
+
+        async function submitReportAppeal(event) {
+            event.preventDefault();
+            const reportType = document.getElementById('appeal-report-type').value;
+            const reportId = document.getElementById('appeal-report-id').value;
+            const message = (document.getElementById('appeal-message').value || '').trim();
+            const err = document.getElementById('appeal-error');
+            const btn = document.getElementById('appeal-submit-btn');
+
+            if (!reportType || !reportId) {
+                if (err) {
+                    err.textContent = 'Missing report details. Please try again from the notification.';
+                    err.classList.remove('hidden');
+                }
+                return;
+            }
+
+            if (message.length < 10) {
+                if (err) {
+                    err.textContent = 'Appeal must be at least 10 characters.';
+                    err.classList.remove('hidden');
+                }
+                return;
+            }
+
+            const endpoint = reportType === 'item'
+                ? `/api/reports/item/${reportId}/appeal`
+                : `/api/reports/user/${reportId}/appeal`;
+
+            if (btn) {
+                btn.disabled = true;
+                btn.textContent = 'Submitting...';
+            }
+
+            try {
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({ appeal_message: message })
+                });
+                const data = await response.json();
+                if (!response.ok || !data.success) {
+                    throw new Error(data.error || 'Failed to submit appeal');
+                }
+                closeReportAppealModal();
+                loadNotifications();
+                updateUnreadNotificationCount();
+                alert(data.message || 'Appeal submitted successfully.');
+            } catch (error) {
+                if (err) {
+                    err.textContent = error.message || 'Failed to submit appeal.';
+                    err.classList.remove('hidden');
+                }
+            } finally {
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = 'Submit appeal';
+                }
+            }
         }
 
         // Update on page load

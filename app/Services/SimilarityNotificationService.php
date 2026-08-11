@@ -128,6 +128,8 @@ class SimilarityNotificationService
             // Get all existing images with metadata
             $existingImages = ImageMetadata::whereNotNull('uploader_email')
                 ->where('uploader_email', '!=', $newUploaderEmail) // Don't notify the same user
+                ->whereNull('images_purged_at')
+                ->availableForUsers()
                 ->get();
 
             Log::info('Checking similarity for new image', [
@@ -681,6 +683,8 @@ class SimilarityNotificationService
                 ->whereNotNull('uploader_email')
                 ->whereNotNull('file_path')
                 ->whereNotNull('filename')
+                ->whereNull('images_purged_at')
+                ->availableForUsers()
                 ->where('status', $oppositeStatus) // Only check items with opposite status
                 ->orderBy('created_at', 'desc') // Check recent items first (more likely to be relevant)
                 ->limit($maxItemsToCheck);

@@ -12,58 +12,42 @@
     ])
 
     <div class="user-card">
-        <div class="user-card-body">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <!-- Search -->
-            <div class="flex-1">
-                <div class="relative">
-                    <input type="text" id="search-input" placeholder="Search items by description, location, or tags..."
-                           class="user-input pl-10">
-                    <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                </div>
+        <div class="user-card-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+                <h3 class="user-card-title">Matched items</h3>
+                <p class="user-card-subtitle">Compare your item with similar listings, then claim or message the owner</p>
             </div>
-
-            <!-- Filters -->
-            <div class="flex flex-wrap items-center gap-2 sm:gap-4">
-                <select id="type-filter" class="user-input py-2">
-                    <option value="">All Types</option>
-                    <option value="lost">Lost Items</option>
-                    <option value="found">Found Items</option>
+            <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
+                <div class="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+                    <input type="text" id="search-input" placeholder="Search matches…"
+                           class="user-input !py-2 pl-9 text-sm">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
+                </div>
+                <select id="type-filter" class="user-input !py-2 !w-auto text-sm">
+                    <option value="">All types</option>
+                    <option value="lost">Lost</option>
+                    <option value="found">Found</option>
                 </select>
-
-                <button onclick="resetFilters()" class="user-btn-ghost text-sm">
-                    <i class="fas fa-times mr-1"></i>
-                    Clear Filters
+                <button type="button" onclick="resetFilters()" class="user-btn-ghost !py-2 text-sm" title="Clear filters">
+                    <i class="fas fa-undo text-xs"></i>
+                    <span class="hidden sm:inline">Reset</span>
                 </button>
             </div>
         </div>
-        </div>
-    </div>
-
-    <div class="user-card">
-        <div class="user-card-header">
-            <h3 class="user-card-title">Available items</h3>
-            <p class="user-card-subtitle">Items that match your reported items (based on similarity)</p>
-        </div>
-        <div class="user-card-body">
-            <!-- Loading State -->
+        <div class="user-card-body !p-3 sm:!p-5">
             <div id="loading-state" class="text-center py-12">
-                <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-                <p class="mt-2 text-gray-500">Loading items...</p>
+                <div class="inline-block h-8 w-8 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600"></div>
+                <p class="mt-3 text-sm text-gray-500">Finding matches…</p>
             </div>
 
-            <!-- Items List -->
-            <div id="other-users-items-list" class="hidden">
-                <!-- Items will be loaded here -->
-            </div>
+            <div id="other-users-items-list" class="hidden cv-compare-list"></div>
 
-            <!-- Empty State -->
-            <div id="empty-state" class="text-center py-12 hidden">
-                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-search text-gray-400 text-2xl"></i>
+            <div id="empty-state" class="hidden py-12 text-center">
+                <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                    <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <h3 class="text-lg font-medium text-gray-900 mb-2">No Items Found</h3>
-                <p class="text-gray-500">No items match your current search criteria.</p>
+                <h3 class="text-base font-semibold text-gray-900">No matches yet</h3>
+                <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">When similar lost or found items appear, they’ll show up here for comparison.</p>
             </div>
         </div>
     </div>
@@ -167,6 +151,119 @@ async function loadOtherUsersItems() {
     }
 }
 
+function escapeHtml(value) {
+    return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function escapeJs(value) {
+    return String(value ?? '')
+        .replace(/\\/g, '\\\\')
+        .replace(/'/g, "\\'")
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, '');
+}
+
+function firstImagePath(images) {
+    if (!images || !images.length) return '';
+    return images[0].path || images[0].file_path || '';
+}
+
+function typeBadge(type) {
+    const isLost = (type || '').toLowerCase() === 'lost';
+    return `<span class="cv-compare-badge ${isLost ? 'cv-compare-badge-lost' : 'cv-compare-badge-found'}">${isLost ? 'Lost' : 'Found'}</span>`;
+}
+
+function tagsHtml(tags) {
+    const list = Array.isArray(tags) ? tags.slice(0, 4) : [];
+    if (!list.length) return '';
+    return `<div class="cv-compare-tags">${list.map(t => `<span class="cv-compare-tag">${escapeHtml(t)}</span>`).join('')}</div>`;
+}
+
+function panelImage(images, alt) {
+    const path = firstImagePath(images);
+    const extra = images && images.length > 1 ? images.length - 1 : 0;
+    if (!path) {
+        return `<div class="cv-compare-image-wrap"><div class="cv-compare-image-empty"><i class="fas fa-image text-3xl"></i></div></div>`;
+    }
+    return `
+        <div class="cv-compare-image-wrap">
+            <img src="${escapeHtml(path)}" alt="${escapeHtml(alt || 'Item')}" class="cv-compare-image"
+                 onclick="viewImage('${escapeJs(path)}')" loading="lazy"
+                 onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.classList.add('flex');">
+            <div class="cv-compare-image-empty hidden"><i class="fas fa-image text-3xl"></i></div>
+            ${extra > 0 ? `<span class="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">+${extra}</span>` : ''}
+        </div>
+    `;
+}
+
+function yoursPanel(yours) {
+    if (!yours) {
+        return `
+            <div class="cv-compare-panel">
+                <div class="cv-compare-panel-label cv-compare-panel-label-yours">Yours</div>
+                <p class="text-[11px] text-gray-400">No linked item</p>
+            </div>
+        `;
+    }
+
+    return `
+        <div class="cv-compare-panel">
+            <div class="cv-compare-panel-label cv-compare-panel-label-yours">Yours</div>
+            ${typeBadge(yours.item_type)}
+            <p class="cv-compare-desc">${escapeHtml(yours.description || 'No description')}</p>
+            <p class="cv-compare-meta">${escapeHtml(yours.location || 'No location')}</p>
+            ${panelImage(yours.images, yours.description)}
+        </div>
+    `;
+}
+
+function matchActions(item) {
+    const userItemType = item.user_matched_item?.item_type || '';
+    const matchedItemType = item.item_type || '';
+    const canClaim = userItemType === 'lost' && matchedItemType === 'found';
+    const id = escapeJs(item.upload_id);
+
+    let claimBtn = '';
+    if (item.user_has_claimed) {
+        claimBtn = `<button type="button" onclick="cancelClaim('${id}')" class="cv-compare-btn-danger">Cancel</button>`;
+    } else if (item.claim_status === 'verified') {
+        claimBtn = `<button type="button" disabled class="cv-compare-btn-muted">Verified</button>`;
+    } else if (item.claim_status === 'pending') {
+        claimBtn = `<button type="button" disabled class="cv-compare-btn-muted">Pending</button>`;
+    } else if (canClaim) {
+        claimBtn = `<button type="button" onclick="claimItem('${id}')" class="cv-compare-btn-claim">Claim</button>`;
+    } else {
+        claimBtn = `<button type="button" disabled class="cv-compare-btn-muted">Notify</button>`;
+    }
+
+    return `
+        <div class="cv-compare-actions">
+            <button type="button" onclick="viewItemDetails('${id}')" class="cv-compare-btn-secondary" title="Details"><i class="fas fa-info-circle"></i></button>
+            <button type="button" onclick="openReportModal('${id}')" class="cv-compare-btn-report" title="Report"><i class="fas fa-flag"></i></button>
+            <button type="button" onclick="messageAboutItem('${id}', '${escapeJs(item.description || '')}', '${escapeJs(item.item_type || '')}', '${escapeJs(item.location || '')}')" class="cv-compare-btn-message">Message</button>
+            ${claimBtn}
+        </div>
+    `;
+}
+
+function matchPanel(item) {
+    const uploader = escapeHtml(item.uploader_name || 'Unknown');
+    return `
+        <div class="cv-compare-panel">
+            <div class="cv-compare-panel-label cv-compare-panel-label-match">Match</div>
+            ${typeBadge(item.item_type)}
+            <p class="cv-compare-desc">${escapeHtml(item.description || 'No description')}</p>
+            <p class="cv-compare-meta">${escapeHtml(item.location || 'No location')} · ${uploader}</p>
+            ${panelImage(item.images, item.description)}
+        </div>
+    `;
+}
+
 function displayOtherUsersItems(items) {
     const itemsContainer = document.getElementById('other-users-items-list');
     const loadingState = document.getElementById('loading-state');
@@ -174,7 +271,6 @@ function displayOtherUsersItems(items) {
 
     if (!itemsContainer) return;
 
-    // Hide loading state
     loadingState.classList.add('hidden');
     itemsContainer.classList.remove('hidden');
 
@@ -186,437 +282,28 @@ function displayOtherUsersItems(items) {
 
     emptyState.classList.add('hidden');
 
-    itemsContainer.innerHTML = `
-        <div class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
-            <i class="fas fa-check-circle text-green-600"></i>
-            <p class="text-sm text-green-800 font-medium">
-                Similar items found! These available items match your reported items based on image and text similarity.
-            </p>
-        </div>
-        <div class="grid grid-cols-1 gap-6">
-            ${items.map(item => `
-                <!-- Similarity Match Container -->
-                <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg shadow-sm border-2 border-purple-200 overflow-hidden">
-                    <!-- Similarity Header -->
-                    <div class="p-4 bg-purple-100 border-b border-purple-200">
-                        <div class="flex items-center justify-between flex-wrap gap-2">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-full bg-purple-600 flex items-center justify-center">
-                                    <i class="fas fa-link text-white"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-bold text-purple-900">Similarity Match Found</h3>
-                                    <p class="text-sm text-purple-700">Match Score: <span class="font-bold text-lg">${item.similarity_score}%</span></p>
-                                </div>
-                            </div>
-                            ${item.matched_with_upload_id ? `
-                                <div class="text-xs text-purple-600 bg-white px-3 py-1 rounded-full">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    Matched with your item: ${item.matched_with_upload_id}
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-                    
-                    <!-- Side by Side Items -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
-                        <!-- User's Matched Item (Left Side) -->
-                        ${item.user_matched_item ? `
-                            <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                                <div class="p-4 bg-blue-50 border-b border-blue-200 flex-shrink-0">
-                                    <div class="flex items-center space-x-2">
-                                        <i class="fas fa-user text-blue-600"></i>
-                                        <h4 class="font-semibold text-blue-900">Your Reported Item</h4>
-                                    </div>
-                                </div>
-                                <div class="p-4 flex flex-col flex-1 min-h-0">
-                                    <div class="mb-3 flex-shrink-0">
-                                        <span class="px-3 py-1 rounded-full text-xs font-medium ${item.user_matched_item.item_type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                                            ${item.user_matched_item.item_type === 'lost' ? 'Lost' : 'Found'}
-                                        </span>
-                                    </div>
-                                    <p class="text-gray-700 mb-2 text-sm flex-shrink-0"><strong>Description:</strong> ${item.user_matched_item.description || 'No description provided'}</p>
-                                    <p class="text-gray-700 mb-2 text-sm flex-shrink-0"><strong>Location:</strong> ${item.user_matched_item.location || 'No location specified'}</p>
-                                    ${item.user_matched_item.tags && item.user_matched_item.tags.length > 0 ? `
-                                        <div class="flex flex-wrap gap-2 mb-3 flex-shrink-0">
-                                            <strong class="text-gray-700 text-sm">Tags:</strong>
-                                            ${item.user_matched_item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
-                                        </div>
-                                    ` : ''}
-                                    ${(() => {
-                                        let objectsArray = [];
-                                        if (item.user_matched_item && item.user_matched_item.detected_objects) {
-                                            if (Array.isArray(item.user_matched_item.detected_objects)) {
-                                                objectsArray = item.user_matched_item.detected_objects;
-                                            } else if (typeof item.user_matched_item.detected_objects === 'string') {
-                                                try {
-                                                    objectsArray = JSON.parse(item.user_matched_item.detected_objects);
-                                                } catch (e) {
-                                                    objectsArray = [];
-                                                }
-                                            }
-                                        }
-                                        
-                                        // Get unique objects (by name) and limit to top 5
-                                        const uniqueObjects = [];
-                                        const seenNames = new Set();
-                                        if (Array.isArray(objectsArray)) {
-                                            objectsArray.forEach(obj => {
-                                                const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
-                                                if (objName && !seenNames.has(objName.toLowerCase())) {
-                                                    seenNames.add(objName.toLowerCase());
-                                                    uniqueObjects.push(obj);
-                                                }
-                                            });
-                                        }
-                                        
-                                        if (uniqueObjects.length > 0) {
-                                            const top3Objects = uniqueObjects.slice(0, 3);
-                                            const objectsDisplay = top3Objects.map(obj => {
-                                                const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
-                                                const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                                                return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
-                                            }).join('');
-                                            return `<div class="mb-3 flex-shrink-0">
-                                                <strong class="text-gray-700 text-sm flex items-center mb-1">
-                                                    <i class="fas fa-cube mr-1 text-blue-600"></i>
-                                                    Detected Objects (${top3Objects.length}):
-                                                </strong>
-                                                <div class="flex flex-wrap gap-2">${objectsDisplay}</div>
-                                            </div>`;
-                                        }
-                                        return '';
-                                    })()}
-                                    ${item.user_matched_item.images && item.user_matched_item.images.length > 0 ? `
-                                        <div class="mt-3 flex-1 min-h-0 flex flex-col">
-                                            <div class="relative flex-1 min-h-0">
-                                                <div class="carousel-container overflow-hidden rounded-lg h-full">
-                                                    <div class="carousel-track flex transition-transform duration-300 ease-in-out h-full" id="carousel-user-${item.upload_id}">
-                                                        ${item.user_matched_item.images.map((image, index) => `
-                                                            <div class="carousel-slide flex-shrink-0 w-full h-full">
-                                                                <div class="relative group w-full h-full" style="background-color: #f3f4f6;">
-                                                                    <img src="${image.path || image.file_path || ''}" 
-                                                                         alt="${image.original_name || 'Item image'}" 
-                                                                         class="w-full h-full object-contain rounded-lg border border-gray-200 cursor-pointer"
-                                                                         style="background-color: #f3f4f6; width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;"
-                                                                         onclick="viewImage('${image.path || image.file_path || ''}')"
-                                                                         onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                                                         onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
-                                                                         loading="lazy">
-                                                                    <div class="hidden w-full h-full bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                                                                        <div class="text-center text-gray-400">
-                                                                            <i class="fas fa-image text-4xl mb-2"></i>
-                                                                            <p class="text-sm">Image not available</p>
-                                                                        </div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        `).join('')}
-                                                    </div>
-                                                </div>
+    itemsContainer.innerHTML = items.map(item => {
+        const score = item.similarity_score != null ? `${Number(item.similarity_score)}%` : '—';
 
-                                                ${item.user_matched_item.images.length > 1 ? `
-                                                    <!-- Carousel Navigation -->
-                                                    <div class="flex items-center justify-between mt-4 flex-shrink-0">
-                                                        <button onclick="previousSlide('user-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                                                            <i class="fas fa-chevron-left text-gray-600"></i>
-                                                        </button>
-
-                                                        <div class="flex items-center space-x-2">
-                                                            <div class="flex space-x-1">
-                                                                ${item.user_matched_item.images.map((_, index) => `
-                                                                    <button onclick="goToSlide('user-${item.upload_id}', ${index})"
-                                                                            class="carousel-dot w-2 h-2 rounded-full bg-gray-300 transition-colors"
-                                                                            id="dot-user-${item.upload_id}-${index}"></button>
-                                                                `).join('')}
-                                                            </div>
-                                                            <span class="carousel-counter text-sm text-gray-500 ml-2" id="counter-user-${item.upload_id}">1 / ${item.user_matched_item.images.length}</span>
-                                                        </div>
-
-                                                        <button onclick="nextSlide('user-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                                                            <i class="fas fa-chevron-right text-gray-600"></i>
-                                                        </button>
-                                                    </div>
-                                                ` : ''}
-                                            </div>
-                                        </div>
-                                    ` : `
-                                        <div class="mt-3 flex-1 min-h-0">
-                                            <div class="relative h-full">
-                                                <div class="carousel-container overflow-hidden rounded-lg h-full">
-                                                    <div class="w-full h-full bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                                                        <div class="text-center text-gray-400">
-                                                            <i class="fas fa-image text-4xl mb-2"></i>
-                                                            <p class="text-sm">No image available</p>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `}
-                                </div>
-                            </div>
-                        ` : ''}
-                        
-                        <!-- Matched Item from Other User (Right Side) -->
-                        <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-                    <!-- Item Header -->
-                    <div class="p-6 border-b border-gray-200 flex-shrink-0">
-                        <div class="flex items-start justify-between mb-4">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 rounded-full flex items-center justify-center ${item.item_type === 'lost' ? 'bg-red-100' : 'bg-green-100'}">
-                                    <i class="fas ${item.item_type === 'lost' ? 'fa-search text-red-600' : 'fa-hand-holding text-green-600'}"></i>
-                                </div>
-                                <div>
-                                    <h3 class="text-lg font-semibold text-gray-900">${item.item_type === 'lost' ? 'Lost Item' : 'Found Item'}</h3>
-                                    <p class="text-sm text-gray-500">Reported ${new Date(item.created_at).toLocaleDateString()}</p>
-                                </div>
-                            </div>
-                            <div class="flex flex-col items-end space-y-2">
-                                <span class="px-3 py-1 rounded-full text-xs font-medium ${item.item_type === 'lost' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}">
-                                    ${item.item_type === 'lost' ? 'Lost' : 'Found'}
-                                </span>
-                                <div class="flex items-center space-x-2">
-                                    <div class="flex items-center gap-2">
-                                        ${item.uploader_profile_picture ? `
-                                            <img src="${item.uploader_profile_picture}" alt="${item.uploader_name}" class="w-6 h-6 rounded-full object-cover border border-purple-100">
-                                        ` : `
-                                            <div class="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center text-xs font-semibold text-purple-600">
-                                                ${item.uploader_name.substring(0, 2).toUpperCase()}
-                                            </div>
-                                        `}
-                                        <div class="flex items-center gap-1">
-                                            <span class="text-sm font-medium text-gray-700">${item.uploader_name}</span>
-                                            ${item.uploader_verified ? `
-                                                <span class="inline-flex items-center justify-center w-4 h-4" title="Verified Profile">
-                                                    <img src="/images/icons/verify.png" alt="Verified" class="w-4 h-4">
-                                                </span>
-                                            ` : ''}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mb-4 flex-shrink-0">
-                            ${item.similarity_score ? `
-                                <div class="mb-3 p-2 bg-purple-50 border border-purple-200 rounded-lg">
-                                    <div class="flex items-center justify-between">
-                                        <span class="text-sm font-semibold text-purple-700">
-                                            <i class="fas fa-percentage mr-1"></i>Match Score
-                                        </span>
-                                        <span class="text-lg font-bold text-purple-600">${item.similarity_score}%</span>
-                                    </div>
-                                </div>
-                            ` : ''}
-                            ${item.matched_with_upload_id ? `
-                                <p class="text-xs text-gray-500 mb-2">
-                                    <i class="fas fa-link mr-1"></i>
-                                    Matched with your reported item ID: 
-                                    <span class="font-semibold text-gray-700">${item.matched_with_upload_id}</span>
-                                </p>
-                            ` : ''}
-                            <p class="text-gray-700 mb-2 flex-shrink-0"><strong>Description:</strong> ${item.description || 'No description provided'}</p>
-                            <p class="text-gray-700 mb-2 flex-shrink-0"><strong>Location:</strong> ${item.location || 'No location specified'}</p>
-                            ${item.tags && item.tags.length > 0 ? `
-                                <div class="flex flex-wrap gap-2 mb-2 flex-shrink-0">
-                                    <strong class="text-gray-700">Tags:</strong>
-                                    ${item.tags.map(tag => `<span class="px-2 py-1 bg-gray-100 text-gray-700 rounded-full text-xs">${tag}</span>`).join('')}
-                                </div>
-                            ` : ''}
-                            ${(() => {
-                                let objectsArray = [];
-                                if (item.detected_objects) {
-                                    if (Array.isArray(item.detected_objects)) {
-                                        objectsArray = item.detected_objects;
-                                    } else if (typeof item.detected_objects === 'string') {
-                                        try {
-                                            objectsArray = JSON.parse(item.detected_objects);
-                                        } catch (e) {
-                                            objectsArray = [];
-                                        }
-                                    }
-                                }
-                                
-                                // Get unique objects (by name) and limit to top 5
-                                const uniqueObjects = [];
-                                const seenNames = new Set();
-                                if (Array.isArray(objectsArray)) {
-                                    objectsArray.forEach(obj => {
-                                        const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
-                                        if (objName && !seenNames.has(objName.toLowerCase())) {
-                                            seenNames.add(objName.toLowerCase());
-                                            uniqueObjects.push(obj);
-                                        }
-                                    });
-                                }
-                                
-                                if (uniqueObjects.length > 0) {
-                                    const top3Objects = uniqueObjects.slice(0, 3);
-                                    const objectsDisplay = top3Objects.map(obj => {
-                                        const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
-                                        const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                                        return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
-                                    }).join('');
-                                    return `<div class="mb-2 flex-shrink-0">
-                                        <strong class="text-gray-700 flex items-center mb-1">
-                                            <i class="fas fa-cube mr-1 text-blue-600"></i>
-                                            Detected Objects (${top3Objects.length}):
-                                        </strong>
-                                        <div class="flex flex-wrap gap-2">${objectsDisplay}</div>
-                                    </div>`;
-                                }
-                                return '';
-                            })()}
-                        </div>
-
-                        <div class="text-sm text-gray-500 flex-shrink-0">
-                            <i class="fas fa-clock mr-1"></i>
-                            Reported ${new Date(item.created_at).toLocaleDateString()}
-                        </div>
-                    </div>
-
-                    <!-- Images Carousel -->
-                    <div class="p-6 flex-1 min-h-0 flex flex-col">
-                        <div class="relative flex-1 min-h-0 flex flex-col">
-                            <div class="carousel-container overflow-hidden rounded-lg flex-1 min-h-0">
-                                <div class="carousel-track flex transition-transform duration-300 ease-in-out h-full" id="carousel-claim-${item.upload_id}">
-                                    ${item.images && item.images.length > 0 ? item.images.map((image, index) => `
-                                        <div class="carousel-slide flex-shrink-0 w-full h-full">
-                                            <div class="relative group w-full h-full" style="background-color: #f3f4f6;">
-                                                <img src="${image.path || image.file_path || ''}" 
-                                                     alt="${image.original_name || 'Item image'}" 
-                                                     class="w-full h-full object-contain rounded-lg border border-gray-200 cursor-pointer"
-                                                     style="background-color: #f3f4f6; width: 100%; height: 100%; object-fit: contain; display: block; position: relative; z-index: 1;"
-                                                     onclick="viewImage('${image.path || image.file_path || ''}')"
-                                                     onerror="console.error('Image failed to load:', this.src); this.onerror=null; this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                                                     onload="console.log('Image loaded successfully:', this.src); this.style.backgroundColor='transparent'; this.style.opacity='1';"
-                                                     loading="lazy">
-                                                <div class="hidden w-full h-full bg-gray-100 rounded-lg border border-gray-200 items-center justify-center">
-                                                    <div class="text-center text-gray-400">
-                                                        <i class="fas fa-image text-4xl mb-2"></i>
-                                                        <p class="text-sm">Image not available</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `).join('') : `
-                                        <div class="carousel-slide flex-shrink-0 w-full h-full">
-                                            <div class="relative group w-full h-full">
-                                                <div class="w-full h-full bg-gray-100 rounded-lg border border-gray-200 flex items-center justify-center">
-                                                    <div class="text-center text-gray-400">
-                                                        <i class="fas fa-image text-4xl mb-2"></i>
-                                                        <p class="text-sm">No image available</p>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `}
-                                </div>
-                            </div>
-
-                            ${item.images && item.images.length > 1 ? `
-                                <!-- Carousel Navigation -->
-                                <div class="flex items-center justify-between mt-4 flex-shrink-0">
-                                    <button onclick="previousSlide('claim-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                                        <i class="fas fa-chevron-left text-gray-600"></i>
-                                    </button>
-
-                                    <div class="flex items-center space-x-2">
-                                        <div class="flex space-x-1">
-                                            ${item.images.map((_, index) => `
-                                                <button onclick="goToSlide('claim-${item.upload_id}', ${index})"
-                                                        class="carousel-dot w-2 h-2 rounded-full bg-gray-300 transition-colors"
-                                                        id="dot-claim-${item.upload_id}-${index}"></button>
-                                            `).join('')}
-                                        </div>
-                                        <span class="carousel-counter text-sm text-gray-500 ml-2" id="counter-claim-${item.upload_id}">1 / ${item.images.length}</span>
-                                    </div>
-
-                                    <button onclick="nextSlide('claim-${item.upload_id}')" class="flex items-center justify-center w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors">
-                                        <i class="fas fa-chevron-right text-gray-600"></i>
-                                    </button>
-                                </div>
-                            ` : ''}
-                        </div>
-                    </div>
-
-                    <!-- Actions -->
-                    <div class="p-6 border-t border-gray-200 bg-gray-50">
-                        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                            <div class="flex flex-wrap gap-2">
-                                <button onclick="viewItemDetails('${item.upload_id}')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors text-sm font-medium">
-                                    <i class="fas fa-info-circle mr-1"></i>
-                                    View Details
-                                </button>
-                                <button onclick="openReportModal('${item.upload_id}')" class="px-4 py-2 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors text-sm font-medium border border-red-200">
-                                    <i class="fas fa-flag mr-1"></i>
-                                    Report
-                                </button>
-                            </div>
-                            <div class="flex flex-wrap gap-2">
-                                <button onclick="messageAboutItem('${item.upload_id}', '${item.description || ''}', '${item.item_type || ''}', '${item.location || ''}')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg hover:bg-purple-200 transition-colors text-sm font-medium">
-                                    <i class="fas fa-comments mr-1"></i>
-                                    Message Owner
-                                </button>
-                                ${(() => {
-                                    // Determine if user can claim based on item types
-                                    // User with LOST item can CLAIM FOUND items
-                                    // User with FOUND item can only MESSAGE (not claim) LOST items
-                                    const userItemType = item.user_matched_item?.item_type || '';
-                                    const matchedItemType = item.item_type || '';
-                                    const canClaim = userItemType === 'lost' && matchedItemType === 'found';
-                                    
-                                    if (item.user_has_claimed) {
-                                        return `<button onclick="cancelClaim('${item.upload_id}')" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors text-sm font-medium">
-                                        <i class="fas fa-times-circle mr-1"></i>
-                                        Cancel Claim
-                                        </button>`;
-                                    } else if (item.claim_status === 'verified') {
-                                        return `<button disabled class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg cursor-not-allowed text-sm font-medium">
-                                            <i class="fas fa-check-circle mr-1"></i>
-                                            Already Claimed & Verified
-                                        </button>`;
-                                    } else if (item.claim_status === 'pending') {
-                                        return `<button disabled class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed text-sm font-medium">
-                                        <i class="fas fa-hourglass-half mr-1"></i>
-                                        Pending Verification
-                                        </button>`;
-                                    } else if (!canClaim) {
-                                        // User has FOUND item, matched item is LOST - can only message, not claim
-                                        return `<button disabled class="px-4 py-2 bg-gray-100 text-gray-500 rounded-lg cursor-not-allowed text-sm font-medium" title="You can only message the owner to notify them that you found their lost item">
-                                            <i class="fas fa-info-circle mr-1"></i>
-                                            Message to Notify
-                                        </button>`;
-                                    } else {
-                                        // User has LOST item, matched item is FOUND - can claim
-                                        return `<button onclick="claimItem('${item.upload_id}')" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors text-sm font-medium">
-                                        <i class="fas fa-hand-holding mr-1"></i>
-                                        Claim Item
-                                        </button>`;
-                                    }
-                                })()}
-                            </div>
-                        </div>
-                            </div>
+        return `
+            <article class="cv-compare">
+                <div class="cv-compare-header">
+                    <div class="cv-compare-header-title">
+                        <div class="cv-compare-header-icon"><i class="fas fa-link text-[10px]"></i></div>
+                        <div class="min-w-0">
+                            <h3 class="truncate text-xs font-bold text-purple-900">Similarity match</h3>
+                            <p class="text-[10px] text-purple-700">Score <span class="font-bold">${escapeHtml(score)}</span></p>
                         </div>
                     </div>
                 </div>
-            `).join('')}
-        </div>
-    `;
-
-    // Initialize carousels
-    items.forEach(item => {
-        // Initialize matched item carousel
-        if (item.images && item.images.length > 1) {
-            initializeCarousel(`claim-${item.upload_id}`, item.images.length);
-        }
-        // Initialize user's matched item carousel
-        if (item.user_matched_item && item.user_matched_item.images && item.user_matched_item.images.length > 1) {
-            initializeCarousel(`user-${item.upload_id}`, item.user_matched_item.images.length);
-        }
-    });
+                <div class="cv-compare-panels">
+                    ${yoursPanel(item.user_matched_item)}
+                    ${matchPanel(item)}
+                </div>
+                ${matchActions(item)}
+            </article>
+        `;
+    }).join('');
 }
 
 function updateStats() {
@@ -636,9 +323,9 @@ function filterItems() {
 
     filteredItems = allItems.filter(item => {
         const matchesSearch = !searchTerm ||
-            item.description.toLowerCase().includes(searchTerm) ||
-            item.location.toLowerCase().includes(searchTerm) ||
-            (item.tags && item.tags.some(tag => tag.toLowerCase().includes(searchTerm)));
+            (item.description || '').toLowerCase().includes(searchTerm) ||
+            (item.location || '').toLowerCase().includes(searchTerm) ||
+            (item.tags && item.tags.some(tag => String(tag).toLowerCase().includes(searchTerm)));
 
         const matchesType = !typeFilter || item.item_type === typeFilter;
 
