@@ -7,14 +7,14 @@ return [
     |--------------------------------------------------------------------------
     |
     | Controls how lost/found images are compared and when matches are stored
-    | or shown on Claim & Verify. Raise thresholds to reduce false positives.
+    | or shown on Claim & Verify.
     |
     */
 
     'enabled' => env('SIMILARITY_ENABLED', true),
 
-    // Overall score required for high-confidence notifications (0–1)
-    'threshold' => env('SIMILARITY_THRESHOLD', 0.75),
+    // Overall score for high-confidence notifications (0–1)
+    'threshold' => env('SIMILARITY_THRESHOLD', 0.68),
 
     'notification' => [
         'enabled' => env('SIMILARITY_NOTIFICATION_ENABLED', true),
@@ -25,24 +25,24 @@ return [
     ],
 
     'weights' => [
-        'visual' => (float) env('SIMILARITY_WEIGHT_VISUAL', 0.70),
-        'text' => (float) env('SIMILARITY_WEIGHT_TEXT', 0.30),
+        'visual' => (float) env('SIMILARITY_WEIGHT_VISUAL', 0.65),
+        'text' => (float) env('SIMILARITY_WEIGHT_TEXT', 0.35),
     ],
 
     'thresholds' => [
-        // Minimum visual score to accept a stored/display match
-        'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.62),
+        // Minimum visual score for a normal match
+        'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.50),
         // Soft text floor used inside overall scoring penalties
-        'text' => (float) env('SIMILARITY_MIN_TEXT', 0.35),
+        'text' => (float) env('SIMILARITY_MIN_TEXT', 0.30),
         // Store a match only if overall score reaches this
-        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.72),
-        // Claim & Verify display filter (normally same as match)
-        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.72),
-        // Alternate path: strong text + solid visual (same item, different photo)
-        'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.55),
-        'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.80),
-        // When both items have Vision labels, require some overlap
-        'objects' => (float) env('SIMILARITY_MIN_OBJECTS', 0.20),
+        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.60),
+        // Claim & Verify display filter
+        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.58),
+        // Alternate path: strong text + decent visual (same item, different photo)
+        'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.42),
+        'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.70),
+        // Soft object-label guidance (hard reject only when completely disjoint)
+        'objects' => (float) env('SIMILARITY_MIN_OBJECTS', 0.15),
     ],
 
     'algorithms' => [

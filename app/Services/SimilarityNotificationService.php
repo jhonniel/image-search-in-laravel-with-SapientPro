@@ -359,32 +359,29 @@ class SimilarityNotificationService
      */
     private function calculateOverallSimilarity(float $visualSimilarity, float $textSimilarity): float
     {
-        $textWeight = (float) ($this->config['weights']['text'] ?? 0.30);
-        $visualWeight = (float) ($this->config['weights']['visual'] ?? 0.70);
+        $textWeight = (float) ($this->config['weights']['text'] ?? 0.35);
+        $visualWeight = (float) ($this->config['weights']['visual'] ?? 0.65);
         $weightSum = max(0.0001, $visualWeight + $textWeight);
         $visualWeight /= $weightSum;
         $textWeight /= $weightSum;
 
-        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.62);
-        $minText = (float) ($this->config['thresholds']['text'] ?? 0.35);
-
         $overallSimilarity = ($visualSimilarity * $visualWeight) + ($textSimilarity * $textWeight);
 
-        // Strong visual alone can carry a match (same photo / near-duplicate).
+        // Near-duplicate photos should always score highly.
         if ($visualSimilarity >= 0.85) {
             $overallSimilarity = max($overallSimilarity, $visualSimilarity);
         }
 
-        // Require both modalities to be reasonably present for mixed scores.
-        if ($visualSimilarity < $minVisual && $textSimilarity < 0.75) {
-            $overallSimilarity *= 0.35;
-        } elseif ($visualSimilarity < 0.45 || ($textSimilarity < $minText && $visualSimilarity < 0.75)) {
-            $overallSimilarity *= 0.45;
+        // Same item / different background: reward solid text with usable visual.
+        if ($textSimilarity >= 0.70 && $visualSimilarity >= 0.40) {
+            $overallSimilarity = max($overallSimilarity, ($visualSimilarity * 0.55) + ($textSimilarity * 0.45));
         }
 
-        // Both weak → reject-level score.
-        if ($visualSimilarity < 0.40 && $textSimilarity < 0.40) {
-            $overallSimilarity *= 0.25;
+        // Reject-level only when both signals are weak (unrelated items).
+        if ($visualSimilarity < 0.35 && $textSimilarity < 0.40) {
+            $overallSimilarity *= 0.35;
+        } elseif ($visualSimilarity < 0.30) {
+            $overallSimilarity *= 0.55;
         }
 
         return min(1.0, max(0.0, $overallSimilarity));
@@ -395,23 +392,22 @@ class SimilarityNotificationService
      */
     private function meetsMatchCriteria(float $visualSimilarity, float $textSimilarity, float $overallSimilarity, float $objectsSimilarity = -1.0): bool
     {
-        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.72);
-        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.62);
-        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.55);
-        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.80);
-        $minObjects = (float) ($this->config['thresholds']['objects'] ?? 0.20);
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.60);
+        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.50);
+        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.42);
+        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
 
-        // Vision labels available on both sides: reject if labels barely overlap
-        // unless the images themselves are already very similar.
-        if ($objectsSimilarity >= 0.0 && $objectsSimilarity < $minObjects && $visualSimilarity < 0.78) {
+        // Only hard-block when Vision labels exist on both sides and share nothing,
+        // and the photos are not already strongly similar.
+        if ($objectsSimilarity === 0.0 && $visualSimilarity < 0.70) {
             return false;
         }
 
         $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
-        $strongVisual = $visualSimilarity >= 0.80 && $overallSimilarity >= ($matchThreshold - 0.05);
+        $strongVisual = $visualSimilarity >= 0.75 && $overallSimilarity >= ($matchThreshold - 0.08);
         $semanticFallback = $visualSimilarity >= $semanticVisual
             && $textSimilarity >= $semanticText
-            && $overallSimilarity >= ($matchThreshold - 0.05);
+            && $overallSimilarity >= ($matchThreshold - 0.08);
 
         return $primaryMatch || $strongVisual || $semanticFallback;
     }

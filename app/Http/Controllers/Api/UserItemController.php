@@ -1065,12 +1065,20 @@ class UserItemController extends Controller
 
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
-            $displayThreshold = (float) config('similarity.thresholds.display', config('similarity.thresholds.match', 0.72));
-            $minVisual = (float) config('similarity.thresholds.visual', 0.62);
+            $displayThreshold = (float) config('similarity.thresholds.display', config('similarity.thresholds.match', 0.58));
+            $minVisual = (float) config('similarity.thresholds.visual', 0.50);
+            $semanticVisual = (float) config('similarity.thresholds.semantic_visual', 0.42);
+            $semanticText = (float) config('similarity.thresholds.semantic_text', 0.70);
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->whereIn('user_item_upload_id', $userUploadIds)
                 ->where('similarity_score', '>=', $displayThreshold)
-                ->where('visual_similarity', '>=', $minVisual)
+                ->where(function ($q) use ($minVisual, $semanticVisual, $semanticText) {
+                    $q->where('visual_similarity', '>=', $minVisual)
+                        ->orWhere(function ($q2) use ($semanticVisual, $semanticText) {
+                            $q2->where('visual_similarity', '>=', $semanticVisual)
+                                ->where('text_similarity', '>=', $semanticText);
+                        });
+                })
                 ->orderBy('similarity_score', 'desc')
                 ->get();
 
