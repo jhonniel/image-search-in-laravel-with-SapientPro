@@ -31,6 +31,7 @@ class ItemReportController extends Controller
             'total_reports' => UserReport::count(),
             'pending' => UserReport::where('status', 'pending')->count(),
             'reviewed' => UserReport::where('status', 'reviewed')->count(),
+            'violated' => UserReport::where('status', 'violated')->count(),
             'dismissed' => UserReport::where('status', 'dismissed')->count(),
             'flagged_users' => UserReport::query()->distinct()->count('reported_user_id'),
         ];
@@ -74,15 +75,65 @@ class ItemReportController extends Controller
     public function updateUserReportStatus(Request $request, UserReport $userReport)
     {
         $request->validate([
-            'status' => 'required|in:pending,reviewed,dismissed',
+            'status' => 'required|in:pending,reviewed,violated,dismissed',
+            'offense_banned' => 'nullable|boolean',
+            'offense_cannot_post' => 'nullable|boolean',
+            'offense_cannot_claim' => 'nullable|boolean',
+            'offense_cannot_login' => 'nullable|boolean',
+            'login_block_days' => 'nullable|integer|min:1|max:365',
         ]);
 
-        $userReport->status = $request->input('status');
+        $status = $request->input('status');
+        $userReport->status = $status;
         $userReport->save();
 
+        if ($status === 'violated') {
+            $reportedUser = User::find($userReport->reported_user_id);
+            if ($reportedUser && $reportedUser->role !== 'admin') {
+                $isBanned = $request->boolean('offense_banned');
+
+                if ($isBanned) {
+                    $reportedUser->forceFill([
+                        'is_banned' => true,
+                        'cannot_post' => false,
+                        'cannot_claim' => false,
+                        'login_blocked_until' => null,
+                        'restriction_note' => 'Banned after user report #'.$userReport->id,
+                    ])->save();
+                } else {
+                    $cannotLogin = $request->boolean('offense_cannot_login');
+                    $days = (int) $request->input('login_block_days', 7);
+                    if ($cannotLogin && $days < 1) {
+                        $days = 7;
+                    }
+
+                    $reportedUser->forceFill([
+                        'is_banned' => false,
+                        'cannot_post' => $request->boolean('offense_cannot_post'),
+                        'cannot_claim' => $request->boolean('offense_cannot_claim'),
+                        'login_blocked_until' => $cannotLogin ? now()->addDays($days) : null,
+                        'restriction_note' => 'Offense applied from user report #'.$userReport->id,
+                    ])->save();
+                }
+
+                Log::info('Admin applied user offense after violated report', [
+                    'report_id' => $userReport->id,
+                    'reported_user_id' => $reportedUser->id,
+                    'is_banned' => $reportedUser->is_banned,
+                    'cannot_post' => $reportedUser->cannot_post,
+                    'cannot_claim' => $reportedUser->cannot_claim,
+                    'login_blocked_until' => optional($reportedUser->login_blocked_until)?->toDateTimeString(),
+                ]);
+            }
+        }
+
+        $redirectStatus = $request->input('redirect_status', $status);
+
         return redirect()
-            ->route('item-reports.index', ['tab' => 'users', 'status' => $request->get('status', 'all')])
-            ->with('success', 'User report status updated.');
+            ->route('item-reports.index', ['tab' => 'users', 'status' => $redirectStatus])
+            ->with('success', $status === 'violated'
+                ? 'User report marked as Violated and offenses applied.'
+                : 'User report status updated.');
     }
 
     public function deleteItem(string $uploadId)
@@ -243,6 +294,10 @@ class ItemReportController extends Controller
                     'reported_name' => $report->reportedUser->name ?? 'Unknown',
                     'reported_email' => $report->reportedUser->email ?? null,
                     'reported_user_id' => $report->reported_user_id,
+                    'reported_is_banned' => (bool) ($report->reportedUser->is_banned ?? false),
+                    'reported_cannot_post' => (bool) ($report->reportedUser->cannot_post ?? false),
+                    'reported_cannot_claim' => (bool) ($report->reportedUser->cannot_claim ?? false),
+                    'reported_login_blocked_until' => $report->reportedUser?->login_blocked_until?->format('M d, Y'),
                     'created_at' => $report->created_at?->format('M d, Y g:i A'),
                     'appeal_message' => $report->appeal_message,
                     'appealed_at' => $report->appealed_at?->format('M d, Y g:i A'),

@@ -170,6 +170,25 @@ class AuthController extends Controller
         $password = $request->input('password');
         $remember = $request->boolean('remember');
 
+        $candidate = null;
+        if (str_contains($identifier, '@')) {
+            $candidate = User::where('email', $identifier)->first();
+        } else {
+            $candidate = User::where('username', $identifier)
+                ->orWhere('code_name', $identifier)
+                ->orWhere('email', $identifier)
+                ->first();
+        }
+
+        if ($candidate) {
+            $restrictionMessage = $candidate->loginRestrictionMessage();
+            if ($restrictionMessage) {
+                throw ValidationException::withMessages([
+                    'login' => $restrictionMessage,
+                ]);
+            }
+        }
+
         // If identifier looks like an email
         if (str_contains($identifier, '@')) {
             if (Auth::attempt(['email' => $identifier, 'password' => $password], $remember)) {
@@ -177,10 +196,7 @@ class AuthController extends Controller
             }
         } else {
             // Try username, then code_name, then email equal to identifier
-            $user = User::where('username', $identifier)
-                ->orWhere('code_name', $identifier)
-                ->orWhere('email', $identifier)
-                ->first();
+            $user = $candidate;
 
             if ($user && Hash::check($password, $user->password)) {
                 Auth::login($user, $remember);
@@ -197,6 +213,18 @@ class AuthController extends Controller
     private function afterSuccessfulLogin(Request $request, bool $remember = false)
     {
         $user = Auth::user();
+
+        $restrictionMessage = $user?->loginRestrictionMessage();
+        if ($restrictionMessage) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw ValidationException::withMessages([
+                'login' => $restrictionMessage,
+            ]);
+        }
+
         // Link pending guest item before regenerating session
         $this->processGuestPendingItem($request, $user);
         $request->session()->regenerate();

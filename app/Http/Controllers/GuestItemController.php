@@ -197,6 +197,13 @@ class GuestItemController extends Controller
     {
         try {
             $user = Auth::user();
+
+            if ($user->cannotPostItems()) {
+                return redirect()->back()->with('error', $user->isBanned()
+                    ? 'Your account has been banned. You cannot post items.'
+                    : 'Your account cannot post items due to an active offense.');
+            }
+
             $uploadId = 'user_upload_'.Str::random(10);
             $itemsSaved = 0;
 

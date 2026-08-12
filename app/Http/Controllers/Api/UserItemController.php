@@ -49,6 +49,16 @@ class UserItemController extends Controller
 
         $user = Auth::user();
 
+        if ($user->cannotPostItems()) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Posting restricted',
+                'message' => $user->isBanned()
+                    ? 'Your account has been banned. You cannot post items.'
+                    : 'Your account cannot post items due to an active offense.',
+            ], 403);
+        }
+
         // Debug: Log the incoming request data
         $files = $request->file('images');
         $fileDetails = [];
@@ -1438,6 +1448,15 @@ class UserItemController extends Controller
                     'success' => false,
                     'error' => 'User not authenticated',
                 ], 401);
+            }
+
+            if ($user->cannotClaimItems()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $user->isBanned()
+                        ? 'Your account has been banned. You cannot claim items.'
+                        : 'Your account cannot claim items due to an active offense.',
+                ], 403);
             }
 
             // First check if item exists

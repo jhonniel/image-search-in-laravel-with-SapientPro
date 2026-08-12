@@ -7,15 +7,15 @@
     @include('user.partials.page-header', [
         'eyebrow' => 'Matching',
         'title' => 'Claim and verify',
-        'description' => 'Items automatically matched to your reports using image and text similarity.',
-        'actions' => '<div class="text-right shrink-0"><div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div><div class="text-xs text-gray-500 sm:text-sm">Matched items</div></div>',
+        'description' => 'Your reported items and the similar listings matched to them.',
+        'actions' => '<div class="text-right shrink-0"><div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div><div class="text-xs text-gray-500 sm:text-sm">Your items with matches</div></div>',
     ])
 
     <div class="user-card">
         <div class="user-card-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-                <h3 class="user-card-title">Matched items</h3>
-                <p class="user-card-subtitle">Compare your item with similar listings, then claim or message the owner</p>
+                <h3 class="user-card-title">Your items</h3>
+                <p class="user-card-subtitle">Open an item to see all matches you can claim, message, or report</p>
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                 <div class="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
@@ -42,12 +42,14 @@
 
             <div id="other-users-items-list" class="hidden cv-compare-list"></div>
 
+            <div id="item-matches-view" class="hidden space-y-4"></div>
+
             <div id="empty-state" class="hidden py-12 text-center">
                 <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
                 <h3 class="text-base font-semibold text-gray-900">No matches yet</h3>
-                <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">When similar lost or found items appear, they’ll show up here for comparison.</p>
+                <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">When similar lost or found items appear, they’ll be grouped under your reports here.</p>
             </div>
         </div>
     </div>
@@ -184,40 +186,20 @@ function tagsHtml(tags) {
     return `<div class="cv-compare-tags">${list.map(t => `<span class="cv-compare-tag">${escapeHtml(t)}</span>`).join('')}</div>`;
 }
 
-function panelImage(images, alt) {
+function panelImage(images, alt, sizeClass = '') {
     const path = firstImagePath(images);
     const extra = images && images.length > 1 ? images.length - 1 : 0;
+    const wrapClass = sizeClass ? `cv-compare-image-wrap ${sizeClass}` : 'cv-compare-image-wrap';
     if (!path) {
-        return `<div class="cv-compare-image-wrap"><div class="cv-compare-image-empty"><i class="fas fa-image text-3xl"></i></div></div>`;
+        return `<div class="${wrapClass}"><div class="cv-compare-image-empty"><i class="fas fa-image text-xl"></i></div></div>`;
     }
     return `
-        <div class="cv-compare-image-wrap">
+        <div class="${wrapClass}">
             <img src="${escapeHtml(path)}" alt="${escapeHtml(alt || 'Item')}" class="cv-compare-image"
-                 onclick="viewImage('${escapeJs(path)}')" loading="lazy"
+                 onclick="event.stopPropagation(); viewImage('${escapeJs(path)}')" loading="lazy"
                  onerror="this.classList.add('hidden'); this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.classList.add('flex');">
-            <div class="cv-compare-image-empty hidden"><i class="fas fa-image text-3xl"></i></div>
-            ${extra > 0 ? `<span class="absolute right-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">+${extra}</span>` : ''}
-        </div>
-    `;
-}
-
-function yoursPanel(yours) {
-    if (!yours) {
-        return `
-            <div class="cv-compare-panel">
-                <div class="cv-compare-panel-label cv-compare-panel-label-yours">Yours</div>
-                <p class="text-[11px] text-gray-400">No linked item</p>
-            </div>
-        `;
-    }
-
-    return `
-        <div class="cv-compare-panel">
-            <div class="cv-compare-panel-label cv-compare-panel-label-yours">Yours</div>
-            ${typeBadge(yours.item_type)}
-            <p class="cv-compare-desc">${escapeHtml(yours.description || 'No description')}</p>
-            <p class="cv-compare-meta">${escapeHtml(yours.location || 'No location')}</p>
-            ${panelImage(yours.images, yours.description)}
+            <div class="cv-compare-image-empty hidden"><i class="fas fa-image text-xl"></i></div>
+            ${extra > 0 ? `<span class="absolute right-1.5 top-1.5 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white">+${extra}</span>` : ''}
         </div>
     `;
 }
@@ -242,7 +224,7 @@ function matchActions(item) {
     }
 
     return `
-        <div class="cv-compare-actions">
+        <div class="cv-compare-actions !border-0 !bg-transparent !px-0 !py-1.5">
             <button type="button" onclick="viewItemDetails('${id}')" class="cv-compare-btn-secondary" title="Details"><i class="fas fa-info-circle"></i></button>
             <button type="button" onclick="openReportModal('${id}')" class="cv-compare-btn-report" title="Report"><i class="fas fa-flag"></i></button>
             <button type="button" onclick="messageAboutItem('${id}', '${escapeJs(item.description || '')}', '${escapeJs(item.item_type || '')}', '${escapeJs(item.location || '')}')" class="cv-compare-btn-message">Message</button>
@@ -251,69 +233,223 @@ function matchActions(item) {
     `;
 }
 
-function matchPanel(item) {
-    const uploader = escapeHtml(item.uploader_name || 'Unknown');
+function yoursSummaryCard(yours) {
+    if (!yours) {
+        return `
+            <div class="cv-group-yours">
+                <div class="cv-compare-panel-label cv-compare-panel-label-yours">Your item</div>
+                <p class="text-sm text-gray-400">No linked item</p>
+            </div>
+        `;
+    }
+
     return `
-        <div class="cv-compare-panel">
-            <div class="cv-compare-panel-label cv-compare-panel-label-match">Match</div>
-            ${typeBadge(item.item_type)}
-            <p class="cv-compare-desc">${escapeHtml(item.description || 'No description')}</p>
-            <p class="cv-compare-meta">${escapeHtml(item.location || 'No location')} · ${uploader}</p>
-            ${panelImage(item.images, item.description)}
+        <div class="cv-group-yours">
+            <div class="cv-group-yours-media">
+                ${panelImage(yours.images, yours.description, 'cv-tile-thumb')}
+            </div>
+            <div class="cv-group-yours-body">
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="cv-compare-panel-label cv-compare-panel-label-yours !mb-0">Your item</span>
+                    ${typeBadge(yours.item_type)}
+                </div>
+                <p class="cv-group-title">${escapeHtml(yours.description || 'No description')}</p>
+                <p class="cv-compare-meta !mt-0.5">${escapeHtml(yours.location || 'No location')}</p>
+                ${tagsHtml(yours.tags)}
+            </div>
         </div>
     `;
 }
 
+function matchRow(item) {
+    const score = item.similarity_score != null ? `${Number(item.similarity_score)}%` : '—';
+    const uploader = escapeHtml(item.uploader_name || 'Unknown');
+
+    return `
+        <div class="cv-match-row">
+            <div class="cv-match-row-media">
+                ${panelImage(item.images, item.description)}
+            </div>
+            <div class="cv-match-row-body min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    ${typeBadge(item.item_type)}
+                    <span class="text-[10px] font-semibold text-purple-700">Score ${escapeHtml(score)}</span>
+                </div>
+                <p class="cv-group-title">${escapeHtml(item.description || 'No description')}</p>
+                <p class="cv-compare-meta !mt-0.5">${escapeHtml(item.location || 'No location')} · ${uploader}</p>
+                ${matchActions(item)}
+            </div>
+        </div>
+    `;
+}
+
+function groupMatchesByUserItem(items) {
+    const groups = new Map();
+
+    items.forEach(item => {
+        const yours = item.user_matched_item || null;
+        const groupKey = yours?.upload_id
+            || item.matched_with_upload_id
+            || item.matched_with
+            || `unknown-${item.upload_id}`;
+
+        if (!groups.has(groupKey)) {
+            groups.set(groupKey, {
+                key: groupKey,
+                yours,
+                matches: [],
+            });
+        }
+
+        const group = groups.get(groupKey);
+        if (!group.yours && yours) {
+            group.yours = yours;
+        }
+        group.matches.push(item);
+    });
+
+    return Array.from(groups.values()).map(group => {
+        group.matches.sort((a, b) => (Number(b.similarity_score) || 0) - (Number(a.similarity_score) || 0));
+        group.bestScore = group.matches[0]?.similarity_score != null
+            ? Number(group.matches[0].similarity_score)
+            : null;
+        return group;
+    }).sort((a, b) => (b.bestScore || 0) - (a.bestScore || 0));
+}
+
+function groupDomId(key) {
+    return String(key).replace(/[^a-zA-Z0-9_-]/g, '_');
+}
+
+let currentGroups = [];
+let activeGroupKey = null;
+
+function showItemsList() {
+    activeGroupKey = null;
+    document.getElementById('item-matches-view')?.classList.add('hidden');
+    document.getElementById('other-users-items-list')?.classList.remove('hidden');
+    const subtitle = document.querySelector('.user-card-subtitle');
+    if (subtitle) subtitle.textContent = 'Open an item to see all matches you can claim, message, or report';
+    const title = document.querySelector('.user-card-title');
+    if (title) title.textContent = 'Your items';
+}
+
+function openItemMatches(groupKey) {
+    const group = currentGroups.find(g => String(g.key) === String(groupKey));
+    const detailView = document.getElementById('item-matches-view');
+    const listView = document.getElementById('other-users-items-list');
+    if (!group || !detailView) return;
+
+    activeGroupKey = String(groupKey);
+    listView?.classList.add('hidden');
+    detailView.classList.remove('hidden');
+
+    const title = document.querySelector('.user-card-title');
+    if (title) title.textContent = 'Possible matches';
+    const subtitle = document.querySelector('.user-card-subtitle');
+    if (subtitle) {
+        subtitle.textContent = `${group.matches.length} possible match${group.matches.length === 1 ? '' : 'es'} for this item`;
+    }
+
+    const best = group.bestScore != null ? `${group.bestScore}%` : '—';
+    const matchesHtml = group.matches.length
+        ? `<div class="cv-detail-matches">${group.matches.map(matchRow).join('')}</div>`
+        : `<p class="py-8 text-center text-sm text-gray-500">No possible matches for this item.</p>`;
+
+    detailView.innerHTML = `
+        <div class="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onclick="showItemsList()" class="user-btn-ghost !py-2 text-sm">
+                <i class="fas fa-arrow-left text-xs"></i>
+                Back to your items
+            </button>
+            <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
+        </div>
+        <section class="cv-detail-yours">
+            ${yoursSummaryCard(group.yours)}
+        </section>
+        <section>
+            <h4 class="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">All possible matches</h4>
+            ${matchesHtml}
+        </section>
+    `;
+
+    detailView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function displayOtherUsersItems(items) {
     const itemsContainer = document.getElementById('other-users-items-list');
+    const detailView = document.getElementById('item-matches-view');
     const loadingState = document.getElementById('loading-state');
     const emptyState = document.getElementById('empty-state');
 
     if (!itemsContainer) return;
 
     loadingState.classList.add('hidden');
-    itemsContainer.classList.remove('hidden');
 
     if (items.length === 0) {
+        currentGroups = [];
+        activeGroupKey = null;
         itemsContainer.innerHTML = '';
+        itemsContainer.classList.add('hidden');
+        detailView?.classList.add('hidden');
         emptyState.classList.remove('hidden');
+        document.getElementById('total-items-count').textContent = '0';
         return;
     }
 
     emptyState.classList.add('hidden');
+    currentGroups = groupMatchesByUserItem(items);
+    document.getElementById('total-items-count').textContent = String(currentGroups.length);
 
-    itemsContainer.innerHTML = items.map(item => {
-        const score = item.similarity_score != null ? `${Number(item.similarity_score)}%` : '—';
+    // Keep detail view open after claim/refresh if that group still exists
+    if (activeGroupKey && currentGroups.some(g => String(g.key) === activeGroupKey)) {
+        openItemMatches(activeGroupKey);
+        return;
+    }
+
+    activeGroupKey = null;
+    detailView?.classList.add('hidden');
+    itemsContainer.classList.remove('hidden');
+
+    itemsContainer.innerHTML = currentGroups.map(group => {
+        const domId = groupDomId(group.key);
+        const matchCount = group.matches.length;
+        const best = group.bestScore != null ? `${group.bestScore}%` : '—';
 
         return `
-            <article class="cv-compare">
-                <div class="cv-compare-header">
-                    <div class="cv-compare-header-title">
-                        <div class="cv-compare-header-icon"><i class="fas fa-link text-[10px]"></i></div>
-                        <div class="min-w-0">
-                            <h3 class="truncate text-xs font-bold text-purple-900">Similarity match</h3>
-                            <p class="text-[10px] text-purple-700">Score <span class="font-bold">${escapeHtml(score)}</span></p>
+            <article class="cv-group cursor-pointer" data-group-key="${escapeHtml(domId)}" onclick="openItemMatches('${escapeJs(String(group.key))}')">
+                <div class="cv-group-header">
+                    ${yoursSummaryCard(group.yours)}
+                    <div class="cv-group-summary">
+                        <div class="cv-group-summary-stats">
+                            <p class="text-sm font-semibold text-gray-900">${matchCount} match${matchCount === 1 ? '' : 'es'}</p>
+                            <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
                         </div>
+                        <button type="button"
+                            class="cv-group-toggle"
+                            onclick="event.stopPropagation(); openItemMatches('${escapeJs(String(group.key))}')">
+                            <span>View matches</span>
+                            <i class="fas fa-arrow-right text-xs"></i>
+                        </button>
                     </div>
                 </div>
-                <div class="cv-compare-panels">
-                    ${yoursPanel(item.user_matched_item)}
-                    ${matchPanel(item)}
-                </div>
-                ${matchActions(item)}
             </article>
         `;
     }).join('');
 }
 
 function updateStats() {
-    document.getElementById('total-items-count').textContent = allItems.length;
+    const groups = groupMatchesByUserItem(allItems);
+    document.getElementById('total-items-count').textContent = groups.length;
 }
 
 function showEmptyState() {
     document.getElementById('loading-state').classList.add('hidden');
     document.getElementById('other-users-items-list').classList.add('hidden');
+    document.getElementById('item-matches-view')?.classList.add('hidden');
     document.getElementById('empty-state').classList.remove('hidden');
+    document.getElementById('total-items-count').textContent = '0';
+    activeGroupKey = null;
 }
 
 // Filter functions
@@ -322,12 +458,15 @@ function filterItems() {
     const typeFilter = document.getElementById('type-filter').value;
 
     filteredItems = allItems.filter(item => {
+        const yours = item.user_matched_item || {};
         const matchesSearch = !searchTerm ||
             (item.description || '').toLowerCase().includes(searchTerm) ||
             (item.location || '').toLowerCase().includes(searchTerm) ||
+            (yours.description || '').toLowerCase().includes(searchTerm) ||
+            (yours.location || '').toLowerCase().includes(searchTerm) ||
             (item.tags && item.tags.some(tag => String(tag).toLowerCase().includes(searchTerm)));
 
-        const matchesType = !typeFilter || item.item_type === typeFilter;
+        const matchesType = !typeFilter || item.item_type === typeFilter || yours.item_type === typeFilter;
 
         return matchesSearch && matchesType;
     });

@@ -27,6 +27,11 @@ class User extends Authenticatable
         'profile_picture',
         'is_verified',
         'role',
+        'cannot_post',
+        'cannot_claim',
+        'is_banned',
+        'login_blocked_until',
+        'restriction_note',
     ];
 
     /**
@@ -50,7 +55,51 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'is_verified' => 'boolean',
+            'cannot_post' => 'boolean',
+            'cannot_claim' => 'boolean',
+            'is_banned' => 'boolean',
+            'login_blocked_until' => 'datetime',
         ];
+    }
+
+    public function isBanned(): bool
+    {
+        return (bool) $this->is_banned;
+    }
+
+    public function isLoginBlocked(): bool
+    {
+        if ($this->isBanned()) {
+            return true;
+        }
+
+        return $this->login_blocked_until !== null && $this->login_blocked_until->isFuture();
+    }
+
+    public function cannotPostItems(): bool
+    {
+        return $this->isBanned() || (bool) $this->cannot_post;
+    }
+
+    public function cannotClaimItems(): bool
+    {
+        return $this->isBanned() || (bool) $this->cannot_claim;
+    }
+
+    /**
+     * Message shown when login is blocked (investigation / ban).
+     */
+    public function loginRestrictionMessage(): ?string
+    {
+        if ($this->isBanned()) {
+            return 'Your account has been banned.';
+        }
+
+        if ($this->login_blocked_until !== null && $this->login_blocked_until->isFuture()) {
+            return 'Your account is under investigation.';
+        }
+
+        return null;
     }
 
     /**
