@@ -31,17 +31,17 @@ return [
 
     'thresholds' => [
         // Minimum visual score for a normal match
-        'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.50),
+        'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.40),
         // Soft text floor used inside overall scoring penalties
-        'text' => (float) env('SIMILARITY_MIN_TEXT', 0.30),
+        'text' => (float) env('SIMILARITY_MIN_TEXT', 0.25),
         // Store a match only if overall score reaches this
-        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.60),
+        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.52),
         // Claim & Verify display filter
-        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.58),
+        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.50),
         // Alternate path: strong text + decent visual (same item, different photo)
-        'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.42),
-        'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.70),
-        // Soft object-label guidance (hard reject only when completely disjoint)
+        'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.35),
+        'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.65),
+        // Soft object-label guidance
         'objects' => (float) env('SIMILARITY_MIN_OBJECTS', 0.15),
     ],
 

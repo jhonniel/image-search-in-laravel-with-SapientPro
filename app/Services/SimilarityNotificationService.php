@@ -392,24 +392,208 @@ class SimilarityNotificationService
      */
     private function meetsMatchCriteria(float $visualSimilarity, float $textSimilarity, float $overallSimilarity, float $objectsSimilarity = -1.0): bool
     {
-        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.60);
-        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.50);
-        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.42);
-        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.52);
+        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.40);
+        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.35);
+        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.65);
 
-        // Only hard-block when Vision labels exist on both sides and share nothing,
-        // and the photos are not already strongly similar.
-        if ($objectsSimilarity === 0.0 && $visualSimilarity < 0.70) {
+        // Soft guidance only: completely disjoint Vision labels + weak photo → skip.
+        // Do not block otherwise — labels are often noisy for the same physical item.
+        if ($objectsSimilarity === 0.0 && $visualSimilarity < 0.55 && $textSimilarity < 0.70) {
             return false;
         }
 
         $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
-        $strongVisual = $visualSimilarity >= 0.75 && $overallSimilarity >= ($matchThreshold - 0.08);
+        $strongVisual = $visualSimilarity >= 0.70 && $overallSimilarity >= ($matchThreshold - 0.08);
         $semanticFallback = $visualSimilarity >= $semanticVisual
             && $textSimilarity >= $semanticText
             && $overallSimilarity >= ($matchThreshold - 0.08);
 
         return $primaryMatch || $strongVisual || $semanticFallback;
+    }
+
+    /**
+     * Persist a bidirectional ItemMatch row pair.
+     */
+    private function storeBidirectionalMatch(
+        ImageMetadata $userItem,
+        ImageMetadata $matchedItem,
+        string $userEmail,
+        float $overallSimilarity,
+        float $visualSimilarity,
+        float $textSimilarity
+    ): void {
+        $notifyThreshold = (float) ($this->config['thresholds']['match']
+            ?? $this->config['threshold']
+            ?? 0.52);
+        $shouldNotify = $overallSimilarity >= $notifyThreshold
+            || ($visualSimilarity >= 0.65 && $textSimilarity >= 0.70);
+
+        ItemMatch::updateOrCreate(
+            [
+                'user_item_upload_id' => $userItem->upload_id,
+                'matched_item_upload_id' => $matchedItem->upload_id,
+            ],
+            [
+                'user_email' => $userEmail,
+                'matched_item_owner_email' => $matchedItem->uploader_email,
+                'user_item_status' => $userItem->status,
+                'matched_item_status' => $matchedItem->status,
+                'similarity_score' => $overallSimilarity,
+                'visual_similarity' => $visualSimilarity,
+                'text_similarity' => $textSimilarity,
+                'is_notified' => $shouldNotify,
+            ]
+        );
+
+        ItemMatch::updateOrCreate(
+            [
+                'user_item_upload_id' => $matchedItem->upload_id,
+                'matched_item_upload_id' => $userItem->upload_id,
+            ],
+            [
+                'user_email' => $matchedItem->uploader_email,
+                'matched_item_owner_email' => $userEmail,
+                'user_item_status' => $matchedItem->status,
+                'matched_item_status' => $userItem->status,
+                'similarity_score' => $overallSimilarity,
+                'visual_similarity' => $visualSimilarity,
+                'text_similarity' => $textSimilarity,
+                'is_notified' => $shouldNotify,
+            ]
+        );
+    }
+
+    /**
+     * Best visual similarity across every image file in two upload groups.
+     */
+    private function maxVisualSimilarityBetweenGroups($userGroup, $otherGroup): float
+    {
+        $max = 0.0;
+
+        foreach ($userGroup as $userImg) {
+            $userPath = $this->getItemFilePath($userImg);
+            if (! $userPath) {
+                continue;
+            }
+            foreach ($otherGroup as $otherImg) {
+                $otherPath = $this->getItemFilePath($otherImg);
+                if (! $otherPath) {
+                    continue;
+                }
+                $max = max($max, $this->calculateVisualSimilarity($userPath, $otherPath));
+            }
+        }
+
+        return $max;
+    }
+
+    /**
+     * Re-scan opposite-type listings for this user and store any missing matches.
+     * Used by Claim & Verify so matches still appear when the upload-time check missed them.
+     */
+    public function refreshMatchesForUser(string $userEmail, int $maxOtherUploads = 80, int $maxSeconds = 10): int
+    {
+        if (! ($this->config['enabled'] ?? true)) {
+            return 0;
+        }
+
+        $userGroups = ImageMetadata::where('uploader_email', $userEmail)
+            ->whereNull('images_purged_at')
+            ->availableForUsers()
+            ->orderByDesc('created_at')
+            ->get()
+            ->groupBy('upload_id');
+
+        if ($userGroups->isEmpty()) {
+            return 0;
+        }
+
+        $stored = 0;
+        $started = microtime(true);
+
+        foreach ($userGroups as $userUploadId => $userGroup) {
+            if ((microtime(true) - $started) > $maxSeconds) {
+                break;
+            }
+
+            $userFirst = $userGroup->first();
+            if (! $userFirst) {
+                continue;
+            }
+
+            $oppositeStatus = $userFirst->status === 'lost' ? 'found' : 'lost';
+
+            $alreadyMatched = ItemMatch::where('user_email', $userEmail)
+                ->where('user_item_upload_id', $userUploadId)
+                ->pluck('matched_item_upload_id')
+                ->all();
+
+            $otherGroups = ImageMetadata::where('uploader_email', '!=', $userEmail)
+                ->where('status', $oppositeStatus)
+                ->whereNotNull('file_path')
+                ->whereNull('images_purged_at')
+                ->availableForUsers()
+                ->when(! empty($alreadyMatched), fn ($q) => $q->whereNotIn('upload_id', $alreadyMatched))
+                ->orderByDesc('created_at')
+                ->limit($maxOtherUploads * 3) // more rows before grouping
+                ->get()
+                ->groupBy('upload_id')
+                ->take($maxOtherUploads);
+
+            foreach ($otherGroups as $otherUploadId => $otherGroup) {
+                if ((microtime(true) - $started) > $maxSeconds) {
+                    break 2;
+                }
+
+                $otherFirst = $otherGroup->first();
+                if (! $otherFirst) {
+                    continue;
+                }
+
+                try {
+                    $visualSimilarity = $this->maxVisualSimilarityBetweenGroups($userGroup, $otherGroup);
+                    $newMetadata = [
+                        'description' => $userFirst->description,
+                        'tags' => $userFirst->tags,
+                        'detected_objects' => $userFirst->detected_objects,
+                    ];
+                    $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
+                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
+                    $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
+
+                    if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
+                        continue;
+                    }
+
+                    $this->storeBidirectionalMatch(
+                        $userFirst,
+                        $otherFirst,
+                        $userEmail,
+                        $overallSimilarity,
+                        $visualSimilarity,
+                        $textSimilarity
+                    );
+                    $stored++;
+
+                    Log::info('Claim-verify refresh stored missing match', [
+                        'user_email' => $userEmail,
+                        'user_upload_id' => $userUploadId,
+                        'matched_upload_id' => $otherUploadId,
+                        'similarity' => $overallSimilarity,
+                        'visual' => $visualSimilarity,
+                        'text' => $textSimilarity,
+                    ]);
+                } catch (\Throwable $e) {
+                    Log::warning('Claim-verify refresh compare failed: '.$e->getMessage(), [
+                        'user_upload_id' => $userUploadId,
+                        'other_upload_id' => $otherUploadId,
+                    ]);
+                }
+            }
+        }
+
+        return $stored;
     }
 
     /**
@@ -847,7 +1031,7 @@ class SimilarityNotificationService
                         $visualThreshold = $this->config['thresholds']['match']
                             ?? $this->config['thresholds']['visual']
                             ?? $this->config['threshold']
-                            ?? 0.72;
+                            ?? 0.52;
 
                         if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
                             $similarItems[] = [
