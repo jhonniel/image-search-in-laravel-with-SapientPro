@@ -1052,9 +1052,12 @@ class UserItemController extends Controller
 
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
+            $displayThreshold = (float) config('similarity.thresholds.display', config('similarity.thresholds.match', 0.72));
+            $minVisual = (float) config('similarity.thresholds.visual', 0.62);
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->whereIn('user_item_upload_id', $userUploadIds)
-                ->where('similarity_score', '>=', 0.5) // Only show matches above threshold
+                ->where('similarity_score', '>=', $displayThreshold)
+                ->where('visual_similarity', '>=', $minVisual)
                 ->orderBy('similarity_score', 'desc')
                 ->get();
 
@@ -1134,10 +1137,18 @@ class UserItemController extends Controller
                         continue;
                     }
 
+                    $notifSimilarity = (float) ($data['similarity_score'] ?? 0);
+                    if ($notifSimilarity > 1) {
+                        $notifSimilarity = $notifSimilarity / 100;
+                    }
+                    if ($notifSimilarity < $displayThreshold) {
+                        continue;
+                    }
+
                     $notificationMatches[$otherUploadId] = [
                         'other_upload_id' => $otherUploadId,
                         'user_upload_id' => $userUploadIdForMatch,
-                        'similarity' => $data['similarity_score'] ?? 0.5,
+                        'similarity' => $notifSimilarity,
                     ];
                 }
 

@@ -58,7 +58,7 @@
             @include('admin.partials.stat-card', ['label' => 'Total Reports', 'value' => number_format($itemStats['total_reports']), 'icon' => 'fa-flag', 'iconBg' => 'bg-red-100', 'iconColor' => 'text-red-600'])
             @include('admin.partials.stat-card', ['label' => 'Flagged Items', 'value' => number_format($itemStats['flagged_items']), 'icon' => 'fa-box', 'iconBg' => 'bg-purple-100', 'iconColor' => 'text-purple-600'])
             @include('admin.partials.stat-card', ['label' => 'Pending', 'value' => number_format($itemStats['pending']), 'icon' => 'fa-clock', 'iconBg' => 'bg-amber-100', 'iconColor' => 'text-amber-600'])
-            @include('admin.partials.stat-card', ['label' => 'Reviewed', 'value' => number_format($itemStats['reviewed']), 'icon' => 'fa-check', 'iconBg' => 'bg-emerald-100', 'iconColor' => 'text-emerald-600'])
+            @include('admin.partials.stat-card', ['label' => 'Violated', 'value' => number_format($itemStats['violated'] ?? 0), 'icon' => 'fa-gavel', 'iconBg' => 'bg-red-100', 'iconColor' => 'text-red-600'])
             @include('admin.partials.stat-card', ['label' => 'Dismissed', 'value' => number_format($itemStats['dismissed']), 'icon' => 'fa-ban', 'iconBg' => 'bg-gray-100', 'iconColor' => 'text-gray-600'])
         </div>
     @endif
@@ -258,6 +258,21 @@
                                             &lt;{{ $item['uploader_email'] }}&gt;
                                         @endif
                                     </p>
+                                    @if(!empty($item['uploader_is_banned']))
+                                        <span class="mt-1 inline-flex rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-800">Uploader banned</span>
+                                    @else
+                                        <div class="mt-1 flex flex-wrap gap-1">
+                                            @if(!empty($item['uploader_cannot_post']))
+                                                <span class="inline-flex rounded bg-orange-100 px-1.5 py-0.5 text-[10px] font-medium text-orange-800">No post</span>
+                                            @endif
+                                            @if(!empty($item['uploader_cannot_claim']))
+                                                <span class="inline-flex rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">No claim</span>
+                                            @endif
+                                            @if(!empty($item['uploader_login_blocked_until']))
+                                                <span class="inline-flex rounded bg-purple-100 px-1.5 py-0.5 text-[10px] font-medium text-purple-800">Login blocked until {{ $item['uploader_login_blocked_until'] }}</span>
+                                            @endif
+                                        </div>
+                                    @endif
                                 </div>
                                 <div class="flex flex-wrap gap-2">
                                     <button type="button"
@@ -315,15 +330,47 @@
                                         ({{ $report['reporter_email'] }})
                                     @endif
                                 </p>
-                                <form method="POST" action="{{ route('item-reports.update', $report['id']) }}" class="flex flex-wrap items-center gap-2">
+                                <form method="POST" action="{{ route('item-reports.update', $report['id']) }}" class="offense-form space-y-2" data-report-id="{{ $report['id'] }}">
                                     @csrf
                                     @method('PUT')
-                                    <select name="status" class="admin-select !py-1.5 !text-xs min-w-[140px]">
-                                        <option value="pending" @selected($report['status'] === 'pending')>Pending</option>
-                                        <option value="reviewed" @selected($report['status'] === 'reviewed')>Reviewed</option>
-                                        <option value="dismissed" @selected($report['status'] === 'dismissed')>Dismissed</option>
-                                    </select>
-                                    <button type="submit" class="admin-btn-secondary !py-1.5 !px-3 text-xs">Update status</button>
+                                    <input type="hidden" name="redirect_status" value="{{ $status }}">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <select name="status" class="admin-select !py-1.5 !text-xs min-w-[140px] offense-status">
+                                            <option value="pending" @selected($report['status'] === 'pending')>Pending</option>
+                                            <option value="reviewed" @selected($report['status'] === 'reviewed')>Reviewed</option>
+                                            <option value="violated" @selected($report['status'] === 'violated')>Violated</option>
+                                            <option value="dismissed" @selected($report['status'] === 'dismissed')>Dismissed</option>
+                                        </select>
+                                        <button type="submit" class="admin-btn-secondary !py-1.5 !px-3 text-xs">Update status</button>
+                                    </div>
+                                    <div class="offense-options {{ $report['status'] === 'violated' ? '' : 'hidden' }} max-w-md rounded-lg border border-red-100 bg-red-50/60 p-2 text-left space-y-1.5">
+                                        <p class="text-[10px] font-semibold uppercase tracking-wide text-red-800">Uploader offenses</p>
+                                        <label class="flex items-center gap-2 text-xs text-gray-800">
+                                            <input type="checkbox" name="offense_cannot_post" value="1" class="offense-multi rounded border-gray-300 text-purple-primary">
+                                            Cannot post
+                                        </label>
+                                        <label class="flex items-center gap-2 text-xs text-gray-800">
+                                            <input type="checkbox" name="offense_cannot_claim" value="1" class="offense-multi rounded border-gray-300 text-purple-primary">
+                                            Cannot claim
+                                        </label>
+                                        <label class="flex items-start gap-2 text-xs text-gray-800">
+                                            <input type="checkbox" name="offense_cannot_login" value="1" class="offense-multi offense-login mt-0.5 rounded border-gray-300 text-purple-primary">
+                                            <span class="flex-1">
+                                                Cannot login
+                                                <input type="number" name="login_block_days" min="1" max="365" value="7" class="offense-days mt-1 w-20 rounded border border-gray-300 px-2 py-1 text-xs" placeholder="Days">
+                                                <span class="text-[10px] text-gray-500">days</span>
+                                            </span>
+                                        </label>
+                                        <label class="flex items-center gap-2 text-xs font-semibold text-red-800 border-t border-red-100 pt-1.5">
+                                            <input type="checkbox" name="offense_banned" value="1" class="offense-banned rounded border-gray-300 text-red-600">
+                                            Banned account (exclusive)
+                                        </label>
+                                        <label class="flex items-center gap-2 text-xs font-semibold text-red-800 border-t border-red-100 pt-1.5">
+                                            <input type="checkbox" name="remove_item" value="1" class="rounded border-gray-300 text-red-600" @checked(!$item['deleted_at'])>
+                                            Also remove this listing
+                                        </label>
+                                        <p class="text-[10px] text-red-700">If Banned is selected, other offenses cannot be combined. Remove listing soft-deletes the item.</p>
+                                    </div>
                                 </form>
                             </div>
                             @endforeach
@@ -353,7 +400,7 @@ function toggleReports(uploadId) {
 }
 
 async function deleteReportedItem(uploadId) {
-    if (!confirm('Delete this item? All images for this listing will be soft-deleted. Reports will be marked reviewed.')) {
+    if (!confirm('Delete this item? All images for this listing will be soft-deleted. Pending reports will be marked reviewed.')) {
         return;
     }
 
@@ -384,6 +431,8 @@ document.querySelectorAll('.offense-form').forEach(form => {
     const banned = form.querySelector('.offense-banned');
     const multi = form.querySelectorAll('.offense-multi');
     const days = form.querySelector('.offense-days');
+
+    if (!statusSelect || !options || !banned) return;
 
     const sync = () => {
         const isViolated = statusSelect.value === 'violated';

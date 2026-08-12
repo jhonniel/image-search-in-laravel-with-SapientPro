@@ -166,15 +166,17 @@ class SimilarityNotificationService
 
                     // Check if similarity meets threshold
                     $visualThreshold = $this->config['thresholds']['visual'] ?? 0.8; // Use config value, default to 0.8 for strict similarity
+                    $objectsSimilarity = $this->calculateObjectsOverlap($newImageMetadata, $existingImage);
 
                     Log::debug('Threshold check', [
                         'existing_image' => $existingImage->original_name,
                         'overall_similarity' => $overallSimilarity,
                         'visual_threshold' => $visualThreshold,
-                        'meets_threshold' => $overallSimilarity >= $visualThreshold,
+                        'objects_similarity' => $objectsSimilarity,
+                        'meets_threshold' => $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity),
                     ]);
 
-                    if ($overallSimilarity >= $visualThreshold) {
+                    if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
                         $similarImages[] = [
                             'image' => $existingImage,
                             'visual_similarity' => $visualSimilarity,
@@ -309,9 +311,14 @@ class SimilarityNotificationService
         // Calculate weighted average: description (40%), tags (30%), objects (30%)
         $weightedSimilarity = ($descriptionSimilarity * 0.4) + ($tagsSimilarity * 0.3) + ($objectsSimilarity * 0.3);
 
-        // Boost similarity if objects match (objects are more reliable)
-        if ($objectsSimilarity > 0.5) {
-            $weightedSimilarity = max($weightedSimilarity, $objectsSimilarity * 1.2); // Boost by 20%
+        // Boost similarity if objects match strongly (objects are more reliable)
+        if ($objectsSimilarity > 0.6) {
+            $weightedSimilarity = max($weightedSimilarity, $objectsSimilarity * 1.05);
+        }
+
+        // Down-rank when Vision labels conflict and neither side is empty
+        if ($objectsSimilarity > 0 && $objectsSimilarity < 0.2) {
+            $weightedSimilarity *= 0.55;
         }
 
         return min(1.0, $weightedSimilarity);
@@ -352,29 +359,99 @@ class SimilarityNotificationService
      */
     private function calculateOverallSimilarity(float $visualSimilarity, float $textSimilarity): float
     {
-        // Make scoring less background-sensitive by giving semantics (text/objects)
-        // stronger influence and avoiding harsh penalties when one modality is weak.
-        $textWeight = $this->config['weights']['text'] ?? 0.45;
-        $visualWeight = $this->config['weights']['visual'] ?? 0.55;
+        $textWeight = (float) ($this->config['weights']['text'] ?? 0.30);
+        $visualWeight = (float) ($this->config['weights']['visual'] ?? 0.70);
+        $weightSum = max(0.0001, $visualWeight + $textWeight);
+        $visualWeight /= $weightSum;
+        $textWeight /= $weightSum;
+
+        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.62);
+        $minText = (float) ($this->config['thresholds']['text'] ?? 0.35);
 
         $overallSimilarity = ($visualSimilarity * $visualWeight) + ($textSimilarity * $textWeight);
 
-        // Boost likely same-item matches even if background/lighting changed.
-        if ($textSimilarity >= 0.70 && $visualSimilarity >= 0.35) {
-            $overallSimilarity += 0.10;
-        }
-
-        // Mild boost for very high visual confidence.
+        // Strong visual alone can carry a match (same photo / near-duplicate).
         if ($visualSimilarity >= 0.85) {
-            $overallSimilarity += 0.05;
+            $overallSimilarity = max($overallSimilarity, $visualSimilarity);
         }
 
-        // Only strongly penalize when both are weak.
-        if ($visualSimilarity < 0.25 && $textSimilarity < 0.25) {
-            $overallSimilarity *= 0.4;
+        // Require both modalities to be reasonably present for mixed scores.
+        if ($visualSimilarity < $minVisual && $textSimilarity < 0.75) {
+            $overallSimilarity *= 0.35;
+        } elseif ($visualSimilarity < 0.45 || ($textSimilarity < $minText && $visualSimilarity < 0.75)) {
+            $overallSimilarity *= 0.45;
+        }
+
+        // Both weak → reject-level score.
+        if ($visualSimilarity < 0.40 && $textSimilarity < 0.40) {
+            $overallSimilarity *= 0.25;
         }
 
         return min(1.0, max(0.0, $overallSimilarity));
+    }
+
+    /**
+     * Whether two items should be treated as a candidate match.
+     */
+    private function meetsMatchCriteria(float $visualSimilarity, float $textSimilarity, float $overallSimilarity, float $objectsSimilarity = -1.0): bool
+    {
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.72);
+        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.62);
+        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.55);
+        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.80);
+        $minObjects = (float) ($this->config['thresholds']['objects'] ?? 0.20);
+
+        // Vision labels available on both sides: reject if labels barely overlap
+        // unless the images themselves are already very similar.
+        if ($objectsSimilarity >= 0.0 && $objectsSimilarity < $minObjects && $visualSimilarity < 0.78) {
+            return false;
+        }
+
+        $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
+        $strongVisual = $visualSimilarity >= 0.80 && $overallSimilarity >= ($matchThreshold - 0.05);
+        $semanticFallback = $visualSimilarity >= $semanticVisual
+            && $textSimilarity >= $semanticText
+            && $overallSimilarity >= ($matchThreshold - 0.05);
+
+        return $primaryMatch || $strongVisual || $semanticFallback;
+    }
+
+    /**
+     * Object-label overlap (0–1), or -1 when either side has no labels.
+     */
+    private function calculateObjectsOverlap(array $newMetadata, ImageMetadata $existingImage): float
+    {
+        $normalize = function ($objects): array {
+            if (! is_array($objects)) {
+                return [];
+            }
+
+            $names = [];
+            foreach ($objects as $obj) {
+                $name = is_array($obj) ? strtolower(trim((string) ($obj['name'] ?? ''))) : strtolower(trim((string) $obj));
+                if ($name !== '') {
+                    $names[] = $name;
+                }
+            }
+
+            return array_values(array_unique($names));
+        };
+
+        $newObjects = $normalize($newMetadata['detected_objects'] ?? []);
+        $existingObjects = $normalize($existingImage->detected_objects ?? []);
+
+        if ($newObjects === [] || $existingObjects === []) {
+            return -1.0;
+        }
+
+        $intersection = array_intersect($newObjects, $existingObjects);
+        $union = array_unique(array_merge($newObjects, $existingObjects));
+
+        if ($union === []) {
+            return -1.0;
+        }
+
+        return count($intersection) / count($union);
     }
 
     /**
@@ -761,24 +838,22 @@ class SimilarityNotificationService
                     try {
                         // Calculate similarities
                         $visualSimilarity = $this->calculateVisualSimilarity($newItemPath, $existingItemPath);
-                        $textSimilarity = $this->calculateTextSimilarity([
+                        $newMetadata = [
                             'description' => $newItem->description,
                             'tags' => $newItem->tags,
                             'detected_objects' => $newItem->detected_objects,
-                        ], $existingItem);
+                        ];
+                        $textSimilarity = $this->calculateTextSimilarity($newMetadata, $existingItem);
                         $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
+                        $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $existingItem);
 
                         // Get threshold from config - check both old and new config structure
-                        $visualThreshold = $this->config['thresholds']['visual'] ??
-                                           $this->config['threshold'] ??
-                                           0.7;
+                        $visualThreshold = $this->config['thresholds']['match']
+                            ?? $this->config['thresholds']['visual']
+                            ?? $this->config['threshold']
+                            ?? 0.72;
 
-                        // Store candidate matches at baseline threshold and allow a
-                        // semantic fallback for same item with different backgrounds.
-                        $matchThreshold = 0.5;
-                        $semanticFallbackMatch = $visualSimilarity >= 0.35 && $textSimilarity >= 0.65;
-
-                        if ($overallSimilarity >= $matchThreshold || $semanticFallbackMatch) {
+                        if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
                             $similarItems[] = [
                                 'description' => $existingItem->description,
                                 'status' => $existingItem->status,
@@ -808,7 +883,7 @@ class SimilarityNotificationService
                                         'text_similarity' => $textSimilarity,
                                         'is_notified' => (
                                             $overallSimilarity >= $visualThreshold ||
-                                            ($visualSimilarity >= 0.45 && $textSimilarity >= 0.70)
+                                            ($visualSimilarity >= 0.70 && $textSimilarity >= 0.80)
                                         ), // also notify high-confidence semantic+visual matches
                                     ]
                                 );
@@ -829,7 +904,7 @@ class SimilarityNotificationService
                                         'text_similarity' => $textSimilarity,
                                         'is_notified' => (
                                             $overallSimilarity >= $visualThreshold ||
-                                            ($visualSimilarity >= 0.45 && $textSimilarity >= 0.70)
+                                            ($visualSimilarity >= 0.70 && $textSimilarity >= 0.80)
                                         ),
                                     ]
                                 );

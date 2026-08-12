@@ -23,6 +23,7 @@ class ItemReportController extends Controller
             'total_reports' => ItemReport::count(),
             'pending' => ItemReport::where('status', 'pending')->count(),
             'reviewed' => ItemReport::where('status', 'reviewed')->count(),
+            'violated' => ItemReport::where('status', 'violated')->count(),
             'dismissed' => ItemReport::where('status', 'dismissed')->count(),
             'flagged_items' => ItemReport::query()->distinct()->count('upload_id'),
         ];
@@ -63,13 +64,51 @@ class ItemReportController extends Controller
     public function updateStatus(Request $request, ItemReport $itemReport)
     {
         $request->validate([
-            'status' => 'required|in:pending,reviewed,dismissed',
+            'status' => 'required|in:pending,reviewed,violated,dismissed',
+            'offense_banned' => 'nullable|boolean',
+            'offense_cannot_post' => 'nullable|boolean',
+            'offense_cannot_claim' => 'nullable|boolean',
+            'offense_cannot_login' => 'nullable|boolean',
+            'login_block_days' => 'nullable|integer|min:1|max:365',
+            'remove_item' => 'nullable|boolean',
         ]);
 
-        $itemReport->status = $request->input('status');
+        $status = $request->input('status');
+        $itemReport->status = $status;
         $itemReport->save();
 
-        return back()->with('success', 'Item report status updated.');
+        $removed = false;
+        if ($status === 'violated') {
+            $uploader = $this->resolveUploaderForUploadId($itemReport->upload_id);
+            $this->applyOffensesToUser(
+                $uploader,
+                $request,
+                'Offense applied from item report #'.$itemReport->id
+            );
+
+            if ($request->boolean('remove_item')) {
+                $removed = $this->softDeleteUpload($itemReport->upload_id);
+            }
+
+            Log::info('Admin marked item report as violated', [
+                'report_id' => $itemReport->id,
+                'upload_id' => $itemReport->upload_id,
+                'uploader_user_id' => $uploader?->id,
+                'removed_item' => $removed,
+            ]);
+        }
+
+        $redirectStatus = $request->input('redirect_status', $status);
+        $message = 'Item report status updated.';
+        if ($status === 'violated') {
+            $message = $removed
+                ? 'Item report marked as Violated, offenses applied to uploader, and listing removed.'
+                : 'Item report marked as Violated and offenses applied to uploader.';
+        }
+
+        return redirect()
+            ->route('item-reports.index', ['tab' => 'items', 'status' => $redirectStatus])
+            ->with('success', $message);
     }
 
     public function updateUserReportStatus(Request $request, UserReport $userReport)
@@ -89,42 +128,20 @@ class ItemReportController extends Controller
 
         if ($status === 'violated') {
             $reportedUser = User::find($userReport->reported_user_id);
-            if ($reportedUser && $reportedUser->role !== 'admin') {
-                $isBanned = $request->boolean('offense_banned');
+            $this->applyOffensesToUser(
+                $reportedUser,
+                $request,
+                'Offense applied from user report #'.$userReport->id
+            );
 
-                if ($isBanned) {
-                    $reportedUser->forceFill([
-                        'is_banned' => true,
-                        'cannot_post' => false,
-                        'cannot_claim' => false,
-                        'login_blocked_until' => null,
-                        'restriction_note' => 'Banned after user report #'.$userReport->id,
-                    ])->save();
-                } else {
-                    $cannotLogin = $request->boolean('offense_cannot_login');
-                    $days = (int) $request->input('login_block_days', 7);
-                    if ($cannotLogin && $days < 1) {
-                        $days = 7;
-                    }
-
-                    $reportedUser->forceFill([
-                        'is_banned' => false,
-                        'cannot_post' => $request->boolean('offense_cannot_post'),
-                        'cannot_claim' => $request->boolean('offense_cannot_claim'),
-                        'login_blocked_until' => $cannotLogin ? now()->addDays($days) : null,
-                        'restriction_note' => 'Offense applied from user report #'.$userReport->id,
-                    ])->save();
-                }
-
-                Log::info('Admin applied user offense after violated report', [
-                    'report_id' => $userReport->id,
-                    'reported_user_id' => $reportedUser->id,
-                    'is_banned' => $reportedUser->is_banned,
-                    'cannot_post' => $reportedUser->cannot_post,
-                    'cannot_claim' => $reportedUser->cannot_claim,
-                    'login_blocked_until' => optional($reportedUser->login_blocked_until)?->toDateTimeString(),
-                ]);
-            }
+            Log::info('Admin applied user offense after violated report', [
+                'report_id' => $userReport->id,
+                'reported_user_id' => $reportedUser?->id,
+                'is_banned' => $reportedUser?->is_banned,
+                'cannot_post' => $reportedUser?->cannot_post,
+                'cannot_claim' => $reportedUser?->cannot_claim,
+                'login_blocked_until' => optional($reportedUser?->login_blocked_until)?->toDateTimeString(),
+            ]);
         }
 
         $redirectStatus = $request->input('redirect_status', $status);
@@ -139,16 +156,14 @@ class ItemReportController extends Controller
     public function deleteItem(string $uploadId)
     {
         try {
-            $items = ImageMetadata::where('upload_id', $uploadId)->get();
+            $deletedCount = $this->softDeleteUpload($uploadId);
 
-            if ($items->isEmpty()) {
+            if ($deletedCount === 0) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Item not found or already deleted.',
                 ], 404);
             }
-
-            $deletedCount = ImageMetadata::where('upload_id', $uploadId)->delete();
 
             ItemReport::where('upload_id', $uploadId)
                 ->where('status', 'pending')
@@ -169,6 +184,57 @@ class ItemReportController extends Controller
                 'message' => 'Failed to delete item: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    private function applyOffensesToUser(?User $user, Request $request, string $note): void
+    {
+        if (! $user || $user->role === 'admin') {
+            return;
+        }
+
+        if ($request->boolean('offense_banned')) {
+            $user->forceFill([
+                'is_banned' => true,
+                'cannot_post' => false,
+                'cannot_claim' => false,
+                'login_blocked_until' => null,
+                'restriction_note' => str_replace('Offense applied from', 'Banned after', $note),
+            ])->save();
+
+            return;
+        }
+
+        $cannotLogin = $request->boolean('offense_cannot_login');
+        $days = (int) $request->input('login_block_days', 7);
+        if ($cannotLogin && $days < 1) {
+            $days = 7;
+        }
+
+        $user->forceFill([
+            'is_banned' => false,
+            'cannot_post' => $request->boolean('offense_cannot_post'),
+            'cannot_claim' => $request->boolean('offense_cannot_claim'),
+            'login_blocked_until' => $cannotLogin ? now()->addDays($days) : null,
+            'restriction_note' => $note,
+        ])->save();
+    }
+
+    private function resolveUploaderForUploadId(string $uploadId): ?User
+    {
+        $email = ImageMetadata::withTrashed()
+            ->where('upload_id', $uploadId)
+            ->value('uploader_email');
+
+        if (! $email) {
+            return null;
+        }
+
+        return User::where('email', $email)->first();
+    }
+
+    private function softDeleteUpload(string $uploadId): int
+    {
+        return ImageMetadata::where('upload_id', $uploadId)->delete();
     }
 
     private function buildReportedItems(string $status)
@@ -237,11 +303,16 @@ class ItemReportController extends Controller
                 'tags' => $tags,
                 'uploader_email' => $first->uploader_email ?? null,
                 'uploader_name' => $uploader->name ?? ($first->uploader_email ?? 'Unknown'),
+                'uploader_is_banned' => (bool) ($uploader->is_banned ?? false),
+                'uploader_cannot_post' => (bool) ($uploader->cannot_post ?? false),
+                'uploader_cannot_claim' => (bool) ($uploader->cannot_claim ?? false),
+                'uploader_login_blocked_until' => $uploader?->login_blocked_until?->format('M d, Y'),
                 'created_at' => $first->created_at ?? null,
                 'deleted_at' => $first->deleted_at ?? null,
                 'images' => $images,
                 'report_count' => (int) ($reportCounts[$uploadId] ?? $reports->count()),
                 'pending_count' => $reports->where('status', 'pending')->count(),
+                'violated_count' => $reports->where('status', 'violated')->count(),
                 'reports' => $reports->map(fn (ItemReport $r) => [
                     'id' => $r->id,
                     'label' => $r->label,
