@@ -154,6 +154,7 @@ Route::middleware(['auth'])->group(function () {
     Route::delete('/api/items/{uploadId}/force', [\App\Http\Controllers\Api\UserItemController::class, 'forceDeleteItem']);
     Route::get('/api/items/trashed', [\App\Http\Controllers\Api\UserItemController::class, 'getTrashedItems']);
     Route::get('/api/items/other-users', [\App\Http\Controllers\Api\UserItemController::class, 'getOtherUsersItems']);
+    Route::post('/api/items/{uploadId}/refresh-matches', [\App\Http\Controllers\Api\UserItemController::class, 'refreshItemMatches']);
     Route::post('/api/items/{uploadId}/claim', [\App\Http\Controllers\Api\UserItemController::class, 'claimItem']);
     Route::post('/api/items/{uploadId}/cancel-claim', [\App\Http\Controllers\Api\UserItemController::class, 'cancelClaim']);
     Route::post('/api/items/{uploadId}/report', [\App\Http\Controllers\Api\UserItemController::class, 'reportItem']);

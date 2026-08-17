@@ -41,7 +41,7 @@
                 </div>
                 <div class="user-action-card-content">
                     <p class="user-action-card-text">View items you've reported — lost and found.</p>
-                    <a href="{{ route('reported-items') }}" class="user-action-card-btn">Track reports</a>
+                    <a href="{{ route('claim-verify') }}" class="user-action-card-btn">Track reports</a>
                 </div>
             </div>
         </div>
@@ -72,7 +72,7 @@
                         <span class="text-purple-600">Hi,</span> <span class="text-pink-500">{{ Auth::user()->name }}</span>
                     </h2>
                     <p class="mt-2 text-base text-gray-600 sm:text-lg">Let's help find what's missing — or return what's found.</p>
-                    <a href="{{ route('reported-items') }}" class="user-btn-primary mt-4 inline-flex">Get started</a>
+                    <a href="/post?type=lost" class="user-btn-primary mt-4 inline-flex">Get started</a>
                 </div>
                 <div class="h-40 w-full max-w-xs shrink-0 sm:h-48 md:h-56 md:max-w-sm">
                     <img src="{{ file_exists(public_path('images/dashboard-banner.png')) ? asset('images/dashboard-banner.png') : asset('images/dashboard-banner-placeholder.svg') }}" alt="" class="h-full w-full object-contain">

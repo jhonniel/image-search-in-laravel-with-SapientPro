@@ -1059,9 +1059,18 @@ class UserItemController extends Controller
                 return response()->json([
                     'success' => true,
                     'items' => [],
+                    'user_items' => [],
                     'message' => 'No items to match. Report a lost or found item first to see matching items.',
                 ]);
             }
+
+            // Every item the user uploaded is listed on Claim & Verify, matches or not.
+            $ownItems = $userItems
+                ->filter(fn ($group) => ! optional($group->first())->isClaimArchived())
+                ->map(fn ($group, $uploadId) => $this->formatOwnItem($uploadId, $group))
+                ->sortByDesc('created_at')
+                ->values()
+                ->toArray();
 
             // Refresh missing matches (upload-time deferred checks can miss / fail).
             try {
@@ -1220,11 +1229,12 @@ class UserItemController extends Controller
                 }
             }
 
-            // If no matches found, return empty array
+            // If no matches found, still return the user's own items so they stay listed
             if (empty($matchedItems)) {
                 return response()->json([
                     'success' => true,
                     'items' => [],
+                    'user_items' => $ownItems,
                     'message' => 'No matching items found. Keep checking back as new items are posted!',
                 ]);
             }
@@ -1254,110 +1264,7 @@ class UserItemController extends Controller
 
             // Format matched items
             $items = collect($claimableMatchedItems)
-                ->map(function ($matchData) use ($user, $userItems) {
-                    $group = $matchData['item'];
-                    $firstItem = $group->first();
-                    $tags = $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [];
-                    $detectedObjects = $firstItem->detected_objects ? (is_string($firstItem->detected_objects) ? json_decode($firstItem->detected_objects, true) : $firstItem->detected_objects) : [];
-
-                    // Get the user who uploaded this item
-                    $uploader = User::where('email', $firstItem->uploader_email)->first();
-
-                    // Check if current user has claimed this item
-                    $userHasClaimed = $firstItem->claim_verification_status === 'pending'
-                        && $firstItem->claimed_by_email === $user->email;
-
-                    // Get the user's matched item details
-                    $matchedWithUploadId = $matchData['matched_with'];
-                    $userMatchedItem = null;
-                    if ($matchedWithUploadId && isset($userItems[$matchedWithUploadId])) {
-                        $userItemGroup = $userItems[$matchedWithUploadId];
-                        $userFirstItem = $userItemGroup->first();
-                        $userTags = $userFirstItem->tags ? (is_string($userFirstItem->tags) ? json_decode($userFirstItem->tags, true) : $userFirstItem->tags) : [];
-
-                        $userDetectedObjects = $userFirstItem->detected_objects ? (is_string($userFirstItem->detected_objects) ? json_decode($userFirstItem->detected_objects, true) : $userFirstItem->detected_objects) : [];
-
-                        $userMatchedItem = [
-                            'upload_id' => $matchedWithUploadId,
-                            'item_type' => $userFirstItem->status,
-                            'description' => $userFirstItem->description,
-                            'location' => $userFirstItem->location ?? 'Location not specified',
-                            'province' => $userFirstItem->province ?? null,
-                            'city' => $userFirstItem->city ?? null,
-                            'tags' => is_array($userTags) ? $userTags : [],
-                            'detected_objects' => is_array($userDetectedObjects) ? $userDetectedObjects : [],
-                            'created_at' => $userFirstItem->created_at,
-                            'images' => $userItemGroup->map(function ($item) {
-                                $filePath = $item->file_path;
-
-                                if (empty($filePath)) {
-                                    $imagePath = '';
-                                } elseif (str_starts_with($filePath, '/storage/')) {
-                                    $imagePath = $filePath;
-                                } elseif (str_starts_with($filePath, 'storage/')) {
-                                    $imagePath = '/'.$filePath;
-                                } elseif (str_starts_with($filePath, 'http')) {
-                                    $imagePath = $filePath;
-                                } else {
-                                    $imagePath = Storage::url($filePath);
-                                }
-
-                                return [
-                                    'path' => $imagePath,
-                                    'original_name' => $item->original_name ?? basename($filePath),
-                                ];
-                            })->toArray(),
-                        ];
-                    }
-
-                    return [
-                        'upload_id' => $firstItem->upload_id,
-                        'item_type' => $firstItem->status,
-                        'description' => $firstItem->description,
-                        'location' => $firstItem->location ?? 'Location not specified',
-                        'province' => $firstItem->province ?? null,
-                        'city' => $firstItem->city ?? null,
-                        'tags' => is_array($tags) ? $tags : [],
-                        'detected_objects' => is_array($detectedObjects) ? $detectedObjects : [],
-                        'uploader_email' => $firstItem->uploader_email,
-                        'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
-                        'uploader_profile_picture' => $uploader ? $uploader->profile_picture : null,
-                        'uploader_verified' => $uploader ? ($uploader->is_verified ?? false) : false,
-                        'created_at' => $firstItem->created_at,
-                        'user_has_claimed' => $userHasClaimed,
-                        'claim_status' => $firstItem->claim_verification_status,
-                        'claimed_by_email' => $firstItem->claimed_by_email,
-                        'similarity_score' => round($matchData['similarity'] * 100, 2),
-                        'matched_with_upload_id' => $matchedWithUploadId,
-                        'user_matched_item' => $userMatchedItem, // Add user's matched item details
-                        'images' => $group->map(function ($item) {
-                            // Handle file path - ensure it's a valid URL
-                            $filePath = $item->file_path;
-
-                            // Normalize the path - ensure it starts with /storage/
-                            if (empty($filePath)) {
-                                $imagePath = '';
-                            } elseif (str_starts_with($filePath, '/storage/')) {
-                                // Already in correct format, use as is
-                                $imagePath = $filePath;
-                            } elseif (str_starts_with($filePath, 'storage/')) {
-                                // Missing leading slash, add it
-                                $imagePath = '/'.$filePath;
-                            } elseif (str_starts_with($filePath, 'http')) {
-                                // Full URL, use as is
-                                $imagePath = $filePath;
-                            } else {
-                                // Relative path, use Storage::url to generate proper path
-                                $imagePath = Storage::url($filePath);
-                            }
-
-                            return [
-                                'path' => $imagePath,
-                                'original_name' => $item->original_name ?? basename($filePath),
-                            ];
-                        })->toArray(),
-                    ];
-                })
+                ->map(fn ($matchData) => $this->formatMatchedItem($matchData, $user, $userItems))
                 ->sortByDesc('similarity_score')
                 ->values()
                 ->toArray();
@@ -1365,6 +1272,7 @@ class UserItemController extends Controller
             return response()->json([
                 'success' => true,
                 'items' => $items,
+                'user_items' => $ownItems,
                 'message' => count($items).' matching item(s) found based on your reported items.',
             ]);
 
@@ -1378,6 +1286,201 @@ class UserItemController extends Controller
                 'message' => 'Failed to fetch matching items: '.$e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Re-run matching for a single item the user owns, then return its matches.
+     * Triggered from Claim & Verify when the user opens an item.
+     */
+    public function refreshItemMatches(Request $request, string $uploadId)
+    {
+        $user = Auth::user();
+
+        try {
+            $userItemGroup = ImageMetadata::where('upload_id', $uploadId)
+                ->where('uploader_email', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            if ($userItemGroup->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Item not found.',
+                ], 404);
+            }
+
+            $newMatches = 0;
+            try {
+                $newMatches = app(SimilarityNotificationService::class)
+                    ->refreshMatchesForItem($user->email, $uploadId);
+            } catch (\Throwable $e) {
+                Log::warning('On-demand match refresh failed: '.$e->getMessage(), [
+                    'upload_id' => $uploadId,
+                ]);
+            }
+
+            $userItems = collect([$uploadId => $userItemGroup]);
+            $displayThreshold = (float) config('similarity.thresholds.display', config('similarity.thresholds.match', 0.50));
+
+            $storedMatches = ItemMatch::where('user_email', $user->email)
+                ->where('user_item_upload_id', $uploadId)
+                ->where('similarity_score', '>=', $displayThreshold)
+                ->orderBy('similarity_score', 'desc')
+                ->get();
+
+            $matchedItemGroups = ImageMetadata::whereIn('upload_id', $storedMatches->pluck('matched_item_upload_id')->unique()->all())
+                ->where('uploader_email', '!=', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('upload_id');
+
+            $items = [];
+            foreach ($storedMatches as $match) {
+                $matchedUploadId = $match->matched_item_upload_id;
+                if (isset($items[$matchedUploadId])) {
+                    continue;
+                }
+
+                $matchedItemGroup = $matchedItemGroups->get($matchedUploadId);
+                if (! $matchedItemGroup || optional($matchedItemGroup->first())->isClaimArchived()) {
+                    continue;
+                }
+
+                $items[$matchedUploadId] = $this->formatMatchedItem([
+                    'item' => $matchedItemGroup,
+                    'similarity' => (float) $match->similarity_score,
+                    'matched_with' => $uploadId,
+                ], $user, $userItems);
+            }
+
+            $items = collect($items)->sortByDesc('similarity_score')->values()->toArray();
+
+            Log::info('On-demand match refresh completed', [
+                'user_email' => $user->email,
+                'upload_id' => $uploadId,
+                'new_matches' => $newMatches,
+                'total_matches' => count($items),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'upload_id' => $uploadId,
+                'new_matches' => $newMatches,
+                'items' => $items,
+                'message' => $newMatches > 0
+                    ? $newMatches.' new match(es) found.'
+                    : 'No new matches found.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error refreshing matches for item: '.$e->getMessage(), [
+                'upload_id' => $uploadId,
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to refresh matches: '.$e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Format a matched listing (owned by another user) for the Claim & Verify list.
+     */
+    private function formatMatchedItem(array $matchData, $user, $userItems): array
+    {
+        $group = $matchData['item'];
+        $firstItem = $group->first();
+        $tags = $firstItem->tags ? (is_string($firstItem->tags) ? json_decode($firstItem->tags, true) : $firstItem->tags) : [];
+        $detectedObjects = $firstItem->detected_objects
+            ? (is_string($firstItem->detected_objects) ? json_decode($firstItem->detected_objects, true) : $firstItem->detected_objects)
+            : [];
+
+        $uploader = User::where('email', $firstItem->uploader_email)->first();
+
+        $userHasClaimed = $firstItem->claim_verification_status === 'pending'
+            && $firstItem->claimed_by_email === $user->email;
+
+        $matchedWithUploadId = $matchData['matched_with'] ?? null;
+        $userMatchedItem = $matchedWithUploadId && isset($userItems[$matchedWithUploadId])
+            ? $this->formatOwnItem($matchedWithUploadId, $userItems[$matchedWithUploadId])
+            : null;
+
+        return [
+            'upload_id' => $firstItem->upload_id,
+            'item_type' => $firstItem->status,
+            'description' => $firstItem->description,
+            'location' => $firstItem->location ?? 'Location not specified',
+            'province' => $firstItem->province ?? null,
+            'city' => $firstItem->city ?? null,
+            'tags' => is_array($tags) ? $tags : [],
+            'detected_objects' => is_array($detectedObjects) ? $detectedObjects : [],
+            'uploader_email' => $firstItem->uploader_email,
+            'uploader_name' => $uploader ? $uploader->name : 'Unknown User',
+            'uploader_profile_picture' => $uploader ? $uploader->profile_picture : null,
+            'uploader_verified' => $uploader ? ($uploader->is_verified ?? false) : false,
+            'created_at' => $firstItem->created_at,
+            'user_has_claimed' => $userHasClaimed,
+            'claim_status' => $firstItem->claim_verification_status,
+            'claimed_by_email' => $firstItem->claimed_by_email,
+            'similarity_score' => round(($matchData['similarity'] ?? 0) * 100, 2),
+            'matched_with_upload_id' => $matchedWithUploadId,
+            'user_matched_item' => $userMatchedItem,
+            'images' => $group->map(fn ($item) => [
+                'path' => $this->normalizeImagePath($item->file_path),
+                'original_name' => $item->original_name ?? basename((string) $item->file_path),
+            ])->values()->toArray(),
+        ];
+    }
+
+    /**
+     * Format one of the current user's uploads for the Claim & Verify list.
+     */
+    private function formatOwnItem(string $uploadId, $group): array
+    {
+        $first = $group->first();
+        $tags = $first->tags ? (is_string($first->tags) ? json_decode($first->tags, true) : $first->tags) : [];
+        $detectedObjects = $first->detected_objects
+            ? (is_string($first->detected_objects) ? json_decode($first->detected_objects, true) : $first->detected_objects)
+            : [];
+
+        return [
+            'upload_id' => $uploadId,
+            'item_type' => $first->status,
+            'description' => $first->description,
+            'location' => $first->location ?? 'Location not specified',
+            'province' => $first->province ?? null,
+            'city' => $first->city ?? null,
+            'tags' => is_array($tags) ? $tags : [],
+            'detected_objects' => is_array($detectedObjects) ? $detectedObjects : [],
+            'claim_status' => $first->claim_verification_status,
+            'is_claimed' => (bool) ($first->is_claimed ?? false),
+            'created_at' => $first->created_at,
+            'images' => $group->map(fn ($item) => [
+                'path' => $this->normalizeImagePath($item->file_path),
+                'original_name' => $item->original_name ?? basename((string) $item->file_path),
+            ])->values()->toArray(),
+        ];
+    }
+
+    /**
+     * Turn a stored file path into a browser-usable URL.
+     */
+    private function normalizeImagePath(?string $filePath): string
+    {
+        if (empty($filePath)) {
+            return '';
+        }
+
+        if (str_starts_with($filePath, '/storage/') || str_starts_with($filePath, 'http')) {
+            return $filePath;
+        }
+
+        if (str_starts_with($filePath, 'storage/')) {
+            return '/'.$filePath;
+        }
+
+        return Storage::url($filePath);
     }
 
     /**

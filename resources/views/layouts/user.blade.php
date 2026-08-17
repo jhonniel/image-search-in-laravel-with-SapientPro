@@ -71,21 +71,6 @@
                     </li>
                     <li>
                         @php
-                            $currentRoute = request()->route()->getName() ?? '';
-                            $currentPath = request()->path();
-                            $isReportedItems = ($currentRoute === 'reported-items' || str_starts_with($currentPath, 'reported-items')) 
-                                && !str_starts_with($currentPath, 'dashboard')
-                                && !str_starts_with($currentPath, 'claim-verify')
-                                && !str_starts_with($currentPath, 'profile')
-                                && !str_starts_with($currentPath, 'chat');
-                        @endphp
-                        <a href="{{ route('reported-items') }}" class="{{ $isReportedItems ? 'user-nav-link-active' : 'user-nav-link' }}" :title="sidebarCollapsed ? 'Reported Items' : ''">
-                            <i class="fas fa-briefcase w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" :class="sidebarCollapsed ? 'lg:mx-auto' : 'mr-2 sm:mr-3'"></i>
-                            <span class="transition-opacity duration-300" :class="sidebarCollapsed ? 'lg:opacity-0 lg:w-0 lg:overflow-hidden' : 'lg:opacity-100'">Reported Items</span>
-                        </a>
-                    </li>
-                    <li>
-                        @php
                             $currentPath = request()->path();
                             $isClaimVerify = str_starts_with($currentPath, 'claim-verify');
                         @endphp

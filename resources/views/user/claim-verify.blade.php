@@ -7,19 +7,19 @@
     @include('user.partials.page-header', [
         'eyebrow' => 'Matching',
         'title' => 'Claim and verify',
-        'description' => 'Your reported items and the similar listings matched to them.',
-        'actions' => '<div class="text-right shrink-0"><div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div><div class="text-xs text-gray-500 sm:text-sm">Your items with matches</div></div>',
+        'description' => 'Every item you reported, plus the similar listings matched to them.',
+        'actions' => '<div class="text-right shrink-0"><div class="text-2xl font-bold text-purple-600" id="total-items-count">0</div><div class="text-xs text-gray-500 sm:text-sm">Your reported items</div></div>',
     ])
 
     <div class="user-card">
         <div class="user-card-header flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <h3 class="user-card-title">Your items</h3>
-                <p class="user-card-subtitle">Open an item to see all matches you can claim, message, or report</p>
+                <p class="user-card-subtitle">Every item you reported. Open one to see matches you can claim, message, or report</p>
             </div>
             <div class="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                 <div class="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
-                    <input type="text" id="search-input" placeholder="Search matches…"
+                    <input type="text" id="search-input" placeholder="Search your items…"
                            class="user-input !py-2 pl-9 text-sm">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs"></i>
                 </div>
@@ -48,8 +48,12 @@
                 <div class="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                     <i class="fas fa-search text-gray-400"></i>
                 </div>
-                <h3 class="text-base font-semibold text-gray-900">No matches yet</h3>
-                <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">When similar lost or found items appear, they’ll be grouped under your reports here.</p>
+                <h3 class="text-base font-semibold text-gray-900">No reported items yet</h3>
+                <p class="mx-auto mt-1 max-w-sm text-sm text-gray-500">Report a lost or found item and it will show up here with any matches we find.</p>
+                <div class="mt-4 flex flex-wrap items-center justify-center gap-2">
+                    <a href="/post?type=lost" class="user-btn-primary !py-2 text-sm">Report lost item</a>
+                    <a href="/post?type=found" class="user-btn-ghost !py-2 text-sm">Report found item</a>
+                </div>
             </div>
         </div>
     </div>
@@ -123,6 +127,8 @@
 <script>
 let allItems = [];
 let filteredItems = [];
+let allUserItems = [];
+let filteredUserItems = [];
 
 // Load items from other users
 // This function is called automatically when the page loads
@@ -139,9 +145,11 @@ async function loadOtherUsersItems() {
         const data = await response.json();
 
         if (data.success) {
-            allItems = data.items;
+            allItems = data.items || [];
+            allUserItems = data.user_items || [];
             filteredItems = [...allItems];
-            displayOtherUsersItems(filteredItems);
+            filteredUserItems = [...allUserItems];
+            displayOtherUsersItems(filteredItems, filteredUserItems);
             updateStats();
         } else {
             console.error('Failed to load other users items:', data.message);
@@ -283,8 +291,18 @@ function matchRow(item) {
     `;
 }
 
-function groupMatchesByUserItem(items) {
+function groupMatchesByUserItem(items, userItems = []) {
     const groups = new Map();
+
+    // Seed a group for every item the user reported so items without matches stay visible.
+    (userItems || []).forEach(yours => {
+        if (!yours?.upload_id) return;
+        groups.set(yours.upload_id, {
+            key: yours.upload_id,
+            yours,
+            matches: [],
+        });
+    });
 
     items.forEach(item => {
         const yours = item.user_matched_item || null;
@@ -314,7 +332,14 @@ function groupMatchesByUserItem(items) {
             ? Number(group.matches[0].similarity_score)
             : null;
         return group;
-    }).sort((a, b) => (b.bestScore || 0) - (a.bestScore || 0));
+    }).sort((a, b) => {
+        const scoreDiff = (b.bestScore || 0) - (a.bestScore || 0);
+        if (scoreDiff !== 0) return scoreDiff;
+        // Items without matches: newest report first.
+        const aDate = Date.parse(a.yours?.created_at || '') || 0;
+        const bDate = Date.parse(b.yours?.created_at || '') || 0;
+        return bDate - aDate;
+    });
 }
 
 function groupDomId(key) {
@@ -323,18 +348,99 @@ function groupDomId(key) {
 
 let currentGroups = [];
 let activeGroupKey = null;
+// Per-item state of the on-demand system rescan: { status: 'loading'|'done'|'error', newMatches, at }
+const matchRefreshState = {};
+const MATCH_REFRESH_COOLDOWN_MS = 60000;
+
+function matchRefreshBanner(groupKey) {
+    const state = matchRefreshState[groupKey];
+    if (!state) return '';
+
+    if (state.status === 'loading') {
+        return `
+            <div class="flex items-center gap-2 rounded-lg border border-purple-100 bg-purple-50 px-3 py-2 text-xs text-purple-700">
+                <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-purple-200 border-t-purple-600"></span>
+                Scanning the system for new matches…
+            </div>
+        `;
+    }
+
+    if (state.status === 'error') {
+        return `
+            <div class="rounded-lg border border-amber-100 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <i class="fas fa-triangle-exclamation mr-1"></i>Couldn't scan for new matches. Showing the matches we already have.
+            </div>
+        `;
+    }
+
+    return `
+        <div class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-600">
+            <i class="fas fa-circle-check mr-1 text-green-500"></i>
+            ${state.newMatches > 0
+                ? `Scan complete — ${state.newMatches} new match${state.newMatches === 1 ? '' : 'es'} found.`
+                : 'Scan complete — no new matches right now.'}
+        </div>
+    `;
+}
+
+function groupMatchKey(item) {
+    return item.matched_with_upload_id || item.user_matched_item?.upload_id || null;
+}
+
+// Ask the server to re-run similarity for this item against every listing in the system.
+async function refreshMatchesForItem(uploadId) {
+    const state = matchRefreshState[uploadId];
+    if (state?.status === 'loading') return;
+    if (state?.at && (Date.now() - state.at) < MATCH_REFRESH_COOLDOWN_MS) return;
+
+    matchRefreshState[uploadId] = { status: 'loading', at: Date.now() };
+    const banner = document.getElementById('match-refresh-banner');
+    if (banner) banner.innerHTML = matchRefreshBanner(uploadId);
+
+    try {
+        const response = await fetch(`/api/items/${encodeURIComponent(uploadId)}/refresh-matches`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                'Accept': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+            matchRefreshState[uploadId] = { status: 'error', at: Date.now() };
+        } else {
+            matchRefreshState[uploadId] = {
+                status: 'done',
+                newMatches: Number(data.new_matches) || 0,
+                at: Date.now()
+            };
+
+            const fresh = data.items || [];
+            allItems = allItems.filter(item => groupMatchKey(item) !== uploadId).concat(fresh);
+        }
+    } catch (error) {
+        console.error('Error refreshing matches:', error);
+        matchRefreshState[uploadId] = { status: 'error', at: Date.now() };
+    }
+
+    // Re-applies current filters and re-renders the open item without triggering another scan.
+    filterItems();
+}
 
 function showItemsList() {
     activeGroupKey = null;
     document.getElementById('item-matches-view')?.classList.add('hidden');
     document.getElementById('other-users-items-list')?.classList.remove('hidden');
     const subtitle = document.querySelector('.user-card-subtitle');
-    if (subtitle) subtitle.textContent = 'Open an item to see all matches you can claim, message, or report';
+    if (subtitle) subtitle.textContent = 'Every item you reported. Open one to see matches you can claim, message, or report';
     const title = document.querySelector('.user-card-title');
     if (title) title.textContent = 'Your items';
 }
 
-function openItemMatches(groupKey) {
+function openItemMatches(groupKey, options = {}) {
+    const { refresh = true } = options;
     const group = currentGroups.find(g => String(g.key) === String(groupKey));
     const detailView = document.getElementById('item-matches-view');
     const listView = document.getElementById('other-users-items-list');
@@ -348,13 +454,15 @@ function openItemMatches(groupKey) {
     if (title) title.textContent = 'Possible matches';
     const subtitle = document.querySelector('.user-card-subtitle');
     if (subtitle) {
-        subtitle.textContent = `${group.matches.length} possible match${group.matches.length === 1 ? '' : 'es'} for this item`;
+        subtitle.textContent = group.matches.length
+            ? `${group.matches.length} possible match${group.matches.length === 1 ? '' : 'es'} for this item`
+            : 'No matches for this item yet';
     }
 
     const best = group.bestScore != null ? `${group.bestScore}%` : '—';
     const matchesHtml = group.matches.length
         ? `<div class="cv-detail-matches">${group.matches.map(matchRow).join('')}</div>`
-        : `<p class="py-8 text-center text-sm text-gray-500">No possible matches for this item.</p>`;
+        : `<p class="py-8 text-center text-sm text-gray-500">No possible matches yet. We'll add them here as similar items are posted.</p>`;
 
     detailView.innerHTML = `
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -364,6 +472,7 @@ function openItemMatches(groupKey) {
             </button>
             <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
         </div>
+        <div id="match-refresh-banner">${matchRefreshBanner(group.key)}</div>
         <section class="cv-detail-yours">
             ${yoursSummaryCard(group.yours)}
         </section>
@@ -374,9 +483,14 @@ function openItemMatches(groupKey) {
     `;
 
     detailView.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // Opening an item rescans the whole system so newly posted listings can match right away.
+    if (refresh && group.yours?.upload_id) {
+        refreshMatchesForItem(group.yours.upload_id);
+    }
 }
 
-function displayOtherUsersItems(items) {
+function displayOtherUsersItems(items, userItems = []) {
     const itemsContainer = document.getElementById('other-users-items-list');
     const detailView = document.getElementById('item-matches-view');
     const loadingState = document.getElementById('loading-state');
@@ -386,7 +500,9 @@ function displayOtherUsersItems(items) {
 
     loadingState.classList.add('hidden');
 
-    if (items.length === 0) {
+    const groups = groupMatchesByUserItem(items, userItems);
+
+    if (groups.length === 0) {
         currentGroups = [];
         activeGroupKey = null;
         itemsContainer.innerHTML = '';
@@ -398,12 +514,12 @@ function displayOtherUsersItems(items) {
     }
 
     emptyState.classList.add('hidden');
-    currentGroups = groupMatchesByUserItem(items);
+    currentGroups = groups;
     document.getElementById('total-items-count').textContent = String(currentGroups.length);
 
     // Keep detail view open after claim/refresh if that group still exists
     if (activeGroupKey && currentGroups.some(g => String(g.key) === activeGroupKey)) {
-        openItemMatches(activeGroupKey);
+        openItemMatches(activeGroupKey, { refresh: false });
         return;
     }
 
@@ -415,6 +531,11 @@ function displayOtherUsersItems(items) {
         const domId = groupDomId(group.key);
         const matchCount = group.matches.length;
         const best = group.bestScore != null ? `${group.bestScore}%` : '—';
+        const summary = matchCount
+            ? `<p class="text-sm font-semibold text-gray-900">${matchCount} match${matchCount === 1 ? '' : 'es'}</p>
+               <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>`
+            : `<p class="text-sm font-semibold text-gray-500">No matches yet</p>
+               <p class="text-xs text-gray-400">We'll list matches here as new items are posted</p>`;
 
         return `
             <article class="cv-group cursor-pointer" data-group-key="${escapeHtml(domId)}" onclick="openItemMatches('${escapeJs(String(group.key))}')">
@@ -422,13 +543,12 @@ function displayOtherUsersItems(items) {
                     ${yoursSummaryCard(group.yours)}
                     <div class="cv-group-summary">
                         <div class="cv-group-summary-stats">
-                            <p class="text-sm font-semibold text-gray-900">${matchCount} match${matchCount === 1 ? '' : 'es'}</p>
-                            <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
+                            ${summary}
                         </div>
                         <button type="button"
                             class="cv-group-toggle"
                             onclick="event.stopPropagation(); openItemMatches('${escapeJs(String(group.key))}')">
-                            <span>View matches</span>
+                            <span>${matchCount ? 'View matches' : 'View item'}</span>
                             <i class="fas fa-arrow-right text-xs"></i>
                         </button>
                     </div>
@@ -439,7 +559,7 @@ function displayOtherUsersItems(items) {
 }
 
 function updateStats() {
-    const groups = groupMatchesByUserItem(allItems);
+    const groups = groupMatchesByUserItem(allItems, allUserItems);
     document.getElementById('total-items-count').textContent = groups.length;
 }
 
@@ -453,32 +573,49 @@ function showEmptyState() {
 }
 
 // Filter functions
+function itemMatchesSearch(item, searchTerm) {
+    if (!searchTerm) return true;
+    return (item.description || '').toLowerCase().includes(searchTerm) ||
+        (item.location || '').toLowerCase().includes(searchTerm) ||
+        (Array.isArray(item.tags) && item.tags.some(tag => String(tag).toLowerCase().includes(searchTerm)));
+}
+
 function filterItems() {
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const typeFilter = document.getElementById('type-filter').value;
 
-    filteredItems = allItems.filter(item => {
-        const yours = item.user_matched_item || {};
-        const matchesSearch = !searchTerm ||
-            (item.description || '').toLowerCase().includes(searchTerm) ||
-            (item.location || '').toLowerCase().includes(searchTerm) ||
-            (yours.description || '').toLowerCase().includes(searchTerm) ||
-            (yours.location || '').toLowerCase().includes(searchTerm) ||
-            (item.tags && item.tags.some(tag => String(tag).toLowerCase().includes(searchTerm)));
-
-        const matchesType = !typeFilter || item.item_type === typeFilter || yours.item_type === typeFilter;
+    filteredUserItems = allUserItems.filter(yours => {
+        const matchesType = !typeFilter || yours.item_type === typeFilter;
+        const matchesSearch = itemMatchesSearch(yours, searchTerm) ||
+            allItems.some(item => item.matched_with_upload_id === yours.upload_id && itemMatchesSearch(item, searchTerm));
 
         return matchesSearch && matchesType;
     });
 
-    displayOtherUsersItems(filteredItems);
+    const visibleUploadIds = new Set(filteredUserItems.map(yours => yours.upload_id));
+
+    filteredItems = allItems.filter(item => {
+        const yours = item.user_matched_item || {};
+        const groupKey = yours.upload_id || item.matched_with_upload_id;
+
+        // Keep matches whose parent item survived filtering, plus orphan matches that match on their own.
+        if (groupKey && visibleUploadIds.has(groupKey)) return true;
+        if (groupKey && allUserItems.some(own => own.upload_id === groupKey)) return false;
+
+        const matchesType = !typeFilter || item.item_type === typeFilter;
+
+        return matchesType && itemMatchesSearch(item, searchTerm);
+    });
+
+    displayOtherUsersItems(filteredItems, filteredUserItems);
 }
 
 function resetFilters() {
     document.getElementById('search-input').value = '';
     document.getElementById('type-filter').value = '';
     filteredItems = [...allItems];
-    displayOtherUsersItems(filteredItems);
+    filteredUserItems = [...allUserItems];
+    displayOtherUsersItems(filteredItems, filteredUserItems);
 }
 
 // Carousel functions

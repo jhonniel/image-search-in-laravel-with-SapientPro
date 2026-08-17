@@ -492,13 +492,14 @@ class SimilarityNotificationService
      * Re-scan opposite-type listings for this user and store any missing matches.
      * Used by Claim & Verify so matches still appear when the upload-time check missed them.
      */
-    public function refreshMatchesForUser(string $userEmail, int $maxOtherUploads = 80, int $maxSeconds = 10): int
+    public function refreshMatchesForUser(string $userEmail, int $maxOtherUploads = 80, int $maxSeconds = 10, ?string $onlyUploadId = null): int
     {
         if (! ($this->config['enabled'] ?? true)) {
             return 0;
         }
 
         $userGroups = ImageMetadata::where('uploader_email', $userEmail)
+            ->when($onlyUploadId, fn ($q) => $q->where('upload_id', $onlyUploadId))
             ->whereNull('images_purged_at')
             ->availableForUsers()
             ->orderByDesc('created_at')
@@ -594,6 +595,15 @@ class SimilarityNotificationService
         }
 
         return $stored;
+    }
+
+    /**
+     * Re-scan opposite-type listings for a single item and store any missing matches.
+     * Scans wider than the whole-account refresh because only one item is compared.
+     */
+    public function refreshMatchesForItem(string $userEmail, string $uploadId, int $maxOtherUploads = 200, int $maxSeconds = 20): int
+    {
+        return $this->refreshMatchesForUser($userEmail, $maxOtherUploads, $maxSeconds, $uploadId);
     }
 
     /**

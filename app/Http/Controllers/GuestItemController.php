@@ -267,8 +267,8 @@ class GuestItemController extends Controller
                 'items_saved' => $itemsSaved,
             ]);
 
-            // Redirect to reported items page with success message
-            return redirect()->route('reported-items')->with('success', "Your {$itemsSaved} item(s) have been posted successfully!");
+            // Redirect to claim & verify, where every reported item is listed with its matches
+            return redirect()->route('claim-verify')->with('success', "Your {$itemsSaved} item(s) have been posted successfully!");
 
         } catch (\Exception $e) {
             Log::error('Failed to save item for authenticated user: '.$e->getMessage(), [
