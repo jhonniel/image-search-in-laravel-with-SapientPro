@@ -1072,19 +1072,9 @@ class UserItemController extends Controller
                 ->values()
                 ->toArray();
 
-            // Refresh missing matches (upload-time deferred checks can miss / fail).
-            try {
-                $refreshed = app(SimilarityNotificationService::class)
-                    ->refreshMatchesForUser($user->email);
-                if ($refreshed > 0) {
-                    Log::info('Claim-verify refreshed missing matches', [
-                        'user_email' => $user->email,
-                        'new_matches' => $refreshed,
-                    ]);
-                }
-            } catch (\Throwable $e) {
-                Log::warning('Claim-verify match refresh failed: '.$e->getMessage());
-            }
+            // Note: the system-wide rescan is intentionally NOT run on page load.
+            // It runs on demand when the user opens an item ("View matches") via
+            // refreshItemMatches(), so opening Claim & Verify stays fast.
 
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
