@@ -586,7 +586,7 @@ function openItemMatches(groupKey, options = {}) {
         ? `
             <section class="cv-near-miss-section rounded-xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4">
                 <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">Below threshold</h4>
-                <p class="mb-3 text-xs text-gray-600">These looked somewhat alike but scored below the match threshold. They are not counted as matches.</p>
+                <p class="mb-3 text-xs text-gray-600">These scored a similarity %, but below the match threshold, so they are not counted as matches.</p>
                 <div class="cv-detail-matches cv-near-miss-list">${nearMisses.map(nearMissRow).join('')}</div>
             </section>
         `

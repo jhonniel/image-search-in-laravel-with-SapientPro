@@ -787,9 +787,8 @@ class SimilarityNotificationService
     }
 
     /**
-     * Keep a rejected comparison so Claim & Verify can show "looked similar but failed".
-     * Uses the raw hash score so studio-style lookalikes (bag vs wallet) still appear
-     * even though normalized visual is 0 after the noise floor.
+     * Keep a rejected comparison only when it has a real overall % that still
+     * sits below the match threshold (near-miss / almost-similar items).
      *
      * @param  array<string, array{matched_item_upload_id:string,similarity:float,visual_similarity:float,text_similarity:float,raw_visual_similarity:float}>  $nearMisses
      */
@@ -801,24 +800,18 @@ class SimilarityNotificationService
         float $textSimilarity,
         float $rawVisualSimilarity = 0.0
     ): void {
-        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.08);
-        $lookalikeRaw = (float) ($this->config['thresholds']['near_miss_raw_visual'] ?? 0.48);
+        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.25);
+        $matchThreshold = (float) ($this->config['thresholds']['match']
+            ?? $this->config['threshold']
+            ?? 0.45);
 
-        $isLookalike = $rawVisualSimilarity >= $lookalikeRaw;
-        $hasSignal = $overallSimilarity >= $floor
-            || $visualSimilarity > 0.0
-            || $textSimilarity >= 0.40
-            || $isLookalike;
-
-        if (! $hasSignal) {
+        // Must score something meaningful, but not enough to count as a match.
+        if ($overallSimilarity < $floor || $overallSimilarity >= $matchThreshold) {
             return;
         }
 
-        // Rank lookalikes by how close the raw hash was, not the flattened overall score.
-        $rankScore = max($overallSimilarity, $isLookalike ? (($rawVisualSimilarity - 0.45) / 0.55) : 0.0);
-
         $existing = $nearMisses[$matchedUploadId] ?? null;
-        if ($existing && ($existing['rank_score'] ?? $existing['similarity']) >= $rankScore) {
+        if ($existing && ($existing['similarity'] ?? 0) >= $overallSimilarity) {
             return;
         }
 
@@ -828,7 +821,7 @@ class SimilarityNotificationService
             'visual_similarity' => $visualSimilarity,
             'text_similarity' => $textSimilarity,
             'raw_visual_similarity' => $rawVisualSimilarity,
-            'rank_score' => $rankScore,
+            'rank_score' => $overallSimilarity,
         ];
     }
 

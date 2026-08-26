@@ -1355,15 +1355,13 @@ class UserItemController extends Controller
             }
 
             $matchedUploadIdSet = array_fill_keys(array_keys($items), true);
+            $nearMissFloor = (float) config('similarity.thresholds.near_miss', 0.25);
 
-            // Weak / removed comparisons from the scan, plus any leftover stored rows
-            // that no longer meet the match threshold.
+            // Weak stored rows that still have a real % but sit under the match threshold.
             $weakStored = ItemMatch::where('user_email', $user->email)
                 ->where('user_item_upload_id', $uploadId)
-                ->where(function ($q) use ($matchThreshold, $minVisual) {
-                    $q->where('similarity_score', '<', $matchThreshold)
-                        ->orWhere('visual_similarity', '<', $minVisual);
-                })
+                ->where('similarity_score', '>=', $nearMissFloor)
+                ->where('similarity_score', '<', $matchThreshold)
                 ->get();
 
             foreach ($weakStored as $weak) {
@@ -1380,24 +1378,35 @@ class UserItemController extends Controller
                 ];
             }
 
-            // Drop weak rows from storage so they never reappear under Matches.
-            if ($weakStored->isNotEmpty()) {
-                ItemMatch::where('user_email', $user->email)
-                    ->where('user_item_upload_id', $uploadId)
-                    ->where(function ($q) use ($matchThreshold, $minVisual) {
-                        $q->where('similarity_score', '<', $matchThreshold)
-                            ->orWhere('visual_similarity', '<', $minVisual);
-                    })
-                    ->delete();
-            }
+            // Drop any stored row that is not a real match.
+            ItemMatch::where('user_email', $user->email)
+                ->where('user_item_upload_id', $uploadId)
+                ->where(function ($q) use ($matchThreshold, $minVisual) {
+                    $q->where('similarity_score', '<', $matchThreshold)
+                        ->orWhere('visual_similarity', '<', $minVisual);
+                })
+                ->delete();
 
             $items = collect($items)->sortByDesc('similarity_score')->values()->toArray();
+
+            // Keep only scan results with a real overall % below the match threshold.
+            $nearMissRaw = collect($nearMissRaw)
+                ->filter(function ($near) use ($nearMissFloor, $matchThreshold, $matchedUploadIdSet) {
+                    $id = (string) ($near['matched_item_upload_id'] ?? '');
+                    $score = (float) ($near['similarity'] ?? 0);
+
+                    return $id !== ''
+                        && ! isset($matchedUploadIdSet[$id])
+                        && $score >= $nearMissFloor
+                        && $score < $matchThreshold;
+                })
+                ->values()
+                ->all();
 
             $nearMissIds = collect($nearMissRaw)
                 ->pluck('matched_item_upload_id')
                 ->map(fn ($id) => (string) $id)
                 ->unique()
-                ->reject(fn ($id) => isset($matchedUploadIdSet[$id]))
                 ->values()
                 ->all();
 
@@ -1437,12 +1446,7 @@ class UserItemController extends Controller
                 $nearMisses[$matchedUploadId] = $formatted;
             }
 
-            $nearMisses = collect($nearMisses)->sortByDesc(function ($item) {
-                return max(
-                    (float) ($item['raw_visual_similarity'] ?? 0),
-                    (float) ($item['similarity_score'] ?? 0)
-                );
-            })->values()->toArray();
+            $nearMisses = collect($nearMisses)->sortByDesc('similarity_score')->values()->toArray();
 
             Log::info('On-demand match refresh completed', [
                 'user_email' => $user->email,

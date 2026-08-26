@@ -54,13 +54,12 @@ return [
         'strong_visual' => (float) env('SIMILARITY_STRONG_VISUAL', 0.65),
         // Soft object-label guidance
         'objects' => (float) env('SIMILARITY_MIN_OBJECTS', 0.15),
-        // Shown under "View unmatched similar" when matching fails but score isn't pure noise
-        'near_miss' => (float) env('SIMILARITY_NEAR_MISS_THRESHOLD', 0.08),
-        // Raw hash lookalikes (studio shots of different items) still appear in that list
-        'near_miss_raw_visual' => (float) env('SIMILARITY_NEAR_MISS_RAW_VISUAL', 0.48),
+        // Shown under "View below threshold": must have a real overall % but still
+        // sit under the match threshold (not every weak lookalike / hash-noise pair).
+        'near_miss' => (float) env('SIMILARITY_NEAR_MISS_THRESHOLD', 0.25),
     ],
 
-    // How many unmatched-but-similar items to keep per scanned item
+    // How many below-threshold items to keep per scanned item
     'near_miss_limit' => (int) env('SIMILARITY_NEAR_MISS_LIMIT', 12),
 
     'algorithms' => [
