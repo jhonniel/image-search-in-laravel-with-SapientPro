@@ -1078,10 +1078,13 @@ class UserItemController extends Controller
 
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
-            $displayThreshold = (float) config('similarity.thresholds.display', config('similarity.thresholds.match', 0.50));
+            $matchThreshold = (float) config('similarity.thresholds.match', config('similarity.threshold', 0.45));
+            $minVisual = (float) config('similarity.thresholds.visual', 0.25);
+            // Keep the page-load list aligned with real matches only (not below-threshold lookalikes).
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->whereIn('user_item_upload_id', $userUploadIds)
-                ->where('similarity_score', '>=', $displayThreshold)
+                ->where('similarity_score', '>=', $matchThreshold)
+                ->where('visual_similarity', '>=', $minVisual)
                 ->orderBy('similarity_score', 'desc')
                 ->get();
 
@@ -1166,7 +1169,7 @@ class UserItemController extends Controller
                     if ($notifSimilarity > 1) {
                         $notifSimilarity = $notifSimilarity / 100;
                     }
-                    if ($notifSimilarity < $displayThreshold) {
+                    if ($notifSimilarity < $matchThreshold) {
                         continue;
                     }
 
@@ -1300,9 +1303,14 @@ class UserItemController extends Controller
             }
 
             $newMatches = 0;
+            $removedMatches = 0;
+            $nearMissRaw = [];
             try {
-                $newMatches = app(SimilarityNotificationService::class)
+                $rescan = app(SimilarityNotificationService::class)
                     ->refreshMatchesForItem($user->email, $uploadId);
+                $newMatches = $rescan['stored'];
+                $removedMatches = $rescan['removed'];
+                $nearMissRaw = $rescan['near_misses'] ?? [];
             } catch (\Throwable $e) {
                 Log::warning('On-demand match refresh failed: '.$e->getMessage(), [
                     'upload_id' => $uploadId,
@@ -1310,11 +1318,14 @@ class UserItemController extends Controller
             }
 
             $userItems = collect([$uploadId => $userItemGroup]);
-            $displayThreshold = (float) config('similarity.thresholds.display', config('similarity.thresholds.match', 0.50));
+            $matchThreshold = (float) config('similarity.thresholds.match', config('similarity.threshold', 0.45));
+            $minVisual = (float) config('similarity.thresholds.visual', 0.25);
 
+            // Only real matches belong here — below-threshold rows go to near_misses.
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->where('user_item_upload_id', $uploadId)
-                ->where('similarity_score', '>=', $displayThreshold)
+                ->where('similarity_score', '>=', $matchThreshold)
+                ->where('visual_similarity', '>=', $minVisual)
                 ->orderBy('similarity_score', 'desc')
                 ->get();
 
@@ -1326,7 +1337,7 @@ class UserItemController extends Controller
 
             $items = [];
             foreach ($storedMatches as $match) {
-                $matchedUploadId = $match->matched_item_upload_id;
+                $matchedUploadId = (string) $match->matched_item_upload_id;
                 if (isset($items[$matchedUploadId])) {
                     continue;
                 }
@@ -1343,12 +1354,102 @@ class UserItemController extends Controller
                 ], $user, $userItems);
             }
 
+            $matchedUploadIdSet = array_fill_keys(array_keys($items), true);
+
+            // Weak / removed comparisons from the scan, plus any leftover stored rows
+            // that no longer meet the match threshold.
+            $weakStored = ItemMatch::where('user_email', $user->email)
+                ->where('user_item_upload_id', $uploadId)
+                ->where(function ($q) use ($matchThreshold, $minVisual) {
+                    $q->where('similarity_score', '<', $matchThreshold)
+                        ->orWhere('visual_similarity', '<', $minVisual);
+                })
+                ->get();
+
+            foreach ($weakStored as $weak) {
+                $weakId = (string) $weak->matched_item_upload_id;
+                if (isset($matchedUploadIdSet[$weakId])) {
+                    continue;
+                }
+                $nearMissRaw[] = [
+                    'matched_item_upload_id' => $weakId,
+                    'similarity' => (float) $weak->similarity_score,
+                    'visual_similarity' => (float) $weak->visual_similarity,
+                    'text_similarity' => (float) $weak->text_similarity,
+                    'raw_visual_similarity' => (float) $weak->visual_similarity,
+                ];
+            }
+
+            // Drop weak rows from storage so they never reappear under Matches.
+            if ($weakStored->isNotEmpty()) {
+                ItemMatch::where('user_email', $user->email)
+                    ->where('user_item_upload_id', $uploadId)
+                    ->where(function ($q) use ($matchThreshold, $minVisual) {
+                        $q->where('similarity_score', '<', $matchThreshold)
+                            ->orWhere('visual_similarity', '<', $minVisual);
+                    })
+                    ->delete();
+            }
+
             $items = collect($items)->sortByDesc('similarity_score')->values()->toArray();
+
+            $nearMissIds = collect($nearMissRaw)
+                ->pluck('matched_item_upload_id')
+                ->map(fn ($id) => (string) $id)
+                ->unique()
+                ->reject(fn ($id) => isset($matchedUploadIdSet[$id]))
+                ->values()
+                ->all();
+
+            $nearMissGroups = ImageMetadata::whereIn('upload_id', $nearMissIds)
+                ->where('uploader_email', '!=', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('upload_id');
+
+            $nearMisses = [];
+            foreach ($nearMissRaw as $near) {
+                $matchedUploadId = (string) ($near['matched_item_upload_id'] ?? '');
+                if ($matchedUploadId === '' || isset($matchedUploadIdSet[$matchedUploadId]) || isset($nearMisses[$matchedUploadId])) {
+                    continue;
+                }
+
+                $matchedItemGroup = $nearMissGroups->get($matchedUploadId);
+                if (! $matchedItemGroup || optional($matchedItemGroup->first())->isClaimArchived()) {
+                    continue;
+                }
+
+                $overall = (float) ($near['similarity'] ?? 0);
+                $formatted = $this->formatMatchedItem([
+                    'item' => $matchedItemGroup,
+                    'similarity' => $overall,
+                    'matched_with' => $uploadId,
+                ], $user, $userItems);
+
+                $formatted['is_near_miss'] = true;
+                $formatted['visual_similarity'] = round(((float) ($near['visual_similarity'] ?? 0)) * 100, 2);
+                $formatted['text_similarity'] = round(((float) ($near['text_similarity'] ?? 0)) * 100, 2);
+                $formatted['raw_visual_similarity'] = round(((float) ($near['raw_visual_similarity'] ?? 0)) * 100, 2);
+                // Keep the primary score as the real (failed) overall — not the raw lookalike %.
+                $formatted['similarity_score'] = round($overall * 100, 2);
+                $formatted['match_failed'] = true;
+
+                $nearMisses[$matchedUploadId] = $formatted;
+            }
+
+            $nearMisses = collect($nearMisses)->sortByDesc(function ($item) {
+                return max(
+                    (float) ($item['raw_visual_similarity'] ?? 0),
+                    (float) ($item['similarity_score'] ?? 0)
+                );
+            })->values()->toArray();
 
             Log::info('On-demand match refresh completed', [
                 'user_email' => $user->email,
                 'upload_id' => $uploadId,
                 'new_matches' => $newMatches,
+                'removed_matches' => $removedMatches,
+                'near_misses' => count($nearMisses),
                 'total_matches' => count($items),
             ]);
 
@@ -1356,7 +1457,9 @@ class UserItemController extends Controller
                 'success' => true,
                 'upload_id' => $uploadId,
                 'new_matches' => $newMatches,
+                'removed_matches' => $removedMatches,
                 'items' => $items,
+                'near_misses' => $nearMisses,
                 'message' => $newMatches > 0
                     ? $newMatches.' new match(es) found.'
                     : 'No new matches found.',

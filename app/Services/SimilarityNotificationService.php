@@ -260,15 +260,46 @@ class SimilarityNotificationService
      */
     private function calculateVisualSimilarity(string $image1Path, string $image2Path): float
     {
-        try {
-            $similarity = $this->imageComparator->compare($image1Path, $image2Path);
+        return $this->compareVisualScores($image1Path, $image2Path)['normalized'];
+    }
 
-            return $similarity > 1 ? $similarity / 100 : $similarity;
+    /**
+     * @return array{raw:float,normalized:float}
+     */
+    private function compareVisualScores(string $image1Path, string $image2Path): array
+    {
+        try {
+            $raw = $this->imageComparator->compare($image1Path, $image2Path);
+            $raw = $raw > 1 ? $raw / 100 : $raw;
+
+            return [
+                'raw' => min(1.0, max(0.0, (float) $raw)),
+                'normalized' => $this->normalizeVisualScore((float) $raw),
+            ];
         } catch (ImageResourceException $e) {
             Log::warning('Could not compare images: '.$e->getMessage());
 
+            return ['raw' => 0.0, 'normalized' => 0.0];
+        }
+    }
+
+    /**
+     * Rescale a raw perceptual-hash score so hash noise reads as 0.
+     *
+     * Unrelated photos (a bag vs a wallet, both centred on white) still agree on
+     * roughly half the hash bits, so the raw score bottoms out near 0.5 instead of 0.
+     * Mapping [floor, 1] onto [0, 1] keeps thresholds meaningful.
+     */
+    private function normalizeVisualScore(float $rawSimilarity): float
+    {
+        $floor = (float) ($this->config['visual_floor'] ?? 0.55);
+        $floor = min(max($floor, 0.0), 0.95);
+
+        if ($rawSimilarity <= $floor) {
             return 0.0;
         }
+
+        return min(1.0, ($rawSimilarity - $floor) / (1.0 - $floor));
     }
 
     /**
@@ -368,19 +399,21 @@ class SimilarityNotificationService
         $overallSimilarity = ($visualSimilarity * $visualWeight) + ($textSimilarity * $textWeight);
 
         // Near-duplicate photos should always score highly.
-        if ($visualSimilarity >= 0.85) {
+        if ($visualSimilarity >= 0.75) {
             $overallSimilarity = max($overallSimilarity, $visualSimilarity);
         }
 
         // Same item / different background: reward solid text with usable visual.
-        if ($textSimilarity >= 0.70 && $visualSimilarity >= 0.40) {
+        if ($textSimilarity >= 0.70 && $visualSimilarity >= 0.25) {
             $overallSimilarity = max($overallSimilarity, ($visualSimilarity * 0.55) + ($textSimilarity * 0.45));
         }
 
-        // Reject-level only when both signals are weak (unrelated items).
-        if ($visualSimilarity < 0.35 && $textSimilarity < 0.40) {
+        // The photo carries no real signal: text alone must not lift it into match range.
+        if ($visualSimilarity <= 0.0) {
+            $overallSimilarity *= 0.30;
+        } elseif ($visualSimilarity < 0.15 && $textSimilarity < 0.40) {
             $overallSimilarity *= 0.35;
-        } elseif ($visualSimilarity < 0.30) {
+        } elseif ($visualSimilarity < 0.10) {
             $overallSimilarity *= 0.55;
         }
 
@@ -392,19 +425,25 @@ class SimilarityNotificationService
      */
     private function meetsMatchCriteria(float $visualSimilarity, float $textSimilarity, float $overallSimilarity, float $objectsSimilarity = -1.0): bool
     {
-        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.52);
-        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.40);
-        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.35);
-        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.65);
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.45);
+        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.25);
+        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.20);
+        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
+        $strongVisualThreshold = (float) ($this->config['thresholds']['strong_visual'] ?? 0.65);
+
+        // Photos with no similarity beyond hash noise are never a match, whatever the words say.
+        if ($visualSimilarity <= 0.0) {
+            return false;
+        }
 
         // Soft guidance only: completely disjoint Vision labels + weak photo → skip.
         // Do not block otherwise — labels are often noisy for the same physical item.
-        if ($objectsSimilarity === 0.0 && $visualSimilarity < 0.55 && $textSimilarity < 0.70) {
+        if ($objectsSimilarity === 0.0 && $visualSimilarity < 0.45 && $textSimilarity < 0.70) {
             return false;
         }
 
         $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
-        $strongVisual = $visualSimilarity >= 0.70 && $overallSimilarity >= ($matchThreshold - 0.08);
+        $strongVisual = $visualSimilarity >= $strongVisualThreshold && $overallSimilarity >= ($matchThreshold - 0.08);
         $semanticFallback = $visualSimilarity >= $semanticVisual
             && $textSimilarity >= $semanticText
             && $overallSimilarity >= ($matchThreshold - 0.08);
@@ -466,10 +505,13 @@ class SimilarityNotificationService
 
     /**
      * Best visual similarity across every image file in two upload groups.
+     *
+     * @return array{raw:float,normalized:float}
      */
-    private function maxVisualSimilarityBetweenGroups($userGroup, $otherGroup): float
+    private function maxVisualSimilarityBetweenGroups($userGroup, $otherGroup): array
     {
-        $max = 0.0;
+        $maxRaw = 0.0;
+        $maxNormalized = 0.0;
 
         foreach ($userGroup as $userImg) {
             $userPath = $this->getItemFilePath($userImg);
@@ -481,11 +523,20 @@ class SimilarityNotificationService
                 if (! $otherPath) {
                     continue;
                 }
-                $max = max($max, $this->calculateVisualSimilarity($userPath, $otherPath));
+                $scores = $this->compareVisualScores($userPath, $otherPath);
+                if ($scores['raw'] > $maxRaw) {
+                    $maxRaw = $scores['raw'];
+                }
+                if ($scores['normalized'] > $maxNormalized) {
+                    $maxNormalized = $scores['normalized'];
+                }
             }
         }
 
-        return $max;
+        return [
+            'raw' => $maxRaw,
+            'normalized' => $maxNormalized,
+        ];
     }
 
     /**
@@ -494,8 +545,26 @@ class SimilarityNotificationService
      */
     public function refreshMatchesForUser(string $userEmail, int $maxOtherUploads = 80, int $maxSeconds = 10, ?string $onlyUploadId = null): int
     {
+        return $this->rescanMatches($userEmail, $maxOtherUploads, $maxSeconds, $onlyUploadId)['stored'];
+    }
+
+    /**
+     * Re-score stored matches and scan for new ones.
+     *
+     * @return array{stored:int,removed:int,near_misses:array<int,array{matched_item_upload_id:string,similarity:float,visual_similarity:float,text_similarity:float}>}
+     */
+    public function rescanMatches(string $userEmail, int $maxOtherUploads = 80, int $maxSeconds = 10, ?string $onlyUploadId = null): array
+    {
+        return $this->scanForNewMatches($userEmail, $maxOtherUploads, $maxSeconds, $onlyUploadId);
+    }
+
+    /**
+     * @return array{stored:int,removed:int,near_misses:array}
+     */
+    private function scanForNewMatches(string $userEmail, int $maxOtherUploads, int $maxSeconds, ?string $onlyUploadId): array
+    {
         if (! ($this->config['enabled'] ?? true)) {
-            return 0;
+            return ['stored' => 0, 'removed' => 0, 'near_misses' => []];
         }
 
         $userGroups = ImageMetadata::where('uploader_email', $userEmail)
@@ -507,10 +576,12 @@ class SimilarityNotificationService
             ->groupBy('upload_id');
 
         if ($userGroups->isEmpty()) {
-            return 0;
+            return ['stored' => 0, 'removed' => 0, 'near_misses' => []];
         }
 
         $stored = 0;
+        $removed = 0;
+        $nearMisses = [];
         $started = microtime(true);
 
         foreach ($userGroups as $userUploadId => $userGroup) {
@@ -524,6 +595,10 @@ class SimilarityNotificationService
             }
 
             $oppositeStatus = $userFirst->status === 'lost' ? 'found' : 'lost';
+
+            // Re-score what is already stored first, so matches kept by older/looser
+            // scoring are corrected or dropped instead of lingering forever.
+            $removed += $this->rescoreStoredMatches($userEmail, $userUploadId, $userGroup, $userFirst, $nearMisses);
 
             $alreadyMatched = ItemMatch::where('user_email', $userEmail)
                 ->where('user_item_upload_id', $userUploadId)
@@ -553,7 +628,9 @@ class SimilarityNotificationService
                 }
 
                 try {
-                    $visualSimilarity = $this->maxVisualSimilarityBetweenGroups($userGroup, $otherGroup);
+                    $visualScores = $this->maxVisualSimilarityBetweenGroups($userGroup, $otherGroup);
+                    $visualSimilarity = $visualScores['normalized'];
+                    $rawVisualSimilarity = $visualScores['raw'];
                     $newMetadata = [
                         'description' => $userFirst->description,
                         'tags' => $userFirst->tags,
@@ -564,6 +641,15 @@ class SimilarityNotificationService
                     $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
 
                     if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
+                        $this->rememberNearMiss(
+                            $nearMisses,
+                            (string) $otherUploadId,
+                            $overallSimilarity,
+                            $visualSimilarity,
+                            $textSimilarity,
+                            $rawVisualSimilarity
+                        );
+
                         continue;
                     }
 
@@ -594,16 +680,182 @@ class SimilarityNotificationService
             }
         }
 
-        return $stored;
+        return [
+            'stored' => $stored,
+            'removed' => $removed,
+            'near_misses' => $this->rankNearMisses($nearMisses),
+        ];
     }
 
     /**
      * Re-scan opposite-type listings for a single item and store any missing matches.
      * Scans wider than the whole-account refresh because only one item is compared.
+     *
+     * @return array{stored:int,removed:int,near_misses:array}
      */
-    public function refreshMatchesForItem(string $userEmail, string $uploadId, int $maxOtherUploads = 200, int $maxSeconds = 20): int
+    public function refreshMatchesForItem(string $userEmail, string $uploadId, int $maxOtherUploads = 200, int $maxSeconds = 20): array
     {
-        return $this->refreshMatchesForUser($userEmail, $maxOtherUploads, $maxSeconds, $uploadId);
+        return $this->rescanMatches($userEmail, $maxOtherUploads, $maxSeconds, $uploadId);
+    }
+
+    /**
+     * Re-compare every stored match for one item, dropping the ones that no longer qualify.
+     *
+     * @param  array<string, array{matched_item_upload_id:string,similarity:float,visual_similarity:float,text_similarity:float}>  $nearMisses
+     * @return int number of matches removed
+     */
+    private function rescoreStoredMatches(string $userEmail, string $userUploadId, $userGroup, ImageMetadata $userFirst, array &$nearMisses): int
+    {
+        $removed = 0;
+
+        $existingMatches = ItemMatch::where('user_email', $userEmail)
+            ->where('user_item_upload_id', $userUploadId)
+            ->get();
+
+        foreach ($existingMatches as $existing) {
+            $otherGroup = ImageMetadata::where('upload_id', $existing->matched_item_upload_id)
+                ->whereNull('images_purged_at')
+                ->get();
+
+            $otherFirst = $otherGroup->first();
+            if (! $otherFirst) {
+                continue;
+            }
+
+            try {
+                $visualScores = $this->maxVisualSimilarityBetweenGroups($userGroup, $otherGroup);
+                $visualSimilarity = $visualScores['normalized'];
+                $rawVisualSimilarity = $visualScores['raw'];
+                $newMetadata = [
+                    'description' => $userFirst->description,
+                    'tags' => $userFirst->tags,
+                    'detected_objects' => $userFirst->detected_objects,
+                ];
+                $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
+                $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
+                $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
+
+                if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
+                    $this->storeBidirectionalMatch(
+                        $userFirst,
+                        $otherFirst,
+                        $userEmail,
+                        $overallSimilarity,
+                        $visualSimilarity,
+                        $textSimilarity
+                    );
+
+                    continue;
+                }
+
+                ItemMatch::where(function ($q) use ($userUploadId, $existing) {
+                    $q->where('user_item_upload_id', $userUploadId)
+                        ->where('matched_item_upload_id', $existing->matched_item_upload_id);
+                })->orWhere(function ($q) use ($userUploadId, $existing) {
+                    $q->where('user_item_upload_id', $existing->matched_item_upload_id)
+                        ->where('matched_item_upload_id', $userUploadId);
+                })->delete();
+
+                $this->rememberNearMiss(
+                    $nearMisses,
+                    (string) $existing->matched_item_upload_id,
+                    $overallSimilarity,
+                    $visualSimilarity,
+                    $textSimilarity,
+                    $rawVisualSimilarity
+                );
+
+                $removed++;
+
+                Log::info('Dropped match that no longer meets criteria', [
+                    'user_upload_id' => $userUploadId,
+                    'matched_upload_id' => $existing->matched_item_upload_id,
+                    'old_score' => (float) $existing->similarity_score,
+                    'visual' => $visualSimilarity,
+                    'text' => $textSimilarity,
+                    'overall' => $overallSimilarity,
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('Re-scoring stored match failed: '.$e->getMessage(), [
+                    'user_upload_id' => $userUploadId,
+                    'matched_upload_id' => $existing->matched_item_upload_id,
+                ]);
+            }
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Keep a rejected comparison so Claim & Verify can show "looked similar but failed".
+     * Uses the raw hash score so studio-style lookalikes (bag vs wallet) still appear
+     * even though normalized visual is 0 after the noise floor.
+     *
+     * @param  array<string, array{matched_item_upload_id:string,similarity:float,visual_similarity:float,text_similarity:float,raw_visual_similarity:float}>  $nearMisses
+     */
+    private function rememberNearMiss(
+        array &$nearMisses,
+        string $matchedUploadId,
+        float $overallSimilarity,
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $rawVisualSimilarity = 0.0
+    ): void {
+        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.08);
+        $lookalikeRaw = (float) ($this->config['thresholds']['near_miss_raw_visual'] ?? 0.48);
+
+        $isLookalike = $rawVisualSimilarity >= $lookalikeRaw;
+        $hasSignal = $overallSimilarity >= $floor
+            || $visualSimilarity > 0.0
+            || $textSimilarity >= 0.40
+            || $isLookalike;
+
+        if (! $hasSignal) {
+            return;
+        }
+
+        // Rank lookalikes by how close the raw hash was, not the flattened overall score.
+        $rankScore = max($overallSimilarity, $isLookalike ? (($rawVisualSimilarity - 0.45) / 0.55) : 0.0);
+
+        $existing = $nearMisses[$matchedUploadId] ?? null;
+        if ($existing && ($existing['rank_score'] ?? $existing['similarity']) >= $rankScore) {
+            return;
+        }
+
+        $nearMisses[$matchedUploadId] = [
+            'matched_item_upload_id' => $matchedUploadId,
+            'similarity' => $overallSimilarity,
+            'visual_similarity' => $visualSimilarity,
+            'text_similarity' => $textSimilarity,
+            'raw_visual_similarity' => $rawVisualSimilarity,
+            'rank_score' => $rankScore,
+        ];
+    }
+
+    /**
+     * @param  array<string, array{matched_item_upload_id:string,similarity:float,visual_similarity:float,text_similarity:float,raw_visual_similarity?:float,rank_score?:float}>  $nearMisses
+     * @return array<int, array{matched_item_upload_id:string,similarity:float,visual_similarity:float,text_similarity:float,raw_visual_similarity:float}>
+     */
+    private function rankNearMisses(array $nearMisses): array
+    {
+        $limit = max(1, (int) ($this->config['near_miss_limit'] ?? 12));
+
+        usort($nearMisses, function ($a, $b) {
+            $scoreA = $a['rank_score'] ?? $a['similarity'];
+            $scoreB = $b['rank_score'] ?? $b['similarity'];
+
+            return $scoreB <=> $scoreA;
+        });
+
+        return array_map(function (array $near) {
+            return [
+                'matched_item_upload_id' => $near['matched_item_upload_id'],
+                'similarity' => $near['similarity'],
+                'visual_similarity' => $near['visual_similarity'],
+                'text_similarity' => $near['text_similarity'],
+                'raw_visual_similarity' => $near['raw_visual_similarity'] ?? 0.0,
+            ];
+        }, array_slice(array_values($nearMisses), 0, $limit));
     }
 
     /**

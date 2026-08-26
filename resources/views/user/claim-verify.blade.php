@@ -291,6 +291,57 @@ function matchRow(item) {
     `;
 }
 
+function nearMissRow(item) {
+    const overall = item.similarity_score != null ? `${Number(item.similarity_score)}%` : '—';
+    const visual = item.visual_similarity != null ? `${Number(item.visual_similarity)}%` : '—';
+    const rawVisual = item.raw_visual_similarity != null ? `${Number(item.raw_visual_similarity)}%` : null;
+    const text = item.text_similarity != null ? `${Number(item.text_similarity)}%` : '—';
+    const uploader = escapeHtml(item.uploader_name || 'Unknown');
+    const lookalikeNote = rawVisual
+        ? `Below threshold · overall ${escapeHtml(overall)} · lookalike ${escapeHtml(rawVisual)} · visual ${escapeHtml(visual)} · text ${escapeHtml(text)}`
+        : `Below threshold · overall ${escapeHtml(overall)} · visual ${escapeHtml(visual)} · text ${escapeHtml(text)}`;
+
+    return `
+        <div class="cv-match-row cv-near-miss-row">
+            <div class="cv-match-row-media">
+                ${panelImage(item.images, item.description)}
+            </div>
+            <div class="cv-match-row-body min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    ${typeBadge(item.item_type)}
+                    <span class="text-[10px] font-semibold text-amber-700">Below threshold ${escapeHtml(overall)}</span>
+                    <span class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">Below threshold</span>
+                </div>
+                <p class="cv-group-title">${escapeHtml(item.description || 'No description')}</p>
+                <p class="cv-compare-meta !mt-0.5">${escapeHtml(item.location || 'No location')} · ${uploader}</p>
+                <p class="mt-1 text-[10px] text-gray-500">${lookalikeNote}</p>
+                ${matchActions(item)}
+            </div>
+        </div>
+    `;
+}
+
+function nearMissToggleButton(uploadId, count) {
+    if (!count) {
+        return `
+            <button type="button" disabled class="cv-near-miss-btn cv-near-miss-btn-disabled">
+                <i class="fas fa-eye-slash text-[10px]"></i>
+                No below-threshold items
+            </button>
+        `;
+    }
+
+    const open = showNearMissesFor === String(uploadId);
+    return `
+        <button type="button"
+            onclick="toggleNearMisses('${escapeJs(String(uploadId))}')"
+            class="cv-near-miss-btn ${open ? 'cv-near-miss-btn-open' : ''}">
+            <i class="fas ${open ? 'fa-eye-slash' : 'fa-eye'} text-[10px]"></i>
+            ${open ? 'Hide' : 'View'} below threshold${count ? ` (${count})` : ''}
+        </button>
+    `;
+}
+
 function groupMatchesByUserItem(items, userItems = []) {
     const groups = new Map();
 
@@ -348,6 +399,8 @@ function groupDomId(key) {
 
 let currentGroups = [];
 let activeGroupKey = null;
+let showNearMissesFor = null; // upload_id whose unmatched-similar list is open
+const nearMissesByUploadId = {}; // upload_id => near-miss items from last scan
 // Per-item state of the on-demand system rescan: { status: 'loading'|'done'|'error', newMatches, at }
 const matchRefreshState = {};
 const MATCH_REFRESH_COOLDOWN_MS = 60000;
@@ -373,12 +426,21 @@ function matchRefreshBanner(groupKey) {
         `;
     }
 
+    const parts = [];
+    if (state.newMatches > 0) {
+        parts.push(`${state.newMatches} new match${state.newMatches === 1 ? '' : 'es'} found`);
+    }
+    if (state.removedMatches > 0) {
+        parts.push(`${state.removedMatches} weak match${state.removedMatches === 1 ? '' : 'es'} removed`);
+    }
+    if (state.nearMissCount > 0) {
+        parts.push(`${state.nearMissCount} below-threshold item${state.nearMissCount === 1 ? '' : 's'}`);
+    }
+
     return `
         <div class="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-xs text-gray-600">
             <i class="fas fa-circle-check mr-1 text-green-500"></i>
-            ${state.newMatches > 0
-                ? `Scan complete — ${state.newMatches} new match${state.newMatches === 1 ? '' : 'es'} found.`
-                : 'Scan complete — no new matches right now.'}
+            ${parts.length ? `Scan complete — ${parts.join(', ')}.` : 'Scan complete — no new matches right now.'}
         </div>
     `;
 }
@@ -411,14 +473,29 @@ async function refreshMatchesForItem(uploadId) {
         if (!data.success) {
             matchRefreshState[uploadId] = { status: 'error', at: Date.now() };
         } else {
+            const fresh = (data.items || []).filter(item => !item.is_near_miss && !item.match_failed);
+            const freshIds = new Set(fresh.map(item => item.upload_id));
+            const nearOnly = (data.near_misses || []).filter(item =>
+                item && item.upload_id && !freshIds.has(item.upload_id)
+            );
+
+            allItems = allItems
+                .filter(item => groupMatchKey(item) !== uploadId && !nearOnly.some(n => n.upload_id === item.upload_id))
+                .concat(fresh);
+            nearMissesByUploadId[uploadId] = nearOnly;
+
             matchRefreshState[uploadId] = {
                 status: 'done',
                 newMatches: Number(data.new_matches) || 0,
+                removedMatches: Number(data.removed_matches) || 0,
+                nearMissCount: nearOnly.length,
                 at: Date.now()
             };
 
-            const fresh = data.items || [];
-            allItems = allItems.filter(item => groupMatchKey(item) !== uploadId).concat(fresh);
+            // Keep / open the rejects list when the user asked for it, or when matching failed.
+            if (nearOnly.length && (showNearMissesFor === String(uploadId) || !fresh.length)) {
+                showNearMissesFor = String(uploadId);
+            }
         }
     } catch (error) {
         console.error('Error refreshing matches:', error);
@@ -431,6 +508,7 @@ async function refreshMatchesForItem(uploadId) {
 
 function showItemsList() {
     activeGroupKey = null;
+    showNearMissesFor = null;
     document.getElementById('item-matches-view')?.classList.add('hidden');
     document.getElementById('other-users-items-list')?.classList.remove('hidden');
     const subtitle = document.querySelector('.user-card-subtitle');
@@ -439,8 +517,23 @@ function showItemsList() {
     if (title) title.textContent = 'Your items';
 }
 
+function toggleNearMisses(uploadId) {
+    showNearMissesFor = showNearMissesFor === String(uploadId) ? null : String(uploadId);
+    if (activeGroupKey) {
+        openItemMatches(activeGroupKey, { refresh: false });
+    }
+}
+
+// List-card button: open the item and jump to below-threshold similar items.
+function openSimilarRejects(groupKey) {
+    const group = currentGroups.find(g => String(g.key) === String(groupKey));
+    const yoursId = group?.yours?.upload_id || groupKey;
+    showNearMissesFor = String(yoursId);
+    openItemMatches(groupKey, { refresh: true, preferNearMisses: true });
+}
+
 function openItemMatches(groupKey, options = {}) {
-    const { refresh = true } = options;
+    const { refresh = true, preferNearMisses = false } = options;
     const group = currentGroups.find(g => String(g.key) === String(groupKey));
     const detailView = document.getElementById('item-matches-view');
     const listView = document.getElementById('other-users-items-list');
@@ -459,10 +552,45 @@ function openItemMatches(groupKey, options = {}) {
             : 'No matches for this item yet';
     }
 
+    const yoursId = group.yours?.upload_id || group.key;
+    const matchIds = new Set((group.matches || []).map(m => m.upload_id));
+    const nearMisses = (nearMissesByUploadId[yoursId] || []).filter(n => n?.upload_id && !matchIds.has(n.upload_id));
+    const scanState = matchRefreshState[yoursId];
     const best = group.bestScore != null ? `${group.bestScore}%` : '—';
     const matchesHtml = group.matches.length
         ? `<div class="cv-detail-matches">${group.matches.map(matchRow).join('')}</div>`
         : `<p class="py-8 text-center text-sm text-gray-500">No possible matches yet. We'll add them here as similar items are posted.</p>`;
+
+    let nearMissButton = '';
+    if (scanState?.status === 'loading') {
+        nearMissButton = `
+            <button type="button" disabled class="cv-near-miss-btn cv-near-miss-btn-loading">
+                <span class="inline-block h-2.5 w-2.5 animate-spin rounded-full border border-purple-200 border-t-purple-600"></span>
+                Finding similar…
+            </button>
+        `;
+    } else if (scanState?.status === 'done' || nearMisses.length) {
+        nearMissButton = nearMissToggleButton(yoursId, nearMisses.length);
+    } else {
+        nearMissButton = `
+            <button type="button"
+                class="cv-near-miss-btn"
+                onclick="openSimilarRejects('${escapeJs(String(group.key))}')">
+                <i class="fas fa-eye text-[10px]"></i>
+                View below threshold
+            </button>
+        `;
+    }
+
+    const nearMissSection = (showNearMissesFor === String(yoursId) && nearMisses.length)
+        ? `
+            <section class="cv-near-miss-section rounded-xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4">
+                <h4 class="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-700">Below threshold</h4>
+                <p class="mb-3 text-xs text-gray-600">These looked somewhat alike but scored below the match threshold. They are not counted as matches.</p>
+                <div class="cv-detail-matches cv-near-miss-list">${nearMisses.map(nearMissRow).join('')}</div>
+            </section>
+        `
+        : '';
 
     detailView.innerHTML = `
         <div class="flex flex-wrap items-center justify-between gap-2">
@@ -472,6 +600,7 @@ function openItemMatches(groupKey, options = {}) {
             </button>
             <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
         </div>
+        ${nearMissButton ? `<div class="cv-near-miss-toolbar">${nearMissButton}</div>` : ''}
         <div id="match-refresh-banner">${matchRefreshBanner(group.key)}</div>
         <section class="cv-detail-yours">
             ${yoursSummaryCard(group.yours)}
@@ -480,6 +609,7 @@ function openItemMatches(groupKey, options = {}) {
             <h4 class="mb-3 text-[10px] font-bold uppercase tracking-wider text-gray-500">All possible matches</h4>
             ${matchesHtml}
         </section>
+        ${nearMissSection}
     `;
 
     detailView.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -531,11 +661,14 @@ function displayOtherUsersItems(items, userItems = []) {
         const domId = groupDomId(group.key);
         const matchCount = group.matches.length;
         const best = group.bestScore != null ? `${group.bestScore}%` : '—';
+        const yoursId = group.yours?.upload_id || group.key;
+        const knownNear = (nearMissesByUploadId[yoursId] || []).length;
         const summary = matchCount
             ? `<p class="text-sm font-semibold text-gray-900">${matchCount} match${matchCount === 1 ? '' : 'es'}</p>
                <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>`
             : `<p class="text-sm font-semibold text-gray-500">No matches yet</p>
-               <p class="text-xs text-gray-400">We'll list matches here as new items are posted</p>`;
+               <p class="text-xs text-gray-400">We'll list matches here as new items are posted</p>
+               <p class="text-xs text-purple-700">Best score <span class="font-bold">—</span></p>`;
 
         return `
             <article class="cv-group cursor-pointer" data-group-key="${escapeHtml(domId)}" onclick="openItemMatches('${escapeJs(String(group.key))}')">
@@ -544,13 +677,21 @@ function displayOtherUsersItems(items, userItems = []) {
                     <div class="cv-group-summary">
                         <div class="cv-group-summary-stats">
                             ${summary}
+                            <button type="button"
+                                class="cv-near-miss-btn cv-near-miss-btn-list"
+                                onclick="event.stopPropagation(); openSimilarRejects('${escapeJs(String(group.key))}')">
+                                <i class="fas fa-eye text-[10px]"></i>
+                                View below threshold${knownNear ? ` (${knownNear})` : ''}
+                            </button>
                         </div>
-                        <button type="button"
-                            class="cv-group-toggle"
-                            onclick="event.stopPropagation(); openItemMatches('${escapeJs(String(group.key))}')">
-                            <span>${matchCount ? 'View matches' : 'View item'}</span>
-                            <i class="fas fa-arrow-right text-xs"></i>
-                        </button>
+                        <div class="cv-group-summary-actions">
+                            <button type="button"
+                                class="cv-group-toggle"
+                                onclick="event.stopPropagation(); openItemMatches('${escapeJs(String(group.key))}')">
+                                <span>${matchCount ? 'View matches' : 'View item'}</span>
+                                <i class="fas fa-arrow-right text-xs"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </article>
@@ -693,13 +834,25 @@ function viewImage(imagePath) {
     document.getElementById('image-modal').classList.remove('hidden');
 }
 
+function findListedItem(uploadId) {
+    const fromMatches = allItems.find(item => item.upload_id === uploadId);
+    if (fromMatches) return fromMatches;
+
+    for (const list of Object.values(nearMissesByUploadId)) {
+        const found = (list || []).find(item => item.upload_id === uploadId);
+        if (found) return found;
+    }
+
+    return null;
+}
+
 function closeImageModal() {
     document.getElementById('image-modal').classList.add('hidden');
 }
 
 // Item details function
 function viewItemDetails(uploadId) {
-    const item = allItems.find(item => item.upload_id === uploadId);
+    const item = findListedItem(uploadId);
     if (!item) return;
 
     // Build a safe image URL for the modal
@@ -841,7 +994,7 @@ function viewItemDetails(uploadId) {
 // Message about item function
 function messageAboutItem(uploadId, description, itemType, location) {
     // Get the item owner's email from the item data
-    const item = allItems.find(item => item.upload_id === uploadId);
+    const item = findListedItem(uploadId);
     if (!item) {
         alert('Item not found');
         return;

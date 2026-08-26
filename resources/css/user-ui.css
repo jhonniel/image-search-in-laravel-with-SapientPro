@@ -220,6 +220,54 @@
         @apply px-1.5 py-1 text-[10px];
     }
 
+    .cv-near-miss-toolbar {
+        @apply flex w-full items-center justify-start border-t border-gray-100 pt-3;
+    }
+
+    .cv-group-summary-stats {
+        @apply flex min-w-0 flex-col gap-1.5;
+    }
+
+    .cv-group-summary-stats p:first-child {
+        @apply text-xs;
+    }
+
+    .cv-group-summary-stats .cv-near-miss-btn-list {
+        @apply mt-1 w-auto self-start px-2 py-1 text-[10px] font-semibold;
+    }
+
+    .cv-group-summary-actions {
+        @apply mt-2 flex w-full flex-col gap-2;
+    }
+
+    .cv-near-miss-btn {
+        @apply inline-flex items-center justify-center gap-1 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1.5 text-[11px] font-semibold text-amber-900 transition-colors hover:bg-amber-100;
+    }
+
+    .cv-near-miss-btn-list {
+        @apply w-auto;
+    }
+
+    .cv-near-miss-btn-open {
+        @apply border-amber-400 bg-amber-100;
+    }
+
+    .cv-near-miss-btn-disabled {
+        @apply cursor-not-allowed border-gray-200 bg-white text-gray-400 hover:bg-white;
+    }
+
+    .cv-near-miss-btn-loading {
+        @apply cursor-wait border-purple-100 bg-purple-50 text-purple-500 hover:bg-purple-50;
+    }
+
+    .cv-near-miss-section {
+        @apply mt-2 rounded-xl border border-amber-100 bg-amber-50/40 p-3 sm:p-4;
+    }
+
+    .cv-near-miss-list .cv-near-miss-row {
+        @apply border-amber-100 bg-white;
+    }
+
     .cv-group-expanded .cv-match-list {
         @apply grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3;
     }
@@ -254,14 +302,6 @@
 
     .cv-group-summary {
         @apply mt-auto flex flex-col gap-1.5 border-t border-gray-100 pt-1.5;
-    }
-
-    .cv-group-summary-stats {
-        @apply min-w-0;
-    }
-
-    .cv-group-summary-stats p:first-child {
-        @apply text-xs;
     }
 
     .cv-group-toggle {
