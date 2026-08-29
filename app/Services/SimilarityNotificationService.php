@@ -148,8 +148,9 @@ class SimilarityNotificationService
                 }
 
                 try {
-                    // Calculate visual similarity
-                    $visualSimilarity = $this->calculateVisualSimilarity($newImagePath, $existingImagePath);
+                    $visualScores = $this->compareVisualScores($newImagePath, $existingImagePath);
+                    $visualSimilarity = $visualScores['normalized'];
+                    $rawVisualSimilarity = $visualScores['raw'];
 
                     // Calculate text similarity
                     $textSimilarity = $this->calculateTextSimilarity($newImageMetadata, $existingImage);
@@ -160,12 +161,13 @@ class SimilarityNotificationService
                     Log::debug('Similarity calculation', [
                         'existing_image' => $existingImage->original_name,
                         'visual_similarity' => $visualSimilarity,
+                        'raw_visual_similarity' => $rawVisualSimilarity,
                         'text_similarity' => $textSimilarity,
                         'overall_similarity' => $overallSimilarity,
                     ]);
 
                     // Check if similarity meets threshold
-                    $visualThreshold = $this->config['thresholds']['visual'] ?? 0.8; // Use config value, default to 0.8 for strict similarity
+                    $visualThreshold = $this->config['thresholds']['visual'] ?? 0.35;
                     $objectsSimilarity = $this->calculateObjectsOverlap($newImageMetadata, $existingImage);
 
                     Log::debug('Threshold check', [
@@ -173,10 +175,10 @@ class SimilarityNotificationService
                         'overall_similarity' => $overallSimilarity,
                         'visual_threshold' => $visualThreshold,
                         'objects_similarity' => $objectsSimilarity,
-                        'meets_threshold' => $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity),
+                        'meets_threshold' => $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity),
                     ]);
 
-                    if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
+                    if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
                         $similarImages[] = [
                             'image' => $existingImage,
                             'visual_similarity' => $visualSimilarity,
@@ -339,8 +341,19 @@ class SimilarityNotificationService
         $tagsSimilarity = $this->calculateTextSimilarityScore($newTagsText, $existingTagsText);
         $objectsSimilarity = $this->calculateTextSimilarityScore($newObjectsText, $existingObjectsText);
 
+        // Penalize when only generic words overlap (e.g. both say "lost item at mall").
+        $specificDescriptionSimilarity = $this->calculateSpecificTextSimilarityScore($newDescription, $existingDescription);
+        $specificTagsSimilarity = $this->calculateSpecificTextSimilarityScore($newTagsText, $existingTagsText);
+
         // Calculate weighted average: description (40%), tags (30%), objects (30%)
         $weightedSimilarity = ($descriptionSimilarity * 0.4) + ($tagsSimilarity * 0.3) + ($objectsSimilarity * 0.3);
+
+        $specificSignal = max($specificDescriptionSimilarity, $specificTagsSimilarity);
+        if ($weightedSimilarity >= 0.45 && $specificSignal < 0.25) {
+            $weightedSimilarity *= 0.45;
+        } elseif ($weightedSimilarity >= 0.35 && $specificSignal < 0.15) {
+            $weightedSimilarity *= 0.60;
+        }
 
         // Boost similarity if objects match strongly (objects are more reliable)
         if ($objectsSimilarity > 0.6) {
@@ -386,6 +399,41 @@ class SimilarityNotificationService
     }
 
     /**
+     * Text similarity after removing generic lost/found/location filler words.
+     */
+    private function calculateSpecificTextSimilarityScore(string $text1, string $text2): float
+    {
+        $specific1 = $this->stripGenericText($text1);
+        $specific2 = $this->stripGenericText($text2);
+
+        if ($specific1 === '' || $specific2 === '') {
+            return 0.0;
+        }
+
+        return $this->calculateTextSimilarityScore($specific1, $specific2);
+    }
+
+    /**
+     * Remove words that inflate similarity between unrelated listings.
+     */
+    private function stripGenericText(string $text): string
+    {
+        $text = strtolower(trim($text));
+        if ($text === '') {
+            return '';
+        }
+
+        $generic = array_flip($this->config['generic_text_words'] ?? []);
+        $words = preg_split('/[^a-z0-9]+/', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $filtered = array_values(array_filter(
+            $words,
+            fn (string $word): bool => strlen($word) > 2 && ! isset($generic[$word])
+        ));
+
+        return implode(' ', $filtered);
+    }
+
+    /**
      * Calculate overall similarity combining visual and text
      */
     private function calculateOverallSimilarity(float $visualSimilarity, float $textSimilarity): float
@@ -404,7 +452,9 @@ class SimilarityNotificationService
         }
 
         // Same item / different background: reward solid text with usable visual.
-        if ($textSimilarity >= 0.70 && $visualSimilarity >= 0.25) {
+        $semanticVisualMin = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.30);
+        $semanticTextMin = (float) ($this->config['thresholds']['semantic_text'] ?? 0.75);
+        if ($textSimilarity >= $semanticTextMin && $visualSimilarity >= $semanticVisualMin) {
             $overallSimilarity = max($overallSimilarity, ($visualSimilarity * 0.55) + ($textSimilarity * 0.45));
         }
 
@@ -421,34 +471,194 @@ class SimilarityNotificationService
     }
 
     /**
+     * Whether two items share enough signal to show on Claim & Verify at all.
+     * Blocks unrelated pairs (e.g. pen vs wallet on a white background).
+     */
+    private function isRelatedComparison(
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $overallSimilarity,
+        float $objectsSimilarity = -1.0,
+        float $rawVisualSimilarity = -1.0
+    ): bool {
+        $minimumDisplay = (float) ($this->config['thresholds']['minimum_display'] ?? 0.20);
+
+        if ($overallSimilarity < $minimumDisplay) {
+            return false;
+        }
+
+        // Hash noise only — no visual signal and weak text → unrelated.
+        if ($visualSimilarity <= 0.0 && $textSimilarity < 0.45) {
+            return false;
+        }
+
+        if ($this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
+            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+            return false;
+        }
+
+        // Both items labeled by Vision with no shared category → unrelated unless photo is very strong.
+        if ($objectsSimilarity === 0.0 && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+            return false;
+        }
+
+        // Vision labels disagree and neither signal is strong.
+        if ($objectsSimilarity >= 0.0
+            && $objectsSimilarity < (float) ($this->config['thresholds']['objects_min_overlap'] ?? 0.15)
+            && $visualSimilarity < 0.40
+            && $textSimilarity < 0.60) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Raw perceptual hash just above the noise floor — similar background, different object.
+     */
+    private function isBorderlineHashMatch(float $rawVisualSimilarity, float $normalizedVisual): bool
+    {
+        if ($rawVisualSimilarity < 0.0) {
+            return false;
+        }
+
+        $floor = (float) ($this->config['visual_floor'] ?? 0.58);
+        $borderlineMax = (float) ($this->config['thresholds']['raw_visual_borderline_max'] ?? 0.68);
+
+        return $rawVisualSimilarity > $floor
+            && $rawVisualSimilarity <= $borderlineMax
+            && $normalizedVisual < 0.45;
+    }
+
+    /**
+     * When both listings have Vision labels, require overlap unless the photo is a near-duplicate.
+     */
+    private function passesObjectLabelGate(float $objectsSimilarity, float $visualSimilarity): bool
+    {
+        if ($objectsSimilarity < 0.0) {
+            return true;
+        }
+
+        $minOverlap = (float) ($this->config['thresholds']['objects_min_overlap'] ?? 0.15);
+        $overrideVisual = (float) ($this->config['thresholds']['objects_veto_override_visual'] ?? 0.75);
+
+        if ($objectsSimilarity >= $minOverlap) {
+            return true;
+        }
+
+        return $visualSimilarity >= $overrideVisual;
+    }
+
+    /**
      * Whether two items should be treated as a candidate match.
      */
-    private function meetsMatchCriteria(float $visualSimilarity, float $textSimilarity, float $overallSimilarity, float $objectsSimilarity = -1.0): bool
-    {
-        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.45);
-        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.25);
-        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.20);
-        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
-        $strongVisualThreshold = (float) ($this->config['thresholds']['strong_visual'] ?? 0.65);
+    private function meetsMatchCriteria(
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $overallSimilarity,
+        float $objectsSimilarity = -1.0,
+        float $rawVisualSimilarity = -1.0
+    ): bool {
+        if (! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+            return false;
+        }
+
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.55);
+        $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.35);
+        $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.30);
+        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.75);
+        $strongVisualThreshold = (float) ($this->config['thresholds']['strong_visual'] ?? 0.70);
 
         // Photos with no similarity beyond hash noise are never a match, whatever the words say.
         if ($visualSimilarity <= 0.0) {
             return false;
         }
 
-        // Soft guidance only: completely disjoint Vision labels + weak photo → skip.
-        // Do not block otherwise — labels are often noisy for the same physical item.
-        if ($objectsSimilarity === 0.0 && $visualSimilarity < 0.45 && $textSimilarity < 0.70) {
+        if ($this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
+            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+            return false;
+        }
+
+        // Both labeled and labels disagree → reject unless the photo is nearly identical.
+        if (! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
             return false;
         }
 
         $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
-        $strongVisual = $visualSimilarity >= $strongVisualThreshold && $overallSimilarity >= ($matchThreshold - 0.08);
+        $strongVisual = $visualSimilarity >= $strongVisualThreshold && $overallSimilarity >= ($matchThreshold - 0.06);
         $semanticFallback = $visualSimilarity >= $semanticVisual
             && $textSimilarity >= $semanticText
-            && $overallSimilarity >= ($matchThreshold - 0.08);
+            && $overallSimilarity >= ($matchThreshold - 0.05);
 
         return $primaryMatch || $strongVisual || $semanticFallback;
+    }
+
+    /**
+     * Below-threshold but still similar enough to list under "View below threshold".
+     */
+    private function meetsNearMissCriteria(
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $overallSimilarity,
+        float $objectsSimilarity = -1.0,
+        float $rawVisualSimilarity = -1.0
+    ): bool {
+        if (! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+            return false;
+        }
+
+        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.28);
+        $matchThreshold = (float) ($this->config['thresholds']['match']
+            ?? $this->config['threshold']
+            ?? 0.55);
+
+        if ($overallSimilarity < $floor || $overallSimilarity >= $matchThreshold) {
+            return false;
+        }
+
+        if ($this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
+            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+            return false;
+        }
+
+        if ($objectsSimilarity === 0.0 && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+            return false;
+        }
+
+        // Must carry at least one real similarity signal (not hash noise alone).
+        return $visualSimilarity > 0.10
+            || $textSimilarity >= 0.50
+            || ($textSimilarity >= 0.60 && $visualSimilarity >= 0.08);
+    }
+
+    /** Public wrapper for Claim & Verify match rows. */
+    public function isClaimVerifyMatch(
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $overallSimilarity,
+        float $objectsSimilarity = -1.0,
+        float $rawVisualSimilarity = -1.0
+    ): bool {
+        return $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity);
+    }
+
+    /** Public wrapper for Claim & Verify below-threshold rows. */
+    public function isClaimVerifyNearMiss(
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $overallSimilarity,
+        float $objectsSimilarity = -1.0,
+        float $rawVisualSimilarity = -1.0
+    ): bool {
+        return $this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity);
+    }
+
+    /** Compare Vision labels between two stored items (for page-load re-validation). */
+    public function objectsOverlapBetween(ImageMetadata $left, ImageMetadata $right): float
+    {
+        return $this->calculateObjectsOverlap([
+            'detected_objects' => $left->detected_objects,
+        ], $right);
     }
 
     /**
@@ -640,15 +850,17 @@ class SimilarityNotificationService
                     $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                     $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
 
-                    if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
-                        $this->rememberNearMiss(
-                            $nearMisses,
-                            (string) $otherUploadId,
-                            $overallSimilarity,
-                            $visualSimilarity,
-                            $textSimilarity,
-                            $rawVisualSimilarity
-                        );
+                    if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                        if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                            $this->rememberNearMiss(
+                                $nearMisses,
+                                (string) $otherUploadId,
+                                $overallSimilarity,
+                                $visualSimilarity,
+                                $textSimilarity,
+                                $rawVisualSimilarity
+                            );
+                        }
 
                         continue;
                     }
@@ -735,7 +947,7 @@ class SimilarityNotificationService
                 $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                 $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
 
-                if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
+                if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
                     $this->storeBidirectionalMatch(
                         $userFirst,
                         $otherFirst,
@@ -756,14 +968,17 @@ class SimilarityNotificationService
                         ->where('matched_item_upload_id', $userUploadId);
                 })->delete();
 
-                $this->rememberNearMiss(
-                    $nearMisses,
-                    (string) $existing->matched_item_upload_id,
-                    $overallSimilarity,
-                    $visualSimilarity,
-                    $textSimilarity,
-                    $rawVisualSimilarity
-                );
+                if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                    $this->rememberNearMiss(
+                        $nearMisses,
+                        (string) $existing->matched_item_upload_id,
+                        $overallSimilarity,
+                        $visualSimilarity,
+                        $textSimilarity,
+                        $rawVisualSimilarity,
+                        $objectsSimilarity
+                    );
+                }
 
                 $removed++;
 
@@ -798,15 +1013,10 @@ class SimilarityNotificationService
         float $overallSimilarity,
         float $visualSimilarity,
         float $textSimilarity,
-        float $rawVisualSimilarity = 0.0
+        float $rawVisualSimilarity = 0.0,
+        float $objectsSimilarity = -1.0
     ): void {
-        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.25);
-        $matchThreshold = (float) ($this->config['thresholds']['match']
-            ?? $this->config['threshold']
-            ?? 0.45);
-
-        // Must score something meaningful, but not enough to count as a match.
-        if ($overallSimilarity < $floor || $overallSimilarity >= $matchThreshold) {
+        if (! $this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
             return;
         }
 
@@ -1271,8 +1481,9 @@ class SimilarityNotificationService
                     }
 
                     try {
-                        // Calculate similarities
-                        $visualSimilarity = $this->calculateVisualSimilarity($newItemPath, $existingItemPath);
+                        $visualScores = $this->compareVisualScores($newItemPath, $existingItemPath);
+                        $visualSimilarity = $visualScores['normalized'];
+                        $rawVisualSimilarity = $visualScores['raw'];
                         $newMetadata = [
                             'description' => $newItem->description,
                             'tags' => $newItem->tags,
@@ -1282,13 +1493,7 @@ class SimilarityNotificationService
                         $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                         $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $existingItem);
 
-                        // Get threshold from config - check both old and new config structure
-                        $visualThreshold = $this->config['thresholds']['match']
-                            ?? $this->config['thresholds']['visual']
-                            ?? $this->config['threshold']
-                            ?? 0.52;
-
-                        if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity)) {
+                        if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
                             $similarItems[] = [
                                 'description' => $existingItem->description,
                                 'status' => $existingItem->status,

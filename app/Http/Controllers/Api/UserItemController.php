@@ -1076,11 +1076,13 @@ class UserItemController extends Controller
             // It runs on demand when the user opens an item ("View matches") via
             // refreshItemMatches(), so opening Claim & Verify stays fast.
 
+            $similarityService = app(SimilarityNotificationService::class);
+
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
             $matchThreshold = (float) config('similarity.thresholds.match', config('similarity.threshold', 0.45));
             $minVisual = (float) config('similarity.thresholds.visual', 0.25);
-            // Keep the page-load list aligned with real matches only (not below-threshold lookalikes).
+            // View matches on page load: at or above threshold only.
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->whereIn('user_item_upload_id', $userUploadIds)
                 ->where('similarity_score', '>=', $matchThreshold)
@@ -1124,6 +1126,19 @@ class UserItemController extends Controller
                 // Get the user's item that was matched
                 $userItemGroup = $userItems->get($match->user_item_upload_id);
                 if (! $userItemGroup) {
+                    continue;
+                }
+
+                $visual = (float) $match->visual_similarity;
+                $text = (float) $match->text_similarity;
+                $overall = (float) $match->similarity_score;
+                $userFirst = $userItemGroup->first();
+                $otherFirst = $matchedItemGroup->first();
+                $objectsOverlap = ($userFirst && $otherFirst)
+                    ? $similarityService->objectsOverlapBetween($userFirst, $otherFirst)
+                    : -1.0;
+
+                if (! $similarityService->isClaimVerifyMatch($visual, $text, $overall, $objectsOverlap)) {
                     continue;
                 }
 
@@ -1320,8 +1335,10 @@ class UserItemController extends Controller
             $userItems = collect([$uploadId => $userItemGroup]);
             $matchThreshold = (float) config('similarity.thresholds.match', config('similarity.threshold', 0.45));
             $minVisual = (float) config('similarity.thresholds.visual', 0.25);
+            $similarityService = app(SimilarityNotificationService::class);
+            $userFirst = $userItemGroup->first();
 
-            // Only real matches belong here — below-threshold rows go to near_misses.
+            // View matches: at or above threshold only.
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->where('user_item_upload_id', $uploadId)
                 ->where('similarity_score', '>=', $matchThreshold)
@@ -1342,39 +1359,68 @@ class UserItemController extends Controller
                     continue;
                 }
 
+                $visual = (float) $match->visual_similarity;
+                $text = (float) $match->text_similarity;
+                $overall = (float) $match->similarity_score;
+
                 $matchedItemGroup = $matchedItemGroups->get($matchedUploadId);
-                if (! $matchedItemGroup || optional($matchedItemGroup->first())->isClaimArchived()) {
+                $otherFirst = $matchedItemGroup?->first();
+                $objectsOverlap = ($userFirst && $otherFirst)
+                    ? $similarityService->objectsOverlapBetween($userFirst, $otherFirst)
+                    : -1.0;
+
+                if (! $similarityService->isClaimVerifyMatch($visual, $text, $overall, $objectsOverlap)) {
+                    continue;
+                }
+
+                if (! $matchedItemGroup || optional($otherFirst)->isClaimArchived()) {
                     continue;
                 }
 
                 $items[$matchedUploadId] = $this->formatMatchedItem([
                     'item' => $matchedItemGroup,
-                    'similarity' => (float) $match->similarity_score,
+                    'similarity' => $overall,
                     'matched_with' => $uploadId,
                 ], $user, $userItems);
             }
 
             $matchedUploadIdSet = array_fill_keys(array_keys($items), true);
-            $nearMissFloor = (float) config('similarity.thresholds.near_miss', 0.25);
 
-            // Weak stored rows that still have a real % but sit under the match threshold.
+            // View below threshold: real similarity % but under match threshold.
             $weakStored = ItemMatch::where('user_email', $user->email)
                 ->where('user_item_upload_id', $uploadId)
-                ->where('similarity_score', '>=', $nearMissFloor)
                 ->where('similarity_score', '<', $matchThreshold)
                 ->get();
+
+            $weakNearMissGroups = ImageMetadata::whereIn('upload_id', $weakStored->pluck('matched_item_upload_id')->unique()->all())
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('upload_id');
 
             foreach ($weakStored as $weak) {
                 $weakId = (string) $weak->matched_item_upload_id;
                 if (isset($matchedUploadIdSet[$weakId])) {
                     continue;
                 }
+
+                $visual = (float) $weak->visual_similarity;
+                $text = (float) $weak->text_similarity;
+                $overall = (float) $weak->similarity_score;
+                $weakOtherFirst = $weakNearMissGroups->get($weakId)?->first();
+                $objectsOverlap = ($userFirst && $weakOtherFirst)
+                    ? $similarityService->objectsOverlapBetween($userFirst, $weakOtherFirst)
+                    : -1.0;
+
+                if (! $similarityService->isClaimVerifyNearMiss($visual, $text, $overall, $objectsOverlap)) {
+                    continue;
+                }
+
                 $nearMissRaw[] = [
                     'matched_item_upload_id' => $weakId,
-                    'similarity' => (float) $weak->similarity_score,
-                    'visual_similarity' => (float) $weak->visual_similarity,
-                    'text_similarity' => (float) $weak->text_similarity,
-                    'raw_visual_similarity' => (float) $weak->visual_similarity,
+                    'similarity' => $overall,
+                    'visual_similarity' => $visual,
+                    'text_similarity' => $text,
+                    'raw_visual_similarity' => $visual,
                 ];
             }
 
@@ -1389,16 +1435,34 @@ class UserItemController extends Controller
 
             $items = collect($items)->sortByDesc('similarity_score')->values()->toArray();
 
-            // Keep only scan results with a real overall % below the match threshold.
+            $nearMissIdsForFilter = collect($nearMissRaw)
+                ->pluck('matched_item_upload_id')
+                ->map(fn ($id) => (string) $id)
+                ->unique()
+                ->values()
+                ->all();
+
+            $nearMissGroupsForFilter = ImageMetadata::whereIn('upload_id', $nearMissIdsForFilter)
+                ->where('uploader_email', '!=', $user->email)
+                ->orderBy('created_at', 'desc')
+                ->get()
+                ->groupBy('upload_id');
+
             $nearMissRaw = collect($nearMissRaw)
-                ->filter(function ($near) use ($nearMissFloor, $matchThreshold, $matchedUploadIdSet) {
+                ->filter(function ($near) use ($similarityService, $matchedUploadIdSet, $userFirst, $nearMissGroupsForFilter) {
                     $id = (string) ($near['matched_item_upload_id'] ?? '');
-                    $score = (float) ($near['similarity'] ?? 0);
+                    $visual = (float) ($near['visual_similarity'] ?? 0);
+                    $text = (float) ($near['text_similarity'] ?? 0);
+                    $overall = (float) ($near['similarity'] ?? 0);
+                    $rawVisual = (float) ($near['raw_visual_similarity'] ?? -1);
+                    $otherFirst = $nearMissGroupsForFilter->get($id)?->first();
+                    $objectsOverlap = ($userFirst && $otherFirst)
+                        ? $similarityService->objectsOverlapBetween($userFirst, $otherFirst)
+                        : -1.0;
 
                     return $id !== ''
                         && ! isset($matchedUploadIdSet[$id])
-                        && $score >= $nearMissFloor
-                        && $score < $matchThreshold;
+                        && $similarityService->isClaimVerifyNearMiss($visual, $text, $overall, $objectsOverlap, $rawVisual);
                 })
                 ->values()
                 ->all();
