@@ -91,6 +91,29 @@ class ImageMetadata extends Model
     }
 
     /**
+     * Rows that still need Google Vision labels (null, empty array, or JSON null).
+     * Works with SQLite, PostgreSQL, and MySQL.
+     */
+    public function scopeMissingDetectedObjects($query)
+    {
+        $driver = $query->getConnection()->getDriverName();
+
+        return $query->where(function ($q) use ($driver) {
+            $q->whereNull('detected_objects');
+
+            if ($driver === 'pgsql') {
+                $q->orWhereRaw("detected_objects::text = '[]'")
+                    ->orWhereRaw("detected_objects::text = 'null'");
+            } elseif ($driver === 'sqlite') {
+                $q->orWhere('detected_objects', '[]')
+                    ->orWhere('detected_objects', 'null');
+            } else {
+                $q->orWhereJsonLength('detected_objects', 0);
+            }
+        });
+    }
+
+    /**
      * Scope to search by tags.
      * Works with SQLite, PostgreSQL, and MySQL
      */

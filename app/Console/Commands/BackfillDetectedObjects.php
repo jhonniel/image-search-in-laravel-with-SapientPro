@@ -31,11 +31,7 @@ class BackfillDetectedObjects extends Command
 
         $query = ImageMetadata::query()->orderBy('id');
         if (! $this->option('force')) {
-            $query->where(function ($q) {
-                $q->whereNull('detected_objects')
-                    ->orWhere('detected_objects', '[]')
-                    ->orWhere('detected_objects', 'null');
-            });
+            $query->missingDetectedObjects();
         }
 
         $limit = (int) $this->option('limit');
