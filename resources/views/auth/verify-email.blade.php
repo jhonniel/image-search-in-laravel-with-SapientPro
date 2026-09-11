@@ -40,6 +40,12 @@
                 </div>
             @endif
 
+            @if(session('error'))
+                <div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                    <i class="fas fa-exclamation-circle mr-2"></i>{{ session('error') }}
+                </div>
+            @endif
+
             @error('otp')
                 <div class="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
                     <i class="fas fa-exclamation-circle mr-2"></i>{{ $message }}

@@ -117,27 +117,28 @@ class AuthController extends Controller
                 'name' => $request->name,
                 'username' => $request->username,
                 'email' => $request->email,
-                'password' => Hash::make($request->password),
+                // Password cast on User already hashes — do not Hash::make() here.
+                'password' => $request->password,
                 'role' => $role,
             ]);
 
             Auth::login($user);
             $request->session()->regenerate();
 
-            $otpStatus = 'We sent a verification code to your email. Enter it below to finish signing up.';
             try {
                 app(EmailOtpService::class)->send($user, true);
-            } catch (ValidationException $e) {
-                $otpStatus = $e->getMessage() ?: 'Account created. Use Resend code if the email did not arrive.';
-                $messages = $e->errors();
-                if (! empty($messages['otp'][0])) {
-                    $otpStatus = $messages['otp'][0];
-                }
-            }
 
-            return redirect()
-                ->route('verification.notice')
-                ->with('status', $otpStatus);
+                return redirect()
+                    ->route('verification.notice')
+                    ->with('status', 'We sent a verification code to your email. Enter it below to finish signing up.');
+            } catch (ValidationException $e) {
+                $otpError = $e->errors()['otp'][0]
+                    ?? 'Account created, but we could not send the verification email. Tap Resend code.';
+
+                return redirect()
+                    ->route('verification.notice')
+                    ->with('error', $otpError);
+            }
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
