@@ -7,7 +7,6 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\View;
 use Illuminate\Validation\ValidationException;
-use Resend;
 
 class EmailOtpService
 {
@@ -171,7 +170,14 @@ class EmailOtpService
             'expiresMinutes' => $expiresMinutes,
         ])->render();
 
-        $client = Resend::client($this->resendApiKey());
+        // resend/resend-php exposes a global \Resend class (files autoload), not Resend\Resend.
+        if (! class_exists('Resend', true)) {
+            throw new \RuntimeException(
+                'Resend SDK is not installed. Run: composer require resend/resend-php'
+            );
+        }
+
+        $client = \Resend::client($this->resendApiKey());
         $result = $client->emails->send([
             'from' => $from,
             'to' => [$user->email],
