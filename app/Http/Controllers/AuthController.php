@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\ImageMetadata;
 use App\Models\User;
+use App\Services\EmailOtpService;
 use App\Services\SimilarityNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -21,25 +22,24 @@ class AuthController extends Controller
      */
     public function showLoginForm(Request $request)
     {
-        // Check if user is already logged in
         if (Auth::check()) {
             $user = Auth::user();
 
-            // Check if there's a redirect URL in session (from item page)
+            if (! app(EmailOtpService::class)->isVerified($user)) {
+                return redirect()->route('verification.notice');
+            }
+
             $redirectUrl = $request->session()->pull('redirect_after_login', null);
             if ($redirectUrl) {
                 return redirect($redirectUrl);
             }
 
-            // Redirect based on user role
             return redirect('/dashboard');
         }
 
-        // Check if redirecting from item page
         $itemId = $request->get('item');
         $redirectToItem = (! empty($itemId)) ? route('public.item.show', $itemId) : null;
 
-        // Store item ID in session for redirect after login
         if ($itemId) {
             $request->session()->put('redirect_after_login', $redirectToItem);
         }
@@ -49,17 +49,18 @@ class AuthController extends Controller
 
     public function showRegistrationForm(Request $request)
     {
-        // Check if user is already logged in
         if (Auth::check()) {
             $user = Auth::user();
 
-            // Check if there's a redirect URL in session (from item page)
+            if (! app(EmailOtpService::class)->isVerified($user)) {
+                return redirect()->route('verification.notice');
+            }
+
             $redirectUrl = $request->session()->pull('redirect_after_register', null);
             if ($redirectUrl) {
                 return redirect($redirectUrl);
             }
 
-            // Redirect based on user role
             return redirect('/dashboard');
         }
 
@@ -121,25 +122,93 @@ class AuthController extends Controller
             ]);
 
             Auth::login($user);
-
-            // Process guest pending item if exists
-            $itemsLinked = $this->processGuestPendingItem($request, $user);
             $request->session()->regenerate();
-            $this->logoutOtherDevices($request, $user);
 
-            $successMessage = 'Account created successfully! Welcome to FindITFast!';
-            if ($itemsLinked > 0) {
-                $successMessage .= " Your {$itemsLinked} item(s) have been linked to your account.";
+            $otpStatus = 'We sent a verification code to your email. Enter it below to finish signing up.';
+            try {
+                app(EmailOtpService::class)->send($user, true);
+            } catch (ValidationException $e) {
+                $otpStatus = $e->getMessage() ?: 'Account created. Use Resend code if the email did not arrive.';
+                $messages = $e->errors();
+                if (! empty($messages['otp'][0])) {
+                    $otpStatus = $messages['otp'][0];
+                }
             }
 
-            // Clear any redirect URLs from session - always go to dashboard after registration
-            $request->session()->forget('redirect_after_register');
-
-            // Always redirect to dashboard after successful registration
-            return redirect('/dashboard')->with('success', $successMessage);
+            return redirect()
+                ->route('verification.notice')
+                ->with('status', $otpStatus);
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
+            Log::error('Registration failed', [
+                'email' => $request->email,
+                'error' => $e->getMessage(),
+            ]);
+
             return back()->withErrors(['error' => 'Registration failed. Please try again.'])->withInput();
         }
+    }
+
+    public function showVerificationForm(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        if (app(EmailOtpService::class)->isVerified($user)) {
+            return redirect('/dashboard');
+        }
+
+        return view('auth.verify-email', [
+            'email' => $user->email,
+        ]);
+    }
+
+    public function verifyEmail(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        $request->validate([
+            'otp' => 'required|string|min:4|max:8',
+        ], [
+            'otp.required' => 'Enter the verification code from your email.',
+        ]);
+
+        app(EmailOtpService::class)->verify($user, (string) $request->input('otp'));
+
+        // Guest pending item is linked only after the email is confirmed.
+        $itemsLinked = $this->processGuestPendingItem($request, $user);
+        $this->logoutOtherDevices($request, $user);
+
+        $successMessage = 'Email verified! Welcome to FindITFast!';
+        if ($itemsLinked > 0) {
+            $successMessage .= " Your {$itemsLinked} item(s) have been linked to your account.";
+        }
+
+        $request->session()->forget('redirect_after_register');
+
+        return redirect('/dashboard')->with('success', $successMessage);
+    }
+
+    public function resendVerificationCode(Request $request)
+    {
+        $user = Auth::user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        if (app(EmailOtpService::class)->isVerified($user)) {
+            return redirect('/dashboard');
+        }
+
+        app(EmailOtpService::class)->send($user);
+
+        return back()->with('success', 'A new verification code has been sent to your email.');
     }
 
     /**
@@ -225,10 +294,24 @@ class AuthController extends Controller
             ]);
         }
 
-        // Link pending guest item before regenerating session
-        $this->processGuestPendingItem($request, $user);
         $request->session()->regenerate();
         $this->logoutOtherDevices($request, $user, $remember);
+
+        // Unverified accounts must confirm OTP before accessing the app.
+        if ($user && ! app(EmailOtpService::class)->isVerified($user)) {
+            try {
+                app(EmailOtpService::class)->send($user);
+            } catch (ValidationException $e) {
+                // Cooldown / mail errors still allow the verify screen.
+            }
+
+            return redirect()
+                ->route('verification.notice')
+                ->with('status', 'Please verify your email with the code we sent you.');
+        }
+
+        // Link pending guest item only for verified users.
+        $this->processGuestPendingItem($request, $user);
 
         // Redirect to stored redirect first
         $redirectUrl = $request->session()->pull('redirect_after_login', null);

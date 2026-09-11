@@ -26,8 +26,14 @@ Route::get('/register', [AuthController::class, 'showRegistrationForm'])->name('
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Protected routes
 Route::middleware(['auth'])->group(function () {
+    Route::get('/email/verify', [AuthController::class, 'showVerificationForm'])->name('verification.notice');
+    Route::post('/email/verify', [AuthController::class, 'verifyEmail'])->name('verification.verify');
+    Route::post('/email/verify/resend', [AuthController::class, 'resendVerificationCode'])->name('verification.resend');
+});
+
+// Protected routes
+Route::middleware(['auth', 'verified.email'])->group(function () {
     // Unified Dashboard - redirects based on role
     Route::get('/dashboard', function () {
         $user = Auth::user();

@@ -42,6 +42,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'email_otp_hash',
     ];
 
     /**
@@ -53,6 +54,9 @@ class User extends Authenticatable
     {
         return [
             'email_verified_at' => 'datetime',
+            'email_otp_expires_at' => 'datetime',
+            'email_otp_sent_at' => 'datetime',
+            'email_otp_attempts' => 'integer',
             'password' => 'hashed',
             'is_verified' => 'boolean',
             'cannot_post' => 'boolean',
@@ -60,6 +64,11 @@ class User extends Authenticatable
             'is_banned' => 'boolean',
             'login_blocked_until' => 'datetime',
         ];
+    }
+
+    public function hasVerifiedEmail(): bool
+    {
+        return $this->email_verified_at !== null;
     }
 
     public function isBanned(): bool

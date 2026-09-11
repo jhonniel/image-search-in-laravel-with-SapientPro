@@ -13,7 +13,7 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create or update admin user
+        // Create or update admin userPPP∏
         User::updateOrCreate(
             ['email' => 'admin@finditfast.com'],
             [
