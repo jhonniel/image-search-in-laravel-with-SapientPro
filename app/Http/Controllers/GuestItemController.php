@@ -218,7 +218,8 @@ class GuestItemController extends Controller
                 $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
-                $detectedObjects = app(GoogleVisionService::class)->detectObjects($image->getPathname());
+                $detectedObjects = app(GoogleVisionService::class)
+                    ->labelImage(Storage::disk('public')->path($path));
 
                 // Create image metadata record
                 $metadataData = [

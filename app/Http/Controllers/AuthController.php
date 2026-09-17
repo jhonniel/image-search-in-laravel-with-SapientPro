@@ -409,7 +409,7 @@ class AuthController extends Controller
                     }
 
                     $fullImagePath = Storage::disk('public')->path($targetPath);
-                    $detectedObjects = app(\App\Services\GoogleVisionService::class)->detectObjects($fullImagePath);
+                    $detectedObjects = app(\App\Services\GoogleVisionService::class)->labelImage($fullImagePath);
 
                     // Create metadata record with explicit user email
                     $metadataData = [

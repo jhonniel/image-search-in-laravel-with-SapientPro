@@ -8,11 +8,12 @@ use Illuminate\Support\Facades\Log;
 class GoogleVisionService
 {
     /** Max labels stored and shown in the UI. */
-    public const MAX_LABELS = 3;
+    public const MAX_LABELS = 6;
 
     /**
-     * Analyze an image and return the top item labels from Google Vision.
+     * Analyze an image and return top item labels from Google Vision.
      *
+     * Prefer localized object names (pen, wallet, phone) over generic scene labels.
      * Each entry: ['name' => string, 'score' => float]
      * Returns null when Vision is disabled or the call fails (upload should continue).
      */
@@ -36,6 +37,7 @@ class GoogleVisionService
             Log::info('Google Vision label detection completed', [
                 'path' => $imagePath,
                 'labels_count' => count($labels),
+                'labels' => array_column($labels, 'name'),
             ]);
 
             return $labels === [] ? null : $labels;
@@ -52,10 +54,11 @@ class GoogleVisionService
     {
         $dbEnabled = Setting::get('google_vision_enabled', null);
         if ($dbEnabled !== null) {
-            return (bool) $dbEnabled;
+            // Settings may be stored as string "1"/"0" or real bool — normalize safely.
+            return filter_var($dbEnabled, FILTER_VALIDATE_BOOLEAN);
         }
 
-        return filter_var(env('GOOGLE_VISION_ENABLED', false), FILTER_VALIDATE_BOOL);
+        return filter_var(env('GOOGLE_VISION_ENABLED', false), FILTER_VALIDATE_BOOLEAN);
     }
 
     public function getApiKey(): string
@@ -69,6 +72,34 @@ class GoogleVisionService
     }
 
     /**
+     * Label an image and return labels, throwing on hard failures when \$strict is true.
+     *
+     * @return array<int, array{name: string, score: float}>|null
+     */
+    public function labelImage(string $imagePath, bool $strict = false): ?array
+    {
+        if (! $this->isEnabled()) {
+            if ($strict) {
+                throw new \RuntimeException('Google Vision is disabled. Enable it in Admin → Settings.');
+            }
+            Log::info('Google Vision skipped: disabled in settings/env');
+
+            return null;
+        }
+
+        if ($this->getApiKey() === '') {
+            if ($strict) {
+                throw new \RuntimeException('Google Vision API key is missing.');
+            }
+            Log::warning('Google Vision skipped: API key missing');
+
+            return null;
+        }
+
+        return $this->detectObjects($imagePath);
+    }
+
+    /**
      * @return array<int, array{name: string, score: float}>
      */
     private function fetchTopLabels(string $imagePath): array
@@ -78,15 +109,22 @@ class GoogleVisionService
             throw new \RuntimeException('Google Vision API key not configured. Save it in Admin → Settings or set GOOGLE_VISION_API_KEY in .env.');
         }
 
+        $contents = @file_get_contents($imagePath);
+        if ($contents === false || $contents === '') {
+            throw new \RuntimeException('Could not read image for Vision analysis.');
+        }
+
         $url = 'https://vision.googleapis.com/v1/images:annotate?key='.urlencode($apiKey);
 
         $data = [
             'requests' => [
                 [
                     'image' => [
-                        'content' => base64_encode((string) file_get_contents($imagePath)),
+                        'content' => base64_encode($contents),
                     ],
                     'features' => [
+                        // Object names are more useful for matching (Pen, Wallet, Phone).
+                        ['type' => 'OBJECT_LOCALIZATION', 'maxResults' => 10],
                         ['type' => 'LABEL_DETECTION', 'maxResults' => 10],
                     ],
                 ],
@@ -98,7 +136,7 @@ class GoogleVisionService
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 45);
 
         $response = curl_exec($ch);
         $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -114,20 +152,40 @@ class GoogleVisionService
         }
 
         $responseData = json_decode((string) $response, true);
-        $annotations = $responseData['responses'][0]['labelAnnotations'] ?? [];
+        $response0 = $responseData['responses'][0] ?? [];
 
-        $minScore = 0.5;
-        $out = [];
-
-        foreach ($annotations as $label) {
-            $name = trim((string) ($label['description'] ?? ''));
-            $score = (float) ($label['score'] ?? 0);
-            if ($name === '' || $score < $minScore) {
-                continue;
-            }
-            $out[] = ['name' => $name, 'score' => round($score, 4)];
+        if (! empty($response0['error']['message'])) {
+            throw new \RuntimeException('Google Vision API error: '.$response0['error']['message']);
         }
 
+        $byName = [];
+
+        // Prefer localized objects first (more specific item names).
+        foreach ($response0['localizedObjectAnnotations'] ?? [] as $object) {
+            $name = trim((string) ($object['name'] ?? ''));
+            $score = (float) ($object['score'] ?? 0);
+            if ($name === '' || $score < 0.40) {
+                continue;
+            }
+            $key = strtolower($name);
+            if (! isset($byName[$key]) || $score > $byName[$key]['score']) {
+                $byName[$key] = ['name' => $name, 'score' => round($score, 4)];
+            }
+        }
+
+        foreach ($response0['labelAnnotations'] ?? [] as $label) {
+            $name = trim((string) ($label['description'] ?? ''));
+            $score = (float) ($label['score'] ?? 0);
+            if ($name === '' || $score < 0.50) {
+                continue;
+            }
+            $key = strtolower($name);
+            if (! isset($byName[$key]) || $score > $byName[$key]['score']) {
+                $byName[$key] = ['name' => $name, 'score' => round($score, 4)];
+            }
+        }
+
+        $out = array_values($byName);
         usort($out, fn ($a, $b) => $b['score'] <=> $a['score']);
 
         return array_slice($out, 0, self::MAX_LABELS);

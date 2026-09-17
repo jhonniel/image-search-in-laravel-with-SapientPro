@@ -35,33 +35,33 @@ return [
     | hash bits agree by chance. Everything at or below this floor is rescaled to 0
     | so the visual score below actually means "how alike", not "hash noise".
     */
-    'visual_floor' => (float) env('SIMILARITY_VISUAL_FLOOR', 0.58),
+    'visual_floor' => (float) env('SIMILARITY_VISUAL_FLOOR', 0.55),
 
     // All visual thresholds below use the rescaled score, not the raw hash score.
     'thresholds' => [
-        // Minimum normalized visual for a normal match (~0.74 raw)
-        'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.35),
+        // Minimum normalized visual for a normal match (~0.70 raw)
+        'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.30),
         // Soft text floor used inside overall scoring penalties
         'text' => (float) env('SIMILARITY_MIN_TEXT', 0.25),
         // Store a match only if overall score reaches this
-        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.55),
+        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.48),
         // Claim & Verify display filter
-        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.50),
+        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.45),
         // Alternate path: strong text + decent visual (same item, different photo)
-        'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.30),
-        'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.75),
-        // Photo alone is convincing enough (~0.88 raw)
-        'strong_visual' => (float) env('SIMILARITY_STRONG_VISUAL', 0.70),
+        'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.25),
+        'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.70),
+        // Photo alone is convincing enough (~0.84 raw)
+        'strong_visual' => (float) env('SIMILARITY_STRONG_VISUAL', 0.65),
         // When both items have Vision labels, require at least this Jaccard overlap.
-        'objects_min_overlap' => (float) env('SIMILARITY_OBJECTS_MIN_OVERLAP', 0.15),
+        'objects_min_overlap' => (float) env('SIMILARITY_OBJECTS_MIN_OVERLAP', 0.12),
         // Allow label mismatch only when normalized visual is this strong (near-duplicate photo).
-        'objects_veto_override_visual' => (float) env('SIMILARITY_OBJECTS_VETO_OVERRIDE', 0.75),
+        'objects_veto_override_visual' => (float) env('SIMILARITY_OBJECTS_VETO_OVERRIDE', 0.70),
         // Raw hash scores in this band (just above floor) are treated as weak / noisy.
-        'raw_visual_borderline_max' => (float) env('SIMILARITY_RAW_BORDERLINE_MAX', 0.68),
+        'raw_visual_borderline_max' => (float) env('SIMILARITY_RAW_BORDERLINE_MAX', 0.66),
         // Absolute minimum to show anywhere on Claim & Verify (unrelated pairs hidden).
-        'minimum_display' => (float) env('SIMILARITY_MINIMUM_DISPLAY', 0.20),
+        'minimum_display' => (float) env('SIMILARITY_MINIMUM_DISPLAY', 0.18),
         // Shown under "View below threshold": real overall % above this but under match threshold.
-        'near_miss' => (float) env('SIMILARITY_NEAR_MISS_THRESHOLD', 0.28),
+        'near_miss' => (float) env('SIMILARITY_NEAR_MISS_THRESHOLD', 0.25),
     ],
 
     // Stripped before text comparison so "lost item at mall" does not match unrelated listings.

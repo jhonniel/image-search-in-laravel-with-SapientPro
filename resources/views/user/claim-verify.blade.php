@@ -634,7 +634,15 @@ function openItemMatches(groupKey, options = {}) {
                 <i class="fas fa-arrow-left text-xs"></i>
                 Back to your items
             </button>
-            <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
+            <div class="flex flex-wrap items-center gap-2">
+                <p class="text-xs text-purple-700">Best score <span class="font-bold">${escapeHtml(best)}</span></p>
+                <button type="button"
+                    class="inline-flex items-center gap-1.5 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-700 hover:bg-red-100"
+                    onclick="deleteOwnItem('${escapeJs(String(yoursId))}')">
+                    <i class="fas fa-trash text-[10px]"></i>
+                    Delete item
+                </button>
+            </div>
         </div>
         <div class="cv-near-miss-toolbar">${toolbarButton}</div>
         <div id="match-refresh-banner">${matchRefreshBanner(group.key)}</div>
@@ -724,6 +732,13 @@ function displayOtherUsersItems(items, userItems = []) {
                                 <span>${matchCount ? 'View matches' : 'View item'}</span>
                                 <i class="fas fa-arrow-right text-xs"></i>
                             </button>
+                            <button type="button"
+                                class="inline-flex items-center justify-center gap-1 rounded-lg bg-red-50 px-2.5 py-2 text-xs font-medium text-red-700 hover:bg-red-100"
+                                title="Delete your item"
+                                onclick="event.stopPropagation(); deleteOwnItem('${escapeJs(String(yoursId))}')">
+                                <i class="fas fa-trash text-[10px]"></i>
+                                Delete
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -744,6 +759,55 @@ function showEmptyState() {
     document.getElementById('empty-state').classList.remove('hidden');
     document.getElementById('total-items-count').textContent = '0';
     activeGroupKey = null;
+}
+
+async function deleteOwnItem(uploadId) {
+    if (!uploadId) return;
+    if (!confirm('Delete this item? It will be removed from Claim & Verify and matching.')) {
+        return;
+    }
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+        if (!csrfToken) {
+            alert('Session expired. Please refresh the page.');
+            return;
+        }
+
+        const response = await fetch(`/api/items/${encodeURIComponent(uploadId)}`, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+            alert(data.message || data.error || 'Could not delete this item.');
+            return;
+        }
+
+        allUserItems = allUserItems.filter(item => item.upload_id !== uploadId);
+        filteredUserItems = filteredUserItems.filter(item => item.upload_id !== uploadId);
+        allItems = allItems.filter(item =>
+            item.upload_id !== uploadId
+            && item.matched_with_upload_id !== uploadId
+            && item.user_matched_item?.upload_id !== uploadId
+        );
+        delete nearMissesByUploadId[uploadId];
+        delete matchRefreshState[uploadId];
+        showNearMissesFor = null;
+        activeGroupKey = null;
+
+        filterItems();
+        showItemsList();
+    } catch (error) {
+        console.error('Delete item failed:', error);
+        alert('Could not delete this item. Please try again.');
+    }
 }
 
 // Filter functions

@@ -274,8 +274,8 @@ class UserItemController extends Controller
                 $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                 $path = $image->storeAs('user-items', $filename, 'public');
 
-                // Google Vision: object localization + label detection (merged in service).
-                $detectedObjects = app(GoogleVisionService::class)->detectObjects($image->getPathname());
+                $detectedObjects = app(GoogleVisionService::class)
+                    ->labelImage(Storage::disk('public')->path($path));
 
                 // Create image metadata record
                 $metadataData = [
@@ -715,7 +715,8 @@ class UserItemController extends Controller
                 foreach ($request->file('images') as $index => $image) {
                     $filename = time().'_'.$index.'_'.$image->getClientOriginalName();
                     $path = $image->storeAs('user-items', $filename, 'public');
-                    $detectedObjects = app(GoogleVisionService::class)->detectObjects($image->getPathname());
+                    $detectedObjects = app(GoogleVisionService::class)
+                        ->labelImage(Storage::disk('public')->path($path));
 
                     // Create new image metadata record
                     $newMetadataData = [
@@ -797,9 +798,9 @@ class UserItemController extends Controller
                 'user_id' => $user->id,
             ]);
 
-            // Find items by upload_id and user email
+            // Owner only: match by user_id (preferred) or uploader_email (legacy rows).
             $items = ImageMetadata::where('upload_id', $uploadId)
-                ->where('uploader_email', $user->email)
+                ->ownedBy($user)
                 ->get();
 
             if ($items->isEmpty()) {
@@ -817,8 +818,13 @@ class UserItemController extends Controller
 
             // Soft delete database records (files are kept for potential restore)
             $deletedCount = ImageMetadata::where('upload_id', $uploadId)
-                ->where('uploader_email', $user->email)
-                ->delete(); // This will perform soft delete automatically
+                ->ownedBy($user)
+                ->delete();
+
+            ItemMatch::where(function ($q) use ($uploadId) {
+                $q->where('user_item_upload_id', $uploadId)
+                    ->orWhere('matched_item_upload_id', $uploadId);
+            })->delete();
 
             Log::info('Items soft deleted', [
                 'upload_id' => $uploadId,
