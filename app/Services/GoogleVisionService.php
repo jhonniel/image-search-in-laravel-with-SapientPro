@@ -96,6 +96,10 @@ class GoogleVisionService
         'bracelet',
         'shoe',
         'shoes',
+        'sneaker',
+        'sneakers',
+        'trainer',
+        'footwear',
         'hat',
         'jacket',
         'toyota',
@@ -105,6 +109,17 @@ class GoogleVisionService
         'sony',
         'xiaomi',
         'huawei',
+        'puma',
+        'nike',
+        'adidas',
+        'jordan',
+        'jumpman',
+        'reebok',
+        'converse',
+        'vans',
+        'asics',
+        'new',
+        'balance',
     ];
 
     /**

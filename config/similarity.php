@@ -62,6 +62,10 @@ return [
         'minimum_display' => (float) env('SIMILARITY_MINIMUM_DISPLAY', 0.18),
         // Shown under "View below threshold": real overall % above this but under match threshold.
         'near_miss' => (float) env('SIMILARITY_NEAR_MISS_THRESHOLD', 0.25),
+        // Same Vision category (shoe/key/phone…) + text can match across different photo angles.
+        'category_objects_min' => (float) env('SIMILARITY_CATEGORY_OBJECTS_MIN', 0.28),
+        'category_text_min' => (float) env('SIMILARITY_CATEGORY_TEXT_MIN', 0.35),
+        'category_raw_visual_min' => (float) env('SIMILARITY_CATEGORY_RAW_VISUAL_MIN', 0.48),
     ],
 
     // Stripped before text comparison so "lost item at mall" does not match unrelated listings.

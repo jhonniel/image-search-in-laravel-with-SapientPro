@@ -482,13 +482,15 @@ class SimilarityNotificationService
         float $rawVisualSimilarity = -1.0
     ): bool {
         $minimumDisplay = (float) ($this->config['thresholds']['minimum_display'] ?? 0.20);
+        $categoryRelated = $objectsSimilarity >= 0.28 && $textSimilarity >= 0.30;
 
-        if ($overallSimilarity < $minimumDisplay) {
+        if ($overallSimilarity < $minimumDisplay && ! $categoryRelated) {
             return false;
         }
 
         // Hash noise only — no visual signal and weak text → unrelated.
-        if ($visualSimilarity <= 0.0 && $textSimilarity < 0.45) {
+        // Exception: strong same-category Vision overlap (shoe↔sneaker) with useful text.
+        if ($visualSimilarity <= 0.0 && $textSimilarity < 0.45 && ! $categoryRelated) {
             return false;
         }
 
@@ -566,21 +568,35 @@ class SimilarityNotificationService
         $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.55);
         $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.35);
         $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.30);
-        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.75);
+        $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
         $strongVisualThreshold = (float) ($this->config['thresholds']['strong_visual'] ?? 0.70);
+        $categoryObjectMin = (float) ($this->config['thresholds']['category_objects_min'] ?? 0.28);
+        $categoryTextMin = (float) ($this->config['thresholds']['category_text_min'] ?? 0.35);
+        $categoryRawMin = (float) ($this->config['thresholds']['category_raw_visual_min'] ?? 0.48);
 
-        // Photos with no similarity beyond hash noise are never a match, whatever the words say.
-        if ($visualSimilarity <= 0.0) {
+        // Same-category items (e.g. shoe↔sneaker) with agreeing text can match even when
+        // photo angles differ enough to zero the normalized visual score.
+        $categoryMatch = $objectsSimilarity >= $categoryObjectMin
+            && $textSimilarity >= $categoryTextMin
+            && (
+                $visualSimilarity >= 0.12
+                || ($rawVisualSimilarity >= $categoryRawMin && $objectsSimilarity >= 0.35)
+            );
+
+        // Photos with no similarity beyond hash noise are never a match — unless
+        // Vision + text already agree this is the same kind of item.
+        if ($visualSimilarity <= 0.0 && ! $categoryMatch) {
             return false;
         }
 
         if ($this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
-            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)
+            && ! $categoryMatch) {
             return false;
         }
 
         // Both labeled and labels disagree → reject unless the photo is nearly identical.
-        if (! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+        if (! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity) && ! $categoryMatch) {
             return false;
         }
 
@@ -590,7 +606,7 @@ class SimilarityNotificationService
             && $textSimilarity >= $semanticText
             && $overallSimilarity >= ($matchThreshold - 0.05);
 
-        return $primaryMatch || $strongVisual || $semanticFallback;
+        return $primaryMatch || $strongVisual || $semanticFallback || $categoryMatch;
     }
 
     /**
@@ -1063,27 +1079,12 @@ class SimilarityNotificationService
 
     /**
      * Object-label overlap (0–1), or -1 when either side has no labels.
+     * Uses category synonyms so "Walking Shoe" overlaps "Sneakers" / "Footwear".
      */
     private function calculateObjectsOverlap(array $newMetadata, ImageMetadata $existingImage): float
     {
-        $normalize = function ($objects): array {
-            if (! is_array($objects)) {
-                return [];
-            }
-
-            $names = [];
-            foreach ($objects as $obj) {
-                $name = is_array($obj) ? strtolower(trim((string) ($obj['name'] ?? ''))) : strtolower(trim((string) $obj));
-                if ($name !== '') {
-                    $names[] = $name;
-                }
-            }
-
-            return array_values(array_unique($names));
-        };
-
-        $newObjects = $normalize($newMetadata['detected_objects'] ?? []);
-        $existingObjects = $normalize($existingImage->detected_objects ?? []);
+        $newObjects = $this->expandObjectCategories($newMetadata['detected_objects'] ?? []);
+        $existingObjects = $this->expandObjectCategories($existingImage->detected_objects ?? []);
 
         if ($newObjects === [] || $existingObjects === []) {
             return -1.0;
@@ -1097,6 +1098,67 @@ class SimilarityNotificationService
         }
 
         return count($intersection) / count($union);
+    }
+
+    /**
+     * Map Vision labels onto shared category tokens for Jaccard overlap.
+     * Prefers categories (shoe, key, phone…) so "Walking Shoe" matches "Sneakers".
+     *
+     * @return list<string>
+     */
+    private function expandObjectCategories(mixed $objects): array
+    {
+        if (! is_array($objects)) {
+            return [];
+        }
+
+        $categories = [
+            'shoe' => ['shoe', 'shoes', 'footwear', 'sneaker', 'sneakers', 'trainer', 'trainers', 'walking shoe', 'running shoe', 'athletic shoe', 'boot', 'boots', 'sandal', 'sandals'],
+            'key' => ['key', 'keys', 'car key', 'car keys', 'car alarm', 'car door'],
+            'pencil' => ['pencil', 'apple pencil', 'stylus', 'pen', 'stationery', 'office supplies', 'office instrument'],
+            'phone' => ['phone', 'mobile phone', 'smartphone', 'iphone', 'cellphone', 'cell phone'],
+            'wallet' => ['wallet', 'purse', 'bag', 'handbag', 'backpack'],
+            'watch' => ['watch', 'wristwatch', 'smartwatch'],
+            'earbud' => ['earbud', 'earbuds', 'earphone', 'earphones', 'headphones', 'airpods', 'headset'],
+            'laptop' => ['laptop', 'notebook', 'macbook', 'computer'],
+            'speaker' => ['speaker', 'loudspeaker', 'bluetooth speaker', 'jbl'],
+            'umbrella' => ['umbrella'],
+            'glasses' => ['glasses', 'eyeglasses', 'sunglasses', 'spectacles'],
+            'bottle' => ['bottle', 'water bottle', 'flask'],
+            'card' => ['card', 'id card', 'credit card', 'atm card', 'passport'],
+        ];
+
+        $matchedCategories = [];
+        $rawNames = [];
+
+        foreach ($objects as $obj) {
+            $name = is_array($obj) ? strtolower(trim((string) ($obj['name'] ?? ''))) : strtolower(trim((string) $obj));
+            if ($name === '') {
+                continue;
+            }
+
+            $rawNames[$name] = true;
+            $hitCategory = false;
+
+            foreach ($categories as $category => $aliases) {
+                foreach ($aliases as $alias) {
+                    if ($name === $alias || str_contains($name, $alias)) {
+                        $matchedCategories[$category] = true;
+                        $hitCategory = true;
+                        break 2;
+                    }
+                }
+            }
+
+            if (! $hitCategory) {
+                // Keep unmatched brand/product tokens (puma, jordan, toyota) for overlap.
+                $matchedCategories[$name] = true;
+            }
+        }
+
+        return $matchedCategories !== []
+            ? array_keys($matchedCategories)
+            : array_keys($rawNames);
     }
 
     /**
