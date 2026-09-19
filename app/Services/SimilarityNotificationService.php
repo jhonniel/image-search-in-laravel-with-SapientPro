@@ -151,6 +151,7 @@ class SimilarityNotificationService
                     $visualScores = $this->compareVisualScores($newImagePath, $existingImagePath);
                     $visualSimilarity = $visualScores['normalized'];
                     $rawVisualSimilarity = $visualScores['raw'];
+                    $colorSimilarity = $visualScores['color'] ?? 0.0;
 
                     // Calculate text similarity
                     $textSimilarity = $this->calculateTextSimilarity($newImageMetadata, $existingImage);
@@ -169,16 +170,17 @@ class SimilarityNotificationService
                     // Check if similarity meets threshold
                     $visualThreshold = $this->config['thresholds']['visual'] ?? 0.35;
                     $objectsSimilarity = $this->calculateObjectsOverlap($newImageMetadata, $existingImage);
+                    $brandOverlap = $this->brandsOverlap($newImageMetadata['detected_objects'] ?? [], $existingImage->detected_objects);
 
                     Log::debug('Threshold check', [
                         'existing_image' => $existingImage->original_name,
                         'overall_similarity' => $overallSimilarity,
                         'visual_threshold' => $visualThreshold,
                         'objects_similarity' => $objectsSimilarity,
-                        'meets_threshold' => $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity),
+                        'meets_threshold' => $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap),
                     ]);
 
-                    if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                    if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
                         $similarImages[] = [
                             'image' => $existingImage,
                             'visual_similarity' => $visualSimilarity,
@@ -266,23 +268,278 @@ class SimilarityNotificationService
     }
 
     /**
-     * @return array{raw:float,normalized:float}
+     * Compare two images with perceptual hash + color/style fallback.
+     * Dirty/worn vs clean photos of the same product often fail pure hashing;
+     * color profiles still agree on the same shoe style.
+     *
+     * @return array{raw:float,normalized:float,color:float,style:float}
      */
     private function compareVisualScores(string $image1Path, string $image2Path): array
     {
         try {
             $raw = $this->imageComparator->compare($image1Path, $image2Path);
             $raw = $raw > 1 ? $raw / 100 : $raw;
+            $raw = min(1.0, max(0.0, (float) $raw));
+
+            // Also compare brightness-normalized center crops (tolerates dirt/lighting).
+            $prepared1 = $this->prepareImageForStyleCompare($image1Path);
+            $prepared2 = $this->prepareImageForStyleCompare($image2Path);
+            if ($prepared1 && $prepared2) {
+                try {
+                    $preparedRaw = $this->imageComparator->compare($prepared1, $prepared2);
+                    $preparedRaw = $preparedRaw > 1 ? $preparedRaw / 100 : $preparedRaw;
+                    $raw = max($raw, min(1.0, max(0.0, (float) $preparedRaw)));
+                } finally {
+                    @unlink($prepared1);
+                    @unlink($prepared2);
+                }
+            }
+
+            $color = $this->compareColorSimilarity($image1Path, $image2Path);
+            $hashNorm = $this->normalizeVisualScore($raw);
+            // Color agreement becomes a soft visual signal for same-style products.
+            $style = $color >= 0.50 ? min(0.70, ($color - 0.50) / 0.50 * 0.70) : 0.0;
+            $normalized = max($hashNorm, $style);
 
             return [
-                'raw' => min(1.0, max(0.0, (float) $raw)),
-                'normalized' => $this->normalizeVisualScore((float) $raw),
+                'raw' => $raw,
+                'normalized' => $normalized,
+                'color' => $color,
+                'style' => $style,
             ];
         } catch (ImageResourceException $e) {
             Log::warning('Could not compare images: '.$e->getMessage());
 
-            return ['raw' => 0.0, 'normalized' => 0.0];
+            return ['raw' => 0.0, 'normalized' => 0.0, 'color' => 0.0, 'style' => 0.0];
+        } catch (\Throwable $e) {
+            Log::warning('Visual compare failed: '.$e->getMessage());
+
+            return ['raw' => 0.0, 'normalized' => 0.0, 'color' => 0.0, 'style' => 0.0];
         }
+    }
+
+    /**
+     * Build a grayscale, auto-leveled, center-cropped temp image for style-tolerant hashing.
+     */
+    private function prepareImageForStyleCompare(string $path): ?string
+    {
+        if (! function_exists('imagecreatefromstring') || ! is_readable($path)) {
+            return null;
+        }
+
+        $binary = @file_get_contents($path);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+
+        $src = @imagecreatefromstring($binary);
+        if ($src === false) {
+            return null;
+        }
+
+        $w = imagesx($src);
+        $h = imagesy($src);
+        if ($w < 16 || $h < 16) {
+            imagedestroy($src);
+
+            return null;
+        }
+
+        // Focus on the item (center 70%) to reduce background/watermark influence.
+        $cropW = (int) max(16, $w * 0.70);
+        $cropH = (int) max(16, $h * 0.70);
+        $sx = (int) (($w - $cropW) / 2);
+        $sy = (int) (($h - $cropH) / 2);
+
+        $size = 64;
+        $dst = imagecreatetruecolor($size, $size);
+        imagecopyresampled($dst, $src, 0, 0, $sx, $sy, $size, $size, $cropW, $cropH);
+        imagedestroy($src);
+
+        // Grayscale + crude auto-level so dirty/dark shots align with clean ones.
+        $min = 255;
+        $max = 0;
+        for ($y = 0; $y < $size; $y++) {
+            for ($x = 0; $x < $size; $x++) {
+                $rgb = imagecolorat($dst, $x, $y);
+                $g = (int) (((( $rgb >> 16) & 0xFF) + (($rgb >> 8) & 0xFF) + ($rgb & 0xFF)) / 3);
+                $min = min($min, $g);
+                $max = max($max, $g);
+            }
+        }
+        $range = max(1, $max - $min);
+        for ($y = 0; $y < $size; $y++) {
+            for ($x = 0; $x < $size; $x++) {
+                $rgb = imagecolorat($dst, $x, $y);
+                $g = (int) (((( $rgb >> 16) & 0xFF) + (($rgb >> 8) & 0xFF) + ($rgb & 0xFF)) / 3);
+                $leveled = (int) ((($g - $min) / $range) * 255);
+                $col = imagecolorallocate($dst, $leveled, $leveled, $leveled);
+                imagesetpixel($dst, $x, $y, $col);
+            }
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'fif_style_');
+        if ($tmp === false) {
+            imagedestroy($dst);
+
+            return null;
+        }
+        $tmpJpg = $tmp.'.jpg';
+        @unlink($tmp);
+        imagejpeg($dst, $tmpJpg, 90);
+        imagedestroy($dst);
+
+        return $tmpJpg;
+    }
+
+    /**
+     * Compare dominant color profiles (center crop) — stable across dirt/lighting shifts.
+     */
+    private function compareColorSimilarity(string $image1Path, string $image2Path): float
+    {
+        $p1 = $this->extractColorProfile($image1Path);
+        $p2 = $this->extractColorProfile($image2Path);
+        if ($p1 === null || $p2 === null) {
+            return 0.0;
+        }
+
+        // Cosine similarity of hue+sat+lightness histograms.
+        $dot = 0.0;
+        $n1 = 0.0;
+        $n2 = 0.0;
+        $len = min(count($p1), count($p2));
+        for ($i = 0; $i < $len; $i++) {
+            $dot += $p1[$i] * $p2[$i];
+            $n1 += $p1[$i] * $p1[$i];
+            $n2 += $p2[$i] * $p2[$i];
+        }
+        if ($n1 <= 0.0 || $n2 <= 0.0) {
+            return 0.0;
+        }
+
+        return min(1.0, max(0.0, $dot / (sqrt($n1) * sqrt($n2))));
+    }
+
+    /**
+     * @return list<float>|null
+     */
+    private function extractColorProfile(string $path): ?array
+    {
+        if (! function_exists('imagecreatefromstring') || ! is_readable($path)) {
+            return null;
+        }
+
+        $binary = @file_get_contents($path);
+        if ($binary === false || $binary === '') {
+            return null;
+        }
+        $src = @imagecreatefromstring($binary);
+        if ($src === false) {
+            return null;
+        }
+
+        $w = imagesx($src);
+        $h = imagesy($src);
+        $cropW = (int) max(8, $w * 0.65);
+        $cropH = (int) max(8, $h * 0.65);
+        $sx = (int) (($w - $cropW) / 2);
+        $sy = (int) (($h - $cropH) / 2);
+
+        $hueBins = array_fill(0, 12, 0.0);
+        $satBins = array_fill(0, 4, 0.0);
+        $valBins = array_fill(0, 4, 0.0);
+        $samples = 0;
+
+        $stepX = max(1, (int) ($cropW / 24));
+        $stepY = max(1, (int) ($cropH / 24));
+        for ($y = $sy; $y < $sy + $cropH; $y += $stepY) {
+            for ($x = $sx; $x < $sx + $cropW; $x += $stepX) {
+                $rgb = imagecolorat($src, $x, $y);
+                $r = (($rgb >> 16) & 0xFF) / 255;
+                $g = (($rgb >> 8) & 0xFF) / 255;
+                $b = ($rgb & 0xFF) / 255;
+                $max = max($r, $g, $b);
+                $min = min($r, $g, $b);
+                $delta = $max - $min;
+                $v = $max;
+                $s = $max <= 0 ? 0 : $delta / $max;
+                if ($delta <= 0.00001) {
+                    $hue = 0;
+                } elseif ($max === $r) {
+                    $hue = fmod((($g - $b) / $delta), 6);
+                } elseif ($max === $g) {
+                    $hue = (($b - $r) / $delta) + 2;
+                } else {
+                    $hue = (($r - $g) / $delta) + 4;
+                }
+                $hue = ($hue / 6);
+                if ($hue < 0) {
+                    $hue += 1;
+                }
+
+                // Skip near-black background pixels.
+                if ($v < 0.08) {
+                    continue;
+                }
+
+                $hueBins[(int) min(11, floor($hue * 12))]++;
+                $satBins[(int) min(3, floor($s * 4))]++;
+                $valBins[(int) min(3, floor($v * 4))]++;
+                $samples++;
+            }
+        }
+        imagedestroy($src);
+
+        if ($samples < 10) {
+            return null;
+        }
+
+        $profile = array_merge($hueBins, $satBins, $valBins);
+        $sum = array_sum($profile);
+        if ($sum <= 0) {
+            return null;
+        }
+
+        return array_map(static fn ($v) => $v / $sum, $profile);
+    }
+
+    /**
+     * Brand/model token overlap from Vision labels (puma, nike, jordan…).
+     */
+    private function brandsOverlap(mixed $leftObjects, mixed $rightObjects): float
+    {
+        $brands = [
+            'puma', 'nike', 'adidas', 'jordan', 'jumpman', 'reebok', 'converse', 'vans', 'asics',
+            'samsung', 'apple', 'sony', 'xiaomi', 'huawei', 'jbl', 'toyota', 'honda', 'yamaha',
+            'gucci', 'lv', 'chanel', 'rayban', 'oakley',
+        ];
+
+        $extract = function ($objects) use ($brands): array {
+            if (! is_array($objects)) {
+                return [];
+            }
+            $found = [];
+            foreach ($objects as $obj) {
+                $name = is_array($obj) ? strtolower((string) ($obj['name'] ?? '')) : strtolower((string) $obj);
+                foreach ($brands as $brand) {
+                    if ($name !== '' && str_contains($name, $brand)) {
+                        $found[$brand] = true;
+                    }
+                }
+            }
+
+            return array_keys($found);
+        };
+
+        $a = $extract($leftObjects);
+        $b = $extract($rightObjects);
+        if ($a === [] || $b === []) {
+            return 0.0;
+        }
+        $inter = array_intersect($a, $b);
+        $union = array_unique(array_merge($a, $b));
+
+        return count($union) > 0 ? count($inter) / count($union) : 0.0;
     }
 
     /**
@@ -482,15 +739,18 @@ class SimilarityNotificationService
         float $rawVisualSimilarity = -1.0
     ): bool {
         $minimumDisplay = (float) ($this->config['thresholds']['minimum_display'] ?? 0.20);
-        $categoryRelated = $objectsSimilarity >= 0.28 && $textSimilarity >= 0.30;
 
-        if ($overallSimilarity < $minimumDisplay && ! $categoryRelated) {
+        if ($overallSimilarity < $minimumDisplay) {
             return false;
         }
 
         // Hash noise only — no visual signal and weak text → unrelated.
-        // Exception: strong same-category Vision overlap (shoe↔sneaker) with useful text.
-        if ($visualSimilarity <= 0.0 && $textSimilarity < 0.45 && ! $categoryRelated) {
+        // Image similarity is required; labels alone never make a pair "related".
+        if ($visualSimilarity <= 0.0 && $textSimilarity < 0.45) {
+            return false;
+        }
+
+        if ($visualSimilarity <= 0.0) {
             return false;
         }
 
@@ -559,9 +819,19 @@ class SimilarityNotificationService
         float $textSimilarity,
         float $overallSimilarity,
         float $objectsSimilarity = -1.0,
-        float $rawVisualSimilarity = -1.0
+        float $rawVisualSimilarity = -1.0,
+        float $colorSimilarity = -1.0,
+        float $brandOverlap = 0.0
     ): bool {
-        if (! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+        // Same product style (e.g. clean vs dirty shoe): color + category can qualify
+        // even when pure hash visual is wiped by lighting/dirt.
+        $styleMatch = $objectsSimilarity >= 0.50
+            && $colorSimilarity >= 0.55
+            && $textSimilarity >= 0.30
+            && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65)
+            && ($visualSimilarity >= 0.15 || $colorSimilarity >= 0.60);
+
+        if (! $styleMatch && ! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
             return false;
         }
 
@@ -570,33 +840,20 @@ class SimilarityNotificationService
         $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.30);
         $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
         $strongVisualThreshold = (float) ($this->config['thresholds']['strong_visual'] ?? 0.70);
-        $categoryObjectMin = (float) ($this->config['thresholds']['category_objects_min'] ?? 0.28);
-        $categoryTextMin = (float) ($this->config['thresholds']['category_text_min'] ?? 0.35);
-        $categoryRawMin = (float) ($this->config['thresholds']['category_raw_visual_min'] ?? 0.48);
+        $categoryObjectMin = (float) ($this->config['thresholds']['category_objects_min'] ?? 0.45);
+        $categoryTextMin = (float) ($this->config['thresholds']['category_text_min'] ?? 0.40);
+        $categoryVisualMin = (float) ($this->config['thresholds']['category_visual_min'] ?? 0.22);
 
-        // Same-category items (e.g. shoe↔sneaker) with agreeing text can match even when
-        // photo angles differ enough to zero the normalized visual score.
-        $categoryMatch = $objectsSimilarity >= $categoryObjectMin
-            && $textSimilarity >= $categoryTextMin
-            && (
-                $visualSimilarity >= 0.12
-                || ($rawVisualSimilarity >= $categoryRawMin && $objectsSimilarity >= 0.35)
-            );
-
-        // Photos with no similarity beyond hash noise are never a match — unless
-        // Vision + text already agree this is the same kind of item.
-        if ($visualSimilarity <= 0.0 && ! $categoryMatch) {
+        if ($visualSimilarity <= 0.0 && ! $styleMatch) {
             return false;
         }
 
-        if ($this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
-            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)
-            && ! $categoryMatch) {
+        if (! $styleMatch && $this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
+            && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
             return false;
         }
 
-        // Both labeled and labels disagree → reject unless the photo is nearly identical.
-        if (! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity) && ! $categoryMatch) {
+        if (! $styleMatch && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
             return false;
         }
 
@@ -606,7 +863,12 @@ class SimilarityNotificationService
             && $textSimilarity >= $semanticText
             && $overallSimilarity >= ($matchThreshold - 0.05);
 
-        return $primaryMatch || $strongVisual || $semanticFallback || $categoryMatch;
+        $categoryAssist = $objectsSimilarity >= $categoryObjectMin
+            && $textSimilarity >= $categoryTextMin
+            && $visualSimilarity >= $categoryVisualMin
+            && $overallSimilarity >= ($matchThreshold - 0.08);
+
+        return $primaryMatch || $strongVisual || $semanticFallback || $categoryAssist || $styleMatch;
     }
 
     /**
@@ -653,9 +915,19 @@ class SimilarityNotificationService
         float $textSimilarity,
         float $overallSimilarity,
         float $objectsSimilarity = -1.0,
-        float $rawVisualSimilarity = -1.0
+        float $rawVisualSimilarity = -1.0,
+        float $colorSimilarity = -1.0,
+        float $brandOverlap = 0.0
     ): bool {
-        return $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity);
+        return $this->meetsMatchCriteria(
+            $visualSimilarity,
+            $textSimilarity,
+            $overallSimilarity,
+            $objectsSimilarity,
+            $rawVisualSimilarity,
+            $colorSimilarity,
+            $brandOverlap
+        );
     }
 
     /** Public wrapper for Claim & Verify below-threshold rows. */
@@ -732,12 +1004,14 @@ class SimilarityNotificationService
     /**
      * Best visual similarity across every image file in two upload groups.
      *
-     * @return array{raw:float,normalized:float}
+     * @return array{raw:float,normalized:float,color:float,style:float}
      */
     private function maxVisualSimilarityBetweenGroups($userGroup, $otherGroup): array
     {
         $maxRaw = 0.0;
         $maxNormalized = 0.0;
+        $maxColor = 0.0;
+        $maxStyle = 0.0;
 
         foreach ($userGroup as $userImg) {
             $userPath = $this->getItemFilePath($userImg);
@@ -756,12 +1030,20 @@ class SimilarityNotificationService
                 if ($scores['normalized'] > $maxNormalized) {
                     $maxNormalized = $scores['normalized'];
                 }
+                if ($scores['color'] > $maxColor) {
+                    $maxColor = $scores['color'];
+                }
+                if ($scores['style'] > $maxStyle) {
+                    $maxStyle = $scores['style'];
+                }
             }
         }
 
         return [
             'raw' => $maxRaw,
             'normalized' => $maxNormalized,
+            'color' => $maxColor,
+            'style' => $maxStyle,
         ];
     }
 
@@ -857,6 +1139,7 @@ class SimilarityNotificationService
                     $visualScores = $this->maxVisualSimilarityBetweenGroups($userGroup, $otherGroup);
                     $visualSimilarity = $visualScores['normalized'];
                     $rawVisualSimilarity = $visualScores['raw'];
+                    $colorSimilarity = $visualScores['color'] ?? 0.0;
                     $newMetadata = [
                         'description' => $userFirst->description,
                         'tags' => $userFirst->tags,
@@ -865,8 +1148,9 @@ class SimilarityNotificationService
                     $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
                     $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                     $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
+                    $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
-                    if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                    if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
                         if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
                             $this->rememberNearMiss(
                                 $nearMisses,
@@ -954,6 +1238,7 @@ class SimilarityNotificationService
                 $visualScores = $this->maxVisualSimilarityBetweenGroups($userGroup, $otherGroup);
                 $visualSimilarity = $visualScores['normalized'];
                 $rawVisualSimilarity = $visualScores['raw'];
+                $colorSimilarity = $visualScores['color'] ?? 0.0;
                 $newMetadata = [
                     'description' => $userFirst->description,
                     'tags' => $userFirst->tags,
@@ -962,8 +1247,9 @@ class SimilarityNotificationService
                 $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
                 $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                 $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
+                $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
-                if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
                     $this->storeBidirectionalMatch(
                         $userFirst,
                         $otherFirst,
@@ -1546,6 +1832,7 @@ class SimilarityNotificationService
                         $visualScores = $this->compareVisualScores($newItemPath, $existingItemPath);
                         $visualSimilarity = $visualScores['normalized'];
                         $rawVisualSimilarity = $visualScores['raw'];
+                        $colorSimilarity = $visualScores['color'] ?? 0.0;
                         $newMetadata = [
                             'description' => $newItem->description,
                             'tags' => $newItem->tags,
@@ -1554,8 +1841,9 @@ class SimilarityNotificationService
                         $textSimilarity = $this->calculateTextSimilarity($newMetadata, $existingItem);
                         $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                         $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $existingItem);
+                        $brandOverlap = $this->brandsOverlap($newItem->detected_objects, $existingItem->detected_objects);
 
-                        if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                        if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
                             $similarItems[] = [
                                 'description' => $existingItem->description,
                                 'status' => $existingItem->status,
