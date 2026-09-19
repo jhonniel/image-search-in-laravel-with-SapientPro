@@ -2563,7 +2563,7 @@ function editItem(uploadId) {
             imageDiv.innerHTML = `
                 <div class="relative">
                     <img src="${image.path}" alt="${image.original_name}" class="w-full h-32 object-cover rounded-lg border-2 border-gray-200 cursor-pointer hover:border-red-300 transition-colors" onclick="toggleRemoveImage('${image.filename}', this)">
-                    <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all rounded-lg flex items-center justify-center">
+                    <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all rounded-lg flex items-center justify-center">
                         <span class="text-white text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                             <i class="fas fa-trash mr-1"></i>Click to remove
                         </span>

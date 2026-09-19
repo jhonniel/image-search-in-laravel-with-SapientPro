@@ -194,6 +194,35 @@ function tagsHtml(tags) {
     return `<div class="cv-compare-tags">${list.map(t => `<span class="cv-compare-tag">${escapeHtml(t)}</span>`).join('')}</div>`;
 }
 
+function detectedObjectsHtml(detectedObjects) {
+    let list = [];
+    if (Array.isArray(detectedObjects)) {
+        list = detectedObjects;
+    } else if (typeof detectedObjects === 'string' && detectedObjects) {
+        try { list = JSON.parse(detectedObjects); } catch (e) { list = []; }
+    }
+    if (!Array.isArray(list) || !list.length) {
+        return `<p class="text-[11px] text-amber-700 mt-1">Detected Objects: none yet</p>`;
+    }
+    const seen = new Set();
+    const chips = [];
+    for (const obj of list) {
+        const name = (obj && typeof obj === 'object' ? obj.name : obj) || '';
+        const key = String(name).toLowerCase();
+        if (!name || seen.has(key)) continue;
+        seen.add(key);
+        chips.push(`<span class="cv-detected-tag" title="Google Vision label">${escapeHtml(name)}</span>`);
+        if (chips.length >= 3) break;
+    }
+    if (!chips.length) return '';
+    return `
+        <div class="mt-1">
+            <p class="text-[11px] font-semibold text-gray-700 mb-0.5">Detected Objects (${chips.length}):</p>
+            <div class="cv-compare-tags">${chips.join('')}</div>
+        </div>
+    `;
+}
+
 function panelImage(images, alt, sizeClass = '') {
     const path = firstImagePath(images);
     const extra = images && images.length > 1 ? images.length - 1 : 0;
@@ -264,6 +293,7 @@ function yoursSummaryCard(yours) {
                 <p class="cv-group-title">${escapeHtml(yours.description || 'No description')}</p>
                 <p class="cv-compare-meta !mt-0.5">${escapeHtml(yours.location || 'No location')}</p>
                 ${tagsHtml(yours.tags)}
+                ${detectedObjectsHtml(yours.detected_objects)}
             </div>
         </div>
     `;
@@ -1055,11 +1085,10 @@ function viewItemDetails(uploadId) {
                     const objectsDisplay = top3Objects.map(obj => {
                         const objName = (obj && typeof obj === 'object' ? obj.name : obj) || '';
                         const score = (obj && typeof obj === 'object' && obj.score) ? (obj.score * 100).toFixed(0) : '';
-                        return `<span class="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}"><i class="fas fa-eye mr-1"></i>${objName}</span>`;
+                        return `<span class="px-2 py-1 bg-sky-100 text-sky-700 rounded-full text-xs font-medium" title="Detected from image${score ? ' (' + score + '% confidence)' : ''}">${objName}</span>`;
                     }).join('');
                     return `<div>
-                        <h4 class="font-semibold text-gray-900 mb-2 flex items-center">
-                            <i class="fas fa-cube mr-1 text-blue-600"></i>
+                        <h4 class="font-semibold text-gray-900 mb-2">
                             Detected Objects (${top3Objects.length}):
                         </h4>
                         <div class="flex flex-wrap gap-2">${objectsDisplay}</div>

@@ -17,7 +17,7 @@
     }
 
     .user-topbar {
-        @apply shrink-0 border-b border-gray-200/80 bg-white/90 px-3 py-3 backdrop-blur-md sm:px-4 md:px-6 md:py-4;
+        @apply relative z-40 shrink-0 border-b border-gray-200/80 bg-white/90 px-3 py-3 backdrop-blur-md sm:px-4 md:px-6 md:py-4;
     }
 
     .user-main {
@@ -375,6 +375,10 @@
 
     .cv-compare-tag {
         @apply rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600;
+    }
+
+    .cv-detected-tag {
+        @apply rounded-full bg-sky-100 px-1.5 py-0.5 text-[10px] text-sky-700;
     }
 
     .cv-compare-image-wrap {

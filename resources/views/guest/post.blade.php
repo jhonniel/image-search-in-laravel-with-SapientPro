@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 previewDiv.innerHTML = `
                     <div class="relative aspect-square rounded-lg overflow-hidden border-2 border-gray-200 hover:border-pink-400 transition-colors">
                         <img src="${e.target.result}" alt="${file.name}" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                        <div class="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center">
                             <button onclick="removeImage(${index})" class="opacity-0 group-hover:opacity-100 bg-red-500 text-white px-3 py-1 rounded-lg text-sm font-medium transition-opacity hover:bg-red-600">
                                 <i class="fas fa-trash mr-1"></i>Remove
                             </button>

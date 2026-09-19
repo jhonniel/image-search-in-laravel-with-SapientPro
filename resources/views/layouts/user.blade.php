@@ -164,7 +164,7 @@
                                 <i class="fas fa-bell w-4 h-4 sm:w-5 sm:h-5"></i>
                                 <span id="notif-unread-badge" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center" x-text="unread" x-show="unread > 0"></span>
                             </button>
-                            <div x-show="open" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50" style="display:none;">
+                            <div x-show="open" class="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-[60]" style="display:none;">
                                 <div class="px-4 py-2 border-b flex items-center justify-between">
                                     <span class="text-sm font-semibold text-gray-700">Notifications</span>
                                     <button onclick="markAllNotificationsRead()" class="text-xs text-purple-primary hover:underline">Mark all read</button>
