@@ -823,19 +823,7 @@ class SimilarityNotificationService
         float $colorSimilarity = -1.0,
         float $brandOverlap = 0.0
     ): bool {
-        // Same product style (e.g. clean vs dirty shoe): color + category can qualify
-        // even when pure hash visual is wiped by lighting/dirt.
-        $styleMatch = $objectsSimilarity >= 0.50
-            && $colorSimilarity >= 0.55
-            && $textSimilarity >= 0.30
-            && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65)
-            && ($visualSimilarity >= 0.15 || $colorSimilarity >= 0.60);
-
-        if (! $styleMatch && ! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
-            return false;
-        }
-
-        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.55);
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.60);
         $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.35);
         $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.30);
         $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
@@ -843,6 +831,18 @@ class SimilarityNotificationService
         $categoryObjectMin = (float) ($this->config['thresholds']['category_objects_min'] ?? 0.45);
         $categoryTextMin = (float) ($this->config['thresholds']['category_text_min'] ?? 0.40);
         $categoryVisualMin = (float) ($this->config['thresholds']['category_visual_min'] ?? 0.22);
+
+        // Style path still requires the 60% match bar for "View matches".
+        $styleMatch = $objectsSimilarity >= 0.50
+            && $colorSimilarity >= 0.55
+            && $textSimilarity >= 0.30
+            && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65)
+            && ($visualSimilarity >= 0.15 || $colorSimilarity >= 0.60)
+            && $overallSimilarity >= $matchThreshold;
+
+        if (! $styleMatch && ! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+            return false;
+        }
 
         if ($visualSimilarity <= 0.0 && ! $styleMatch) {
             return false;
@@ -858,15 +858,15 @@ class SimilarityNotificationService
         }
 
         $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
-        $strongVisual = $visualSimilarity >= $strongVisualThreshold && $overallSimilarity >= ($matchThreshold - 0.06);
+        $strongVisual = $visualSimilarity >= $strongVisualThreshold && $overallSimilarity >= $matchThreshold;
         $semanticFallback = $visualSimilarity >= $semanticVisual
             && $textSimilarity >= $semanticText
-            && $overallSimilarity >= ($matchThreshold - 0.05);
+            && $overallSimilarity >= $matchThreshold;
 
         $categoryAssist = $objectsSimilarity >= $categoryObjectMin
             && $textSimilarity >= $categoryTextMin
             && $visualSimilarity >= $categoryVisualMin
-            && $overallSimilarity >= ($matchThreshold - 0.08);
+            && $overallSimilarity >= $matchThreshold;
 
         return $primaryMatch || $strongVisual || $semanticFallback || $categoryAssist || $styleMatch;
     }
@@ -903,10 +903,11 @@ class SimilarityNotificationService
             return false;
         }
 
-        // Must carry at least one real similarity signal (not hash noise alone).
-        return $visualSimilarity > 0.10
-            || $textSimilarity >= 0.50
-            || ($textSimilarity >= 0.60 && $visualSimilarity >= 0.08);
+        // Keep similar-but-under-60% items visible under "View below threshold".
+        return $visualSimilarity > 0.08
+            || $textSimilarity >= 0.40
+            || ($objectsSimilarity >= 0.45 && $textSimilarity >= 0.30)
+            || ($textSimilarity >= 0.50 && $visualSimilarity >= 0.05);
     }
 
     /** Public wrapper for Claim & Verify match rows. */

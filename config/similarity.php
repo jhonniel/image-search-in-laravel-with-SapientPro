@@ -43,10 +43,10 @@ return [
         'visual' => (float) env('SIMILARITY_MIN_VISUAL', 0.30),
         // Soft text floor used inside overall scoring penalties
         'text' => (float) env('SIMILARITY_MIN_TEXT', 0.25),
-        // Store a match only if overall score reaches this
-        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.48),
+        // Full match ("View matches") only at/above this overall score (60%).
+        'match' => (float) env('SIMILARITY_MATCH_THRESHOLD', 0.60),
         // Claim & Verify display filter
-        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.45),
+        'display' => (float) env('SIMILARITY_DISPLAY_THRESHOLD', 0.55),
         // Alternate path: strong text + decent visual (same item, different photo)
         'semantic_visual' => (float) env('SIMILARITY_SEMANTIC_VISUAL', 0.25),
         'semantic_text' => (float) env('SIMILARITY_SEMANTIC_TEXT', 0.70),
@@ -60,7 +60,7 @@ return [
         'raw_visual_borderline_max' => (float) env('SIMILARITY_RAW_BORDERLINE_MAX', 0.66),
         // Absolute minimum to show anywhere on Claim & Verify (unrelated pairs hidden).
         'minimum_display' => (float) env('SIMILARITY_MINIMUM_DISPLAY', 0.18),
-        // Shown under "View below threshold": real overall % above this but under match threshold.
+        // Shown under "View below threshold": similar items under the 60% match bar.
         'near_miss' => (float) env('SIMILARITY_NEAR_MISS_THRESHOLD', 0.25),
         // Same Vision category can slightly assist only when photos already look alike.
         'category_objects_min' => (float) env('SIMILARITY_CATEGORY_OBJECTS_MIN', 0.45),
