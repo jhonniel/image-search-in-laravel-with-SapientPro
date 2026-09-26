@@ -125,6 +125,7 @@
 </div>
 
 <script>
+const MATCH_THRESHOLD_PERCENT = {{ (float) config('similarity.thresholds.match', 0.60) * 100 }};
 let allItems = [];
 let filteredItems = [];
 let allUserItems = [];
@@ -390,6 +391,11 @@ function groupMatchesByUserItem(items, userItems = []) {
         if (item.is_near_miss || item.match_failed) {
             return;
         }
+        // Hard UI guard: under 60% must not appear as a full match.
+        const score = Number(item.similarity_score);
+        if (!Number.isNaN(score) && score < MATCH_THRESHOLD_PERCENT) {
+            return;
+        }
 
         const yours = item.user_matched_item || null;
         const groupKey = yours?.upload_id
@@ -509,11 +515,22 @@ async function refreshMatchesForItem(uploadId) {
         if (!data.success) {
             matchRefreshState[uploadId] = { status: 'error', at: Date.now() };
         } else {
-            const fresh = (data.items || []).filter(item => !item.is_near_miss && !item.match_failed);
+            const fresh = (data.items || []).filter(item =>
+                !item.is_near_miss
+                && !item.match_failed
+                && (Number(item.similarity_score) || 0) >= MATCH_THRESHOLD_PERCENT
+            );
             const freshIds = new Set(fresh.map(item => item.upload_id));
             const nearOnly = (data.near_misses || []).filter(item =>
                 item && item.upload_id && !freshIds.has(item.upload_id)
             );
+            // Anything under 60% returned in items by mistake → treat as below-threshold.
+            (data.items || []).forEach(item => {
+                const score = Number(item.similarity_score);
+                if (item && item.upload_id && !Number.isNaN(score) && score < MATCH_THRESHOLD_PERCENT && !freshIds.has(item.upload_id)) {
+                    nearOnly.push({ ...item, is_near_miss: true, match_failed: true });
+                }
+            });
 
             allItems = allItems
                 .filter(item => groupMatchKey(item) !== uploadId && !nearOnly.some(n => n.upload_id === item.upload_id))

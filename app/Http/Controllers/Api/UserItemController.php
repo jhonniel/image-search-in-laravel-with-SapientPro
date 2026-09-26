@@ -1146,6 +1146,11 @@ class UserItemController extends Controller
                     ? $similarityService->objectsOverlapBetween($userFirst, $otherFirst)
                     : -1.0;
 
+                // Guard: never show under-threshold scores in View matches.
+                if ($overall < $matchThreshold) {
+                    continue;
+                }
+
                 if (! $similarityService->isClaimVerifyMatch($visual, $text, $overall, $objectsOverlap)) {
                     continue;
                 }
@@ -1370,6 +1375,11 @@ class UserItemController extends Controller
                 $visual = (float) $match->visual_similarity;
                 $text = (float) $match->text_similarity;
                 $overall = (float) $match->similarity_score;
+
+                // Guard: never show under-threshold scores in View matches.
+                if ($overall < $matchThreshold) {
+                    continue;
+                }
 
                 $matchedItemGroup = $matchedItemGroups->get($matchedUploadId);
                 $otherFirst = $matchedItemGroup?->first();

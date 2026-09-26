@@ -297,13 +297,13 @@ class SimilarityNotificationService
 
             $color = $this->compareColorSimilarity($image1Path, $image2Path);
             $hashNorm = $this->normalizeVisualScore($raw);
-            // Color agreement becomes a soft visual signal for same-style products.
+            // Style/color is a separate signal for match eligibility — do NOT inflate
+            // the displayed visual score or everything clusters around ~60%.
             $style = $color >= 0.50 ? min(0.70, ($color - 0.50) / 0.50 * 0.70) : 0.0;
-            $normalized = max($hashNorm, $style);
 
             return [
                 'raw' => $raw,
-                'normalized' => $normalized,
+                'normalized' => $hashNorm,
                 'color' => $color,
                 'style' => $style,
             ];
@@ -832,43 +832,54 @@ class SimilarityNotificationService
         $categoryTextMin = (float) ($this->config['thresholds']['category_text_min'] ?? 0.40);
         $categoryVisualMin = (float) ($this->config['thresholds']['category_visual_min'] ?? 0.22);
 
-        // Style path still requires the 60% match bar for "View matches".
-        $styleMatch = $objectsSimilarity >= 0.50
-            && $colorSimilarity >= 0.55
-            && $textSimilarity >= 0.30
-            && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65)
-            && ($visualSimilarity >= 0.15 || $colorSimilarity >= 0.60)
-            && $overallSimilarity >= $matchThreshold;
-
-        if (! $styleMatch && ! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+        // Hard rule: under 60% is never a "View matches" hit — only below-threshold.
+        if ($overallSimilarity < $matchThreshold) {
             return false;
         }
 
-        if ($visualSimilarity <= 0.0 && ! $styleMatch) {
-            return false;
+        if (! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+            // Style can still unlock a full match when overall is already >= 60%.
+            $styleUnlock = $objectsSimilarity >= 0.50
+                && $colorSimilarity >= 0.55
+                && $textSimilarity >= 0.30
+                && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65)
+                && ($visualSimilarity >= 0.15 || $colorSimilarity >= 0.60);
+            if (! $styleUnlock) {
+                return false;
+            }
         }
 
-        if (! $styleMatch && $this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
+        if ($visualSimilarity <= 0.0) {
+            $styleUnlock = $objectsSimilarity >= 0.50
+                && $colorSimilarity >= 0.55
+                && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65);
+            if (! $styleUnlock) {
+                return false;
+            }
+        }
+
+        if ($this->isBorderlineHashMatch($rawVisualSimilarity, $visualSimilarity)
             && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
             return false;
         }
 
-        if (! $styleMatch && ! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)) {
+        if (! $this->passesObjectLabelGate($objectsSimilarity, $visualSimilarity)
+            && ! ($objectsSimilarity >= 0.50 && $colorSimilarity >= 0.55)) {
             return false;
         }
 
-        $primaryMatch = $overallSimilarity >= $matchThreshold && $visualSimilarity >= $minVisual;
-        $strongVisual = $visualSimilarity >= $strongVisualThreshold && $overallSimilarity >= $matchThreshold;
-        $semanticFallback = $visualSimilarity >= $semanticVisual
-            && $textSimilarity >= $semanticText
-            && $overallSimilarity >= $matchThreshold;
-
+        $primaryMatch = $visualSimilarity >= $minVisual;
+        $strongVisual = $visualSimilarity >= $strongVisualThreshold;
+        $semanticFallback = $visualSimilarity >= $semanticVisual && $textSimilarity >= $semanticText;
         $categoryAssist = $objectsSimilarity >= $categoryObjectMin
             && $textSimilarity >= $categoryTextMin
-            && $visualSimilarity >= $categoryVisualMin
-            && $overallSimilarity >= $matchThreshold;
+            && $visualSimilarity >= $categoryVisualMin;
+        $styleAssist = $objectsSimilarity >= 0.50
+            && $colorSimilarity >= 0.55
+            && $textSimilarity >= 0.30
+            && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65);
 
-        return $primaryMatch || $strongVisual || $semanticFallback || $categoryAssist || $styleMatch;
+        return $primaryMatch || $strongVisual || $semanticFallback || $categoryAssist || $styleAssist;
     }
 
     /**
@@ -879,18 +890,35 @@ class SimilarityNotificationService
         float $textSimilarity,
         float $overallSimilarity,
         float $objectsSimilarity = -1.0,
-        float $rawVisualSimilarity = -1.0
+        float $rawVisualSimilarity = -1.0,
+        float $colorSimilarity = -1.0,
+        float $brandOverlap = 0.0
     ): bool {
+        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.25);
+        $matchThreshold = (float) ($this->config['thresholds']['match']
+            ?? $this->config['threshold']
+            ?? 0.60);
+
+        if ($overallSimilarity >= $matchThreshold) {
+            return false;
+        }
+
+        // Same-style items (dirty vs clean) under 60% still show as below-threshold.
+        $styleNearMiss = $objectsSimilarity >= 0.45
+            && $colorSimilarity >= 0.55
+            && $textSimilarity >= 0.28
+            && ($brandOverlap > 0.0 || $colorSimilarity >= 0.62)
+            && $overallSimilarity >= $floor;
+
+        if ($styleNearMiss) {
+            return true;
+        }
+
         if (! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
             return false;
         }
 
-        $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.28);
-        $matchThreshold = (float) ($this->config['thresholds']['match']
-            ?? $this->config['threshold']
-            ?? 0.55);
-
-        if ($overallSimilarity < $floor || $overallSimilarity >= $matchThreshold) {
+        if ($overallSimilarity < $floor) {
             return false;
         }
 
@@ -937,9 +965,19 @@ class SimilarityNotificationService
         float $textSimilarity,
         float $overallSimilarity,
         float $objectsSimilarity = -1.0,
-        float $rawVisualSimilarity = -1.0
+        float $rawVisualSimilarity = -1.0,
+        float $colorSimilarity = -1.0,
+        float $brandOverlap = 0.0
     ): bool {
-        return $this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity);
+        return $this->meetsNearMissCriteria(
+            $visualSimilarity,
+            $textSimilarity,
+            $overallSimilarity,
+            $objectsSimilarity,
+            $rawVisualSimilarity,
+            $colorSimilarity,
+            $brandOverlap
+        );
     }
 
     /** Compare Vision labels between two stored items (for page-load re-validation). */
@@ -1152,7 +1190,7 @@ class SimilarityNotificationService
                     $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
                     if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
-                        if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                        if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
                             $this->rememberNearMiss(
                                 $nearMisses,
                                 (string) $otherUploadId,
@@ -1271,7 +1309,7 @@ class SimilarityNotificationService
                         ->where('matched_item_upload_id', $userUploadId);
                 })->delete();
 
-                if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
+                if ($this->meetsNearMissCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
                     $this->rememberNearMiss(
                         $nearMisses,
                         (string) $existing->matched_item_upload_id,
