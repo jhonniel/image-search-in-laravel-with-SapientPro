@@ -823,7 +823,7 @@ class SimilarityNotificationService
         float $colorSimilarity = -1.0,
         float $brandOverlap = 0.0
     ): bool {
-        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.60);
+        $matchThreshold = (float) ($this->config['thresholds']['match'] ?? $this->config['threshold'] ?? 0.50);
         $minVisual = (float) ($this->config['thresholds']['visual'] ?? 0.35);
         $semanticVisual = (float) ($this->config['thresholds']['semantic_visual'] ?? 0.30);
         $semanticText = (float) ($this->config['thresholds']['semantic_text'] ?? 0.70);
@@ -832,13 +832,13 @@ class SimilarityNotificationService
         $categoryTextMin = (float) ($this->config['thresholds']['category_text_min'] ?? 0.40);
         $categoryVisualMin = (float) ($this->config['thresholds']['category_visual_min'] ?? 0.22);
 
-        // Hard rule: under 60% is never a "View matches" hit — only below-threshold.
+        // Hard rule: under the match bar (50%) is never a "View matches" hit — only below-threshold.
         if ($overallSimilarity < $matchThreshold) {
             return false;
         }
 
         if (! $this->isRelatedComparison($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity)) {
-            // Style can still unlock a full match when overall is already >= 60%.
+            // Style can still unlock a full match when overall is already at/above the match bar.
             $styleUnlock = $objectsSimilarity >= 0.50
                 && $colorSimilarity >= 0.55
                 && $textSimilarity >= 0.30
@@ -897,13 +897,13 @@ class SimilarityNotificationService
         $floor = (float) ($this->config['thresholds']['near_miss'] ?? 0.25);
         $matchThreshold = (float) ($this->config['thresholds']['match']
             ?? $this->config['threshold']
-            ?? 0.60);
+            ?? 0.50);
 
         if ($overallSimilarity >= $matchThreshold) {
             return false;
         }
 
-        // Same-style items (dirty vs clean) under 60% still show as below-threshold.
+        // Same-style items (dirty vs clean) under the match bar still show as below-threshold.
         $styleNearMiss = $objectsSimilarity >= 0.45
             && $colorSimilarity >= 0.55
             && $textSimilarity >= 0.28
@@ -931,7 +931,7 @@ class SimilarityNotificationService
             return false;
         }
 
-        // Keep similar-but-under-60% items visible under "View below threshold".
+        // Keep similar-but-under-match-bar items visible under "View below threshold".
         return $visualSimilarity > 0.08
             || $textSimilarity >= 0.40
             || ($objectsSimilarity >= 0.45 && $textSimilarity >= 0.30)

@@ -125,7 +125,7 @@
 </div>
 
 <script>
-const MATCH_THRESHOLD_PERCENT = {{ (float) config('similarity.thresholds.match', 0.60) * 100 }};
+const MATCH_THRESHOLD_PERCENT = {{ (float) config('similarity.thresholds.match', 0.50) * 100 }};
 let allItems = [];
 let filteredItems = [];
 let allUserItems = [];
@@ -391,7 +391,7 @@ function groupMatchesByUserItem(items, userItems = []) {
         if (item.is_near_miss || item.match_failed) {
             return;
         }
-        // Hard UI guard: under 60% must not appear as a full match.
+        // Hard UI guard: under the match bar must not appear as a full match.
         const score = Number(item.similarity_score);
         if (!Number.isNaN(score) && score < MATCH_THRESHOLD_PERCENT) {
             return;
@@ -524,7 +524,7 @@ async function refreshMatchesForItem(uploadId) {
             const nearOnly = (data.near_misses || []).filter(item =>
                 item && item.upload_id && !freshIds.has(item.upload_id)
             );
-            // Anything under 60% returned in items by mistake → treat as below-threshold.
+            // Anything under the match bar returned in items by mistake → treat as below-threshold.
             (data.items || []).forEach(item => {
                 const score = Number(item.similarity_score);
                 if (item && item.upload_id && !Number.isNaN(score) && score < MATCH_THRESHOLD_PERCENT && !freshIds.has(item.upload_id)) {
