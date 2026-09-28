@@ -158,7 +158,7 @@ class SimilarityNotificationService
                     $objectsSimilarity = $this->calculateObjectsOverlap($newImageMetadata, $existingImage);
 
                     // Title and photo both count toward the overall score.
-                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
+                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity, $rawVisualSimilarity);
 
                     Log::debug('Similarity calculation', [
                         'existing_image' => $existingImage->original_name,
@@ -692,14 +692,15 @@ class SimilarityNotificationService
 
     /**
      * Overall score uses both the photo and the title.
-     * When the title names the same item and Vision agrees on the category,
-     * a different photo angle must not crush the score.
+     * When the title names the same item and the labels do not conflict,
+     * a different photo angle must not crush the score down to the normalized hash.
      */
     private function calculateOverallSimilarity(
         float $visualSimilarity,
         float $textSimilarity,
         float $objectsSimilarity = -1.0,
-        float $colorSimilarity = -1.0
+        float $colorSimilarity = -1.0,
+        float $rawVisualSimilarity = -1.0
     ): float {
         $textWeight = (float) ($this->config['weights']['text'] ?? 0.35);
         $visualWeight = (float) ($this->config['weights']['visual'] ?? 0.65);
@@ -721,17 +722,26 @@ class SimilarityNotificationService
             $overallSimilarity = max($overallSimilarity, ($visualSimilarity * 0.55) + ($textSimilarity * 0.45));
         }
 
-        // Title + same object category (e.g. both "shoes"): the title leads the score.
-        // Color helps when the photos differ in angle, dirt, or background.
-        $sameTitleAndCategory = $textSimilarity >= 0.45 && $objectsSimilarity >= 0.40;
-        if ($sameTitleAndCategory) {
-            $look = max($visualSimilarity, $colorSimilarity >= 0 ? $colorSimilarity * 0.55 : 0.0);
-            $titleLed = ($textSimilarity * 0.55) + ($look * 0.45);
+        // Same title, and labels agree or are missing. A conflicting category (0) stays on the photo blend.
+        // Use the raw lookalike when it clears the noise floor — the normalized hash crushes angled/worn photos.
+        $labelsConflict = $objectsSimilarity === 0.0;
+        $labelsAgree = $objectsSimilarity >= 0.40;
+        $sameTitle = $textSimilarity >= 0.50 && ! $labelsConflict && ($labelsAgree || $objectsSimilarity < 0.0);
+        if ($sameTitle) {
+            $floor = (float) ($this->config['visual_floor'] ?? 0.55);
+            $photo = $visualSimilarity;
+            if ($rawVisualSimilarity > $floor) {
+                $photo = max($photo, $rawVisualSimilarity);
+            }
+            if ($colorSimilarity >= 0.50) {
+                $photo = max($photo, $colorSimilarity * 0.70);
+            }
+            $titleLed = ($textSimilarity * 0.55) + ($photo * 0.45);
             $overallSimilarity = max($overallSimilarity, $titleLed);
         }
 
         // Weak photo + weak title stays low. Do not crush a matching title.
-        if (! $sameTitleAndCategory) {
+        if (! $sameTitle) {
             if ($visualSimilarity <= 0.0) {
                 $overallSimilarity *= 0.30;
             } elseif ($visualSimilarity < 0.15 && $textSimilarity < 0.40) {
@@ -895,8 +905,15 @@ class SimilarityNotificationService
             && $colorSimilarity >= 0.55
             && $textSimilarity >= 0.30
             && ($brandOverlap > 0.0 || $colorSimilarity >= 0.65);
+        // Same title with agreeing (or missing) labels: the overall score already includes the lookalike.
+        // A worn or top-down photo can sit under the visual cutoff and still be a match.
+        // A hard label conflict (0) does not qualify.
+        $titleAssist = $textSimilarity >= 0.50
+            && $overallSimilarity >= $matchThreshold
+            && $objectsSimilarity !== 0.0
+            && ($objectsSimilarity >= 0.40 || $objectsSimilarity < 0.0);
 
-        return $primaryMatch || $strongVisual || $semanticFallback || $categoryAssist || $styleAssist;
+        return $primaryMatch || $strongVisual || $semanticFallback || $categoryAssist || $styleAssist || $titleAssist;
     }
 
     /**
@@ -1203,7 +1220,7 @@ class SimilarityNotificationService
                     ];
                     $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
                     $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
-                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
+                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity, $rawVisualSimilarity);
                     $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
                     if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
@@ -1302,7 +1319,7 @@ class SimilarityNotificationService
                 ];
                 $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
                 $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
-                $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
+                $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity, $rawVisualSimilarity);
                 $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
                 if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
@@ -1425,8 +1442,19 @@ class SimilarityNotificationService
      */
     private function calculateObjectsOverlap(array $newMetadata, ImageMetadata $existingImage): float
     {
-        $newObjects = $this->expandObjectCategories($newMetadata['detected_objects'] ?? []);
-        $existingObjects = $this->expandObjectCategories($existingImage->detected_objects ?? []);
+        $newSplit = $this->splitObjectTokens($newMetadata['detected_objects'] ?? []);
+        $existingSplit = $this->splitObjectTokens($existingImage->detected_objects ?? []);
+
+        // Shared category (both shoes) must not be diluted by extra labels like "outdoor" or "mesh".
+        if ($newSplit['categories'] !== [] && $existingSplit['categories'] !== []) {
+            $intersection = array_intersect($newSplit['categories'], $existingSplit['categories']);
+            $union = array_unique(array_merge($newSplit['categories'], $existingSplit['categories']));
+
+            return $union === [] ? -1.0 : count($intersection) / count($union);
+        }
+
+        $newObjects = $newSplit['categories'] !== [] ? $newSplit['categories'] : $newSplit['raw'];
+        $existingObjects = $existingSplit['categories'] !== [] ? $existingSplit['categories'] : $existingSplit['raw'];
 
         if ($newObjects === [] || $existingObjects === []) {
             return -1.0;
@@ -1443,15 +1471,15 @@ class SimilarityNotificationService
     }
 
     /**
-     * Map Vision labels onto shared category tokens for Jaccard overlap.
-     * Prefers categories (shoe, key, phone…) so "Walking Shoe" matches "Sneakers".
+     * Split Vision labels into known categories and leftover product tokens.
+     * "Walking Shoe" and "Sneakers" both become `shoe`. Extra labels stay out of that set.
      *
-     * @return list<string>
+     * @return array{categories: list<string>, raw: list<string>}
      */
-    private function expandObjectCategories(mixed $objects): array
+    private function splitObjectTokens(mixed $objects): array
     {
         if (! is_array($objects)) {
-            return [];
+            return ['categories' => [], 'raw' => []];
         }
 
         $categories = [
@@ -1479,9 +1507,7 @@ class SimilarityNotificationService
                 continue;
             }
 
-            $rawNames[$name] = true;
             $hitCategory = false;
-
             foreach ($categories as $category => $aliases) {
                 foreach ($aliases as $alias) {
                     if ($name === $alias || str_contains($name, $alias)) {
@@ -1493,14 +1519,14 @@ class SimilarityNotificationService
             }
 
             if (! $hitCategory) {
-                // Keep unmatched brand/product tokens (puma, jordan, toyota) for overlap.
-                $matchedCategories[$name] = true;
+                $rawNames[$name] = true;
             }
         }
 
-        return $matchedCategories !== []
-            ? array_keys($matchedCategories)
-            : array_keys($rawNames);
+        return [
+            'categories' => array_keys($matchedCategories),
+            'raw' => array_keys($rawNames),
+        ];
     }
 
     /**
@@ -1896,7 +1922,7 @@ class SimilarityNotificationService
                         ];
                         $textSimilarity = $this->calculateTextSimilarity($newMetadata, $existingItem);
                         $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $existingItem);
-                        $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
+                        $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity, $rawVisualSimilarity);
                         $brandOverlap = $this->brandsOverlap($newItem->detected_objects, $existingItem->detected_objects);
 
                         if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {

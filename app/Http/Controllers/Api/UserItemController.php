@@ -1089,12 +1089,10 @@ class UserItemController extends Controller
             // Get all stored matches for this user's items
             $userUploadIds = $userItems->keys()->toArray();
             $matchThreshold = (float) config('similarity.thresholds.match', config('similarity.threshold', 0.45));
-            $minVisual = (float) config('similarity.thresholds.visual', 0.25);
             // View matches on page load: at or above threshold only.
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->whereIn('user_item_upload_id', $userUploadIds)
                 ->where('similarity_score', '>=', $matchThreshold)
-                ->where('visual_similarity', '>=', $minVisual)
                 ->orderBy('similarity_score', 'desc')
                 ->get();
 
@@ -1347,7 +1345,6 @@ class UserItemController extends Controller
 
             $userItems = collect([$uploadId => $userItemGroup]);
             $matchThreshold = (float) config('similarity.thresholds.match', config('similarity.threshold', 0.45));
-            $minVisual = (float) config('similarity.thresholds.visual', 0.25);
             $similarityService = app(SimilarityNotificationService::class);
             $userFirst = $userItemGroup->first();
 
@@ -1355,7 +1352,6 @@ class UserItemController extends Controller
             $storedMatches = ItemMatch::where('user_email', $user->email)
                 ->where('user_item_upload_id', $uploadId)
                 ->where('similarity_score', '>=', $matchThreshold)
-                ->where('visual_similarity', '>=', $minVisual)
                 ->orderBy('similarity_score', 'desc')
                 ->get();
 
@@ -1442,13 +1438,11 @@ class UserItemController extends Controller
                 ];
             }
 
-            // Drop any stored row that is not a real match.
+            // Drop stored rows that sit under the match bar. A title match can have a low
+            // normalized photo score and must stay once the overall score clears the bar.
             ItemMatch::where('user_email', $user->email)
                 ->where('user_item_upload_id', $uploadId)
-                ->where(function ($q) use ($matchThreshold, $minVisual) {
-                    $q->where('similarity_score', '<', $matchThreshold)
-                        ->orWhere('visual_similarity', '<', $minVisual);
-                })
+                ->where('similarity_score', '<', $matchThreshold)
                 ->delete();
 
             $items = collect($items)->sortByDesc('similarity_score')->values()->toArray();
