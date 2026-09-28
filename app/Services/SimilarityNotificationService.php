@@ -155,9 +155,10 @@ class SimilarityNotificationService
 
                     // Calculate text similarity
                     $textSimilarity = $this->calculateTextSimilarity($newImageMetadata, $existingImage);
+                    $objectsSimilarity = $this->calculateObjectsOverlap($newImageMetadata, $existingImage);
 
-                    // Calculate overall similarity
-                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
+                    // Title and photo both count toward the overall score.
+                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
 
                     Log::debug('Similarity calculation', [
                         'existing_image' => $existingImage->original_name,
@@ -169,7 +170,6 @@ class SimilarityNotificationService
 
                     // Check if similarity meets threshold
                     $visualThreshold = $this->config['thresholds']['visual'] ?? 0.35;
-                    $objectsSimilarity = $this->calculateObjectsOverlap($newImageMetadata, $existingImage);
                     $brandOverlap = $this->brandsOverlap($newImageMetadata['detected_objects'] ?? [], $existingImage->detected_objects);
 
                     Log::debug('Threshold check', [
@@ -691,10 +691,16 @@ class SimilarityNotificationService
     }
 
     /**
-     * Calculate overall similarity combining visual and text
+     * Overall score uses both the photo and the title.
+     * When the title names the same item and Vision agrees on the category,
+     * a different photo angle must not crush the score.
      */
-    private function calculateOverallSimilarity(float $visualSimilarity, float $textSimilarity): float
-    {
+    private function calculateOverallSimilarity(
+        float $visualSimilarity,
+        float $textSimilarity,
+        float $objectsSimilarity = -1.0,
+        float $colorSimilarity = -1.0
+    ): float {
         $textWeight = (float) ($this->config['weights']['text'] ?? 0.35);
         $visualWeight = (float) ($this->config['weights']['visual'] ?? 0.65);
         $weightSum = max(0.0001, $visualWeight + $textWeight);
@@ -715,13 +721,24 @@ class SimilarityNotificationService
             $overallSimilarity = max($overallSimilarity, ($visualSimilarity * 0.55) + ($textSimilarity * 0.45));
         }
 
-        // The photo carries no real signal: text alone must not lift it into match range.
-        if ($visualSimilarity <= 0.0) {
-            $overallSimilarity *= 0.30;
-        } elseif ($visualSimilarity < 0.15 && $textSimilarity < 0.40) {
-            $overallSimilarity *= 0.35;
-        } elseif ($visualSimilarity < 0.10) {
-            $overallSimilarity *= 0.55;
+        // Title + same object category (e.g. both "shoes"): the title leads the score.
+        // Color helps when the photos differ in angle, dirt, or background.
+        $sameTitleAndCategory = $textSimilarity >= 0.45 && $objectsSimilarity >= 0.40;
+        if ($sameTitleAndCategory) {
+            $look = max($visualSimilarity, $colorSimilarity >= 0 ? $colorSimilarity * 0.55 : 0.0);
+            $titleLed = ($textSimilarity * 0.55) + ($look * 0.45);
+            $overallSimilarity = max($overallSimilarity, $titleLed);
+        }
+
+        // Weak photo + weak title stays low. Do not crush a matching title.
+        if (! $sameTitleAndCategory) {
+            if ($visualSimilarity <= 0.0) {
+                $overallSimilarity *= 0.30;
+            } elseif ($visualSimilarity < 0.15 && $textSimilarity < 0.40) {
+                $overallSimilarity *= 0.35;
+            } elseif ($visualSimilarity < 0.10) {
+                $overallSimilarity *= 0.55;
+            }
         }
 
         return min(1.0, max(0.0, $overallSimilarity));
@@ -1185,8 +1202,8 @@ class SimilarityNotificationService
                         'detected_objects' => $userFirst->detected_objects,
                     ];
                     $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
-                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                     $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
+                    $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
                     $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
                     if (! $this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
@@ -1284,8 +1301,8 @@ class SimilarityNotificationService
                     'detected_objects' => $userFirst->detected_objects,
                 ];
                 $textSimilarity = $this->calculateTextSimilarity($newMetadata, $otherFirst);
-                $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                 $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $otherFirst);
+                $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
                 $brandOverlap = $this->brandsOverlap($userFirst->detected_objects, $otherFirst->detected_objects);
 
                 if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
@@ -1878,8 +1895,8 @@ class SimilarityNotificationService
                             'detected_objects' => $newItem->detected_objects,
                         ];
                         $textSimilarity = $this->calculateTextSimilarity($newMetadata, $existingItem);
-                        $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity);
                         $objectsSimilarity = $this->calculateObjectsOverlap($newMetadata, $existingItem);
+                        $overallSimilarity = $this->calculateOverallSimilarity($visualSimilarity, $textSimilarity, $objectsSimilarity, $colorSimilarity);
                         $brandOverlap = $this->brandsOverlap($newItem->detected_objects, $existingItem->detected_objects);
 
                         if ($this->meetsMatchCriteria($visualSimilarity, $textSimilarity, $overallSimilarity, $objectsSimilarity, $rawVisualSimilarity, $colorSimilarity, $brandOverlap)) {
